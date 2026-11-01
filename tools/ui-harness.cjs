@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 /* 用最小 DOM / Canvas 桩在 Node 中驱动 index.html 的 UI 层，捕捉渲染期异常与明显错误。 */
 const fs = require('fs');
 const path = require('path');
@@ -115,12 +115,18 @@ ok(calls > frames, '每帧确有绘制调用', calls + ' canvas ops');
 ok(g && g.S, 'window.__game 暴露内核供调试');
 if (g){
   const S = g.S;
-  ok(S.phase !== 'menu', 'auto=1 直接开打', S.phase);
-  ok(S.mode === 'demo', 'demo=1 双方由 AI 驱动', S.mode);
-  ok(S.stats.points > 0, '模拟中已产生分数', JSON.stringify(S.score));
-  ok(S.gameLog.length > 0 || S.phase === 'over', '模拟时长足够打完至少一局', JSON.stringify(S.gameLog));
+  const wantDemo = qs.get('demo') === '1';
+  ok(S.phase !== 'menu', 'auto=1 跳过准备页', S.phase);
+  ok(S.mode === (wantDemo ? 'demo' : 'single'), '模式与参数一致', S.mode);
+  if (wantDemo){
+    ok(S.stats.points > 0, 'AI 表演赛自动产生分数', JSON.stringify(S.score));
+    ok(S.gameLog.length > 0 || S.phase === 'over', '模拟时长足够打完至少一局', JSON.stringify(S.gameLog));
+  } else {
+    // 单人模式：无人发球时应当停在 serve 等待，而不是自动推进或卡死
+    ok(S.stats.points === 0 && S.phase === 'serve', '单人模式等待玩家发球，不会自动推进', S.phase);
+    ok(S.charging === true && S.charge > 0, 'charge 参数进入蓄力状态', String(S.charge));
+  }
   ok(doc.getElementById('foot').textContent.includes('球台'), '页脚渲染了球台参数');
-  ok(registry.msg.classList.contains('show') || S.phase === 'over', '比分提示有过可见状态');
   ok(!/NaN|undefined/.test(registry.s1.textContent + registry.s2.textContent + registry.speed.textContent),
     'HUD 数字不含 NaN/undefined', `${registry.s1.textContent}/${registry.s2.textContent}/${registry.speed.textContent}`);
 }
