@@ -116,15 +116,29 @@ ok(g && g.S, 'window.__game 暴露内核供调试');
 if (g){
   const S = g.S;
   const wantDemo = qs.get('demo') === '1';
-  ok(S.phase !== 'menu', 'auto=1 跳过准备页', S.phase);
-  ok(S.mode === (wantDemo ? 'demo' : 'single'), '模式与参数一致', S.mode);
-  if (wantDemo){
-    ok(S.stats.points > 0, 'AI 表演赛自动产生分数', JSON.stringify(S.score));
-    ok(S.gameLog.length > 0 || S.phase === 'over', '模拟时长足够打完至少一局', JSON.stringify(S.gameLog));
+  const auto = qs.get('auto') === '1';
+  if (!auto){
+    // 默认双击打开：应当停在准备页等玩家点「开始比赛」，且全程不抛异常
+    ok(S.phase === 'menu', '无参数打开时停在准备页', S.phase);
+    ok(S.score.p1 === 0 && S.score.p2 === 0, '准备页比分为 0:0', `${S.score.p1}:${S.score.p2}`);
+    ok(registry.menuMask.classList.contains('show'), '准备页遮罩可见');
+    ok(!registry.overMask.classList.contains('show'), '终局遮罩未误显示');
   } else {
-    // 单人模式：无人发球时应当停在 serve 等待，而不是自动推进或卡死
-    ok(S.stats.points === 0 && S.phase === 'serve', '单人模式等待玩家发球，不会自动推进', S.phase);
-    ok(S.charging === true && S.charge > 0, 'charge 参数进入蓄力状态', String(S.charge));
+    const wantMode = wantDemo ? 'demo' : (qs.get('mode') || 'single');
+    ok(S.phase !== 'menu', 'auto=1 跳过准备页', S.phase);
+    ok(S.mode === wantMode, '模式与参数一致', S.mode);
+    if (wantMode === 'demo'){
+      ok(S.stats.points > 0, 'AI 表演赛自动产生分数', JSON.stringify(S.score));
+      ok(S.gameLog.length > 0 || S.phase === 'over', '模拟时长足够打完至少一局', JSON.stringify(S.gameLog));
+    } else {
+      // 有人类参与的模式：没人发球就应当停在 serve 等待，而不是自动推进或卡死
+      ok(S.stats.points === 0 && S.phase === 'serve', '人类模式等待玩家发球，不会自动推进', S.phase);
+      if (qs.get('charge') !== null){
+        ok(S.charging === true && S.charge > 0, 'charge 参数进入蓄力状态', String(S.charge));
+      } else {
+        ok(S.charging === false && S.charge === 0, '未给 charge 参数时不处于蓄力', String(S.charge));
+      }
+    }
   }
   ok(doc.getElementById('foot').textContent.includes('球台'), '页脚渲染了球台参数');
   ok(!/NaN|undefined/.test(registry.s1.textContent + registry.s2.textContent + registry.speed.textContent),
