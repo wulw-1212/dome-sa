@@ -2,6 +2,16 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小兔和乌龟赛跑</title>
+<style>
+:root{
+  --ink:#2b3a2e; --paper:#ffffff; --accent:#2e7d52; --carrot:#e8842c;
+  --shell:#5a9367; --grass:#dcedc8; --sky1:#a8ddf2; --sky2:#eaf7fd; --muted:#7a8a7c;
+}
+[data-theme="dark"]{
+  --ink:#e7efdf; --paper:#161d18; --accent:#7fd6a4; --carrot:#ffb066;
+  --shell:#4f7f5f; --grass:#22301f; --sky1:#14303f; --sky2:#0d2231; --muted:#9fb0a2;
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>乒乓球 · Table Tennis</title>
 <style>
@@ -21,6 +31,50 @@
 html,body{margin:0}
 body{
   font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); padding:22px 16px 40px;
+  transition:background .3s,color .3s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+h1{margin:0 0 6px;font-size:clamp(21px,3.6vw,32px)}
+.sub{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
+.scene{margin:16px 0 0;border-radius:18px;overflow:hidden;background:var(--sky2);
+  border:1px solid rgba(127,127,127,.28)}
+#stage{display:block;width:100%;height:auto}
+.card{background:var(--paper);border:1px solid rgba(127,127,127,.28);border-radius:16px;
+  padding:14px 16px;margin-top:14px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:999px;padding:9px 18px;
+  border:1px solid rgba(127,127,127,.35);background:var(--paper);color:var(--ink);
+  transition:transform .12s,box-shadow .2s,opacity .2s}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.16)}
+button:disabled{opacity:.45;cursor:not-allowed}
+#main{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
+.seg{display:inline-flex;background:rgba(127,127,127,.16);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 14px;border:none;background:transparent;opacity:.75;border-radius:999px}
+.seg button.on{background:var(--paper);color:var(--accent);opacity:1;font-weight:700;
+  box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.stat{font-size:14px;line-height:1.9;text-align:right}
+.stat b{font-variant-numeric:tabular-nums}
+.legend{font-size:13px;color:var(--muted);line-height:1.9;margin:10px 0 0}
+.legend .carrot{color:var(--carrot);font-weight:700}
+.legend .sleep{color:#b07ad6;font-weight:700}
+label.opt{font-size:14px;display:inline-flex;align-items:center;gap:6px;user-select:none}
+.msg{margin-top:14px;border-radius:16px;padding:12px 16px;background:var(--grass);
+  border:1px solid rgba(127,127,127,.28);font-size:15px;line-height:1.7}
+.msg[hidden]{display:none}
+.msg .who{font-weight:700}
+footer{margin-top:20px;color:var(--muted);font-size:12px;text-align:center}
+@media (max-width:640px){ .stat{text-align:left} }
+</style>
+</head>
+<body data-theme="light">
+<div class="wrap">
+  <h1>🐢 小兔和乌龟赛跑 🐰</h1>
+  <p class="sub">伊索寓言的实时动画版。兔子跑得快，却忍不住停下来啃胡萝卜、打完哈欠就睡着；
+    乌龟不快，但一步也不停。<br>快捷键：<b>空格</b> 开始 / 暂停，<b>R</b> 重置，<b>W</b> 叫醒兔子，<b>1 / 2 / 4</b> 切换倍速。</p>
+
+  <div class="scene"><canvas id="stage" width="980" height="340"></canvas></div>
   background:var(--paper); color:var(--ink); padding:20px 14px 44px; transition:background .3s,color .3s;
 }
 .wrap{max-width:1000px;margin:0 auto}
@@ -108,6 +162,400 @@ body.touch .touchbar{display:flex}
   <div class="card">
     <div class="row">
       <div class="controls">
+        <button id="main">▶ 开始比赛</button>
+        <button id="wake" hidden>🥕 叫醒兔子</button>
+        <button id="reset">↺ 重置</button>
+        <span class="seg" id="speed">
+          <button data-s="1" class="on">1×</button>
+          <button data-s="2">2×</button>
+          <button data-s="4">4×</button>
+        </span>
+        <label class="opt"><input type="checkbox" id="showLines"> 速度曲线</label>
+        <label class="opt"><input type="checkbox" id="autoRun"> 自动重赛</label>
+        <button id="theme">🌙 深色</button>
+      </div>
+      <div class="stat">
+        用时 <b id="clock">0.0</b>s ｜ 兔子距终点 <b id="dist">100</b>%<br>
+        <span style="color:var(--carrot)">啃到胡萝卜 <b id="nCarrot">0</b></span>
+        ｜ <span style="color:#b07ad6">睡着 <b id="nNap">0</b> 次</span>
+        ｜ 名次 <b id="rank">—</b>
+      </div>
+    </div>
+    <p class="legend">
+      <span class="carrot">🥕 胡萝卜</span>沿途共 4 根，兔子经过必停下来啃一口（约 1 秒）；
+      每次啃完约有六成概率当场睡着 <b>4–9 秒</b>，睡着时点 <span class="sleep">🥕 叫醒兔子</span>（或按 <b>W</b>）可立刻起身继续跑。
+      谁先到达 100m 终点线谁赢 —— 打瞌睡是随机的，所以每局胜负都可能不同。
+    </p>
+  </div>
+
+  <div class="msg" id="msg" hidden></div>
+
+  <footer>单文件 HTML · 无任何外部依赖 · 直接用浏览器打开即可</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ===== 常量 ===== */
+var W=980,H=340, FIN=100, TOP=150, BOT=228, X0=52, X1=W-52, CARY=190;
+var TOR_V=1.75;              // 乌龟：恒速 %/s
+var HARE_BASE=2.55, HARE_AMP=1.35, HARE_OMEGA=2.1;  // 兔子：平均/起伏/频率
+var NAP_MIN=4.0, NAP_MAX=9.0, NAP_P=0.6;             // 瞌睡时长与概率
+var EAT_T=0.9;                                       // 啃一根胡萝卜的耗时
+
+/* ===== 状态 ===== */
+var cvs=document.getElementById('stage'), ctx=cvs.getContext('2d');
+function $(id){ return document.getElementById(id); }
+var mainBtn=$('main'), wakeBtn=$('wake'), msgEl=$('msg');
+var clockEl=$('clock'), distEl=$('dist'), rankEl=$('rank');
+var nCarrotEl=$('nCarrot'), nNapEl=$('nNap');
+var state='idle', t=0, frame=0, speed=1, showLines=false, autoRun=false;
+var hare, tor, carrots=[], scenery=null, winner=null, last=0, raf=null;
+var Q=(new URLSearchParams(location.search));
+if(Q.get('theme')==='dark'){ document.body.dataset.theme='dark'; $('theme').textContent='☀️ 浅色'; }
+
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function css(n){ return getComputedStyle(document.body).getPropertyValue(n).trim()||'#888'; }
+function shade(col,amt){
+  var m=col.match(/^#([0-9a-f]{6})$/i); if(!m) return col;
+  var n=parseInt(m[1],16);
+  var r=clamp((n>>16)+amt,0,255), g=clamp(((n>>8)&255)+amt,0,255), b=clamp((n&255)+amt,0,255);
+  return 'rgb('+r+','+g+','+b+')';
+}
+var KINDS=['🐿️','🦔','🐁','🦊','🐸','🐞','🦉'];
+
+function makeScenery(){
+  scenery={clouds:[],hills:[],trees:[],flowers:[],spectators:[]};
+  for(var i=0;i<4;i++) scenery.clouds.push({x:rnd(30,900),y:rnd(22,58),s:rnd(.7,1.35),v:rnd(4,10)});
+  for(i=0;i<10;i++) scenery.hills.push({x:i*100+rnd(-16,16),h:rnd(18,42)});
+  for(i=0;i<5;i++) scenery.trees.push({x:rnd(80,900),y:rnd(272,300),s:rnd(.8,1.1)});
+  for(i=0;i<26;i++) scenery.flowers.push({x:rnd(10,970),y:rnd(300,330),r:rnd(2.2,4)});
+  for(i=0;i<6;i++) scenery.spectators.push({x:110+i*rnd(110,160),k:KINDS[i%KINDS.length],ph:rnd(0,6.3)});
+}
+makeScenery();
+
+function reset(full){
+  t=0;
+  hare={d:0,v:0,sleep:0,eat:0,eating:false,napAfter:false};
+  tor={d:0};
+  if(full){
+    carrots=[{p:22,r:0,taken:false},{p:41,r:1.7,taken:false},{p:63,r:3.4,taken:false},{p:83,r:5.1,taken:false}];
+    winner=null; rankEl.textContent='—';
+  } else carrots.forEach(function(c){ c.taken=false; });
+  hideMsg(); wakeBtn.hidden=true;
+  clockEl.textContent='0.0'; distEl.textContent='100';
+  nCarrotEl.textContent='0'; nNapEl.textContent='0';
+}
+
+/* ===== 控制 ===== */
+function start(){
+  if(state==='running'){ pause(); return; }
+  if(state==='finished') reset(false);
+  state='running'; mainBtn.textContent='⏸ 暂停';
+  msgEl.hidden=true;
+}
+function pause(){ if(state!=='running') return; state='paused'; mainBtn.textContent='▶ 继续'; }
+function toIdle(){ state='idle'; mainBtn.textContent='▶ 开始比赛'; }
+function wake(){
+  if(!hare||hare.sleep<=0) return;
+  hare.sleep=0; hare.eating=false; hare.eat=0; hare.napAfter=false; wakeBtn.hidden=true;
+  showMsg('🐿️ 松鼠：','「别睡啦，乌龟已经过半程了！」兔子一骨碌爬起来继续追。');
+}
+
+/* ===== 物理 ===== */
+function physics(dt){
+  t+=dt;
+  tor.d+=TOR_V*dt;                                  // 乌龟绝不停
+  if(hare.sleep>0){ hare.v=0; hare.sleep-=dt;       // 睡觉
+    if(hare.sleep<=0){ hare.sleep=0; hare.eating=false; wakeBtn.hidden=true; }
+  } else if(hare.eat>0){                            // 啃胡萝卜：停下不动
+    hare.v=0; hare.eat-=dt;
+    if(hare.eat<=0){ hare.eat=0;
+      if(hare.napAfter){ hare.napAfter=false; hare.sleep=rnd(NAP_MIN,NAP_MAX);
+        nNapEl.textContent=(+nNapEl.textContent+1); wakeBtn.hidden=false;
+        showMsg('💤','兔子啃完胡萝卜，趴在场边睡着了……乌龟还在往前走。'); }
+      else hare.eating=false;
+    }
+  }
+  else { hare.v=HARE_BASE+HARE_AMP*Math.sin(t*HARE_OMEGA); hare.d+=hare.v*dt; }
+  if(hare.d>FIN) hare.d=FIN;
+  if(tor.d>FIN) tor.d=FIN;
+
+  carrots.forEach(function(c){
+    if(c.taken) return;
+    if(hare.sleep>0||hare.eat>0) return;            // 睡着/进食时不再触发
+    if(Math.abs(c.p-hare.d)<1.1){
+      c.taken=true; hare.eating=true; hare.eat=EAT_T;
+      nCarrotEl.textContent=(+nCarrotEl.textContent+1);
+      hare.napAfter=Math.random()<NAP_P;
+    }
+  });
+
+  distEl.textContent=clamp(FIN-hare.d,0,100).toFixed(0);
+  clockEl.textContent=t.toFixed(1);
+  rankEl.textContent = hare.d>tor.d?'🐰 领先':(hare.d<tor.d?'🐢 领先':'并列');
+
+  if(hare.d>=FIN||tor.d>=FIN){
+    winner = hare.d>=FIN ? '🐰 小兔' : '🐢 乌龟';
+    state='finished'; mainBtn.textContent='↻ 再来一次'; rankEl.textContent=winner;
+    showMsg(winner+' 获胜！', winner==='🐰 小兔'
+      ? '这局兔子只打了 '+nNapEl.textContent+' 次盹，醒来后一路狂奔，抢在乌龟前面撞线。'
+      : '兔子一共睡了 '+nNapEl.textContent+' 次，乌龟一步没停，稳稳爬到了终点。');
+    if(autoRun) setTimeout(function(){ if(state==='finished'){ reset(false); start(); } },2600);
+  }
+}
+
+/* ===== 绘制 ===== */
+function px(d){ return X0+(X1-X0)*clamp(d,0,FIN)/FIN; }
+function rr8(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,6.3); ctx.fill(); }
+
+function bg(){
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,css('--sky1')); g.addColorStop(1,css('--sky2'));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // 太阳
+  ctx.save(); ctx.globalAlpha=.9; ctx.fillStyle=css('--carrot');
+  circle(884,56,21); ctx.globalAlpha=.16; circle(884,56,33); ctx.restore();
+  // 云
+  ctx.fillStyle=document.body.dataset.theme==='dark'?'rgba(255,255,255,.22)':'rgba(255,255,255,.72)';
+  scenery.clouds.forEach(function(c){ var x=(c.x+t*c.v)%(W+120)-60;
+    circle(x,c.y,19*c.s); circle(x+22*c.s,c.y+5,14*c.s); circle(x-22*c.s,c.y+6,13*c.s); });
+  // 远山 + 草地
+  ctx.fillStyle=css('--grass');
+  ctx.beginPath(); ctx.moveTo(0,122);
+  scenery.hills.forEach(function(h){ ctx.quadraticCurveTo(h.x+50,122-h.h,h.x+100,122); });
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+  // 小花
+  ctx.globalAlpha=.4; ctx.fillStyle=css('--shell');
+  scenery.flowers.forEach(function(f){ circle(f.x,f.y,f.r); });
+  ctx.globalAlpha=1;
+  // 树
+  scenery.trees.forEach(function(tr){
+    ctx.save(); ctx.translate(tr.x,tr.y); ctx.scale(tr.s,tr.s);
+    ctx.fillStyle='#8d6a4a'; ctx.fillRect(-3,-14,6,20);
+    ctx.fillStyle=css('--shell'); circle(0,-26,14); circle(-11,-17,10); circle(11,-17,10);
+    ctx.restore();
+  });
+  // 观众
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='19px serif';
+  scenery.spectators.forEach(function(s){
+    var b=state==='running'?Math.sin(t*3+s.ph)*2.6:0;
+    ctx.fillText(s.k,s.x,300+b);
+  });
+}
+
+function track(){
+  var dark=document.body.dataset.theme==='dark';
+  var lbl=dark?'rgba(226,238,224,.8)':'rgba(70,70,70,.85)';
+  var sub=dark?'rgba(226,238,224,.55)':'rgba(70,70,70,.6)';
+  ctx.fillStyle=dark?'rgba(255,255,255,.10)':'rgba(255,255,255,.55)';
+  ctx.fillRect(X0,TOP-24,X1-X0,46); ctx.fillRect(X0,BOT-24,X1-X0,46);
+  ctx.setLineDash([14,12]); ctx.lineWidth=2;
+  ctx.strokeStyle=dark?'rgba(255,255,255,.28)':'rgba(120,120,120,.4)';
+  [TOP+22,BOT+22].forEach(function(y){ ctx.beginPath(); ctx.moveTo(X0,y); ctx.lineTo(X1,y); ctx.stroke(); });
+  ctx.setLineDash([]);
+  // 终点彩带柱
+  for(var i=0;i<9;i++){ ctx.fillStyle=i%2?'#e05c5c':'#f6d44d';
+    ctx.fillRect(W-40,TOP-22+i*5,8,5); ctx.fillRect(W-40,BOT-22+i*5,8,5); }
+  ctx.fillStyle=dark?'rgba(230,240,228,.7)':'rgba(80,80,80,.8)';
+  ctx.fillRect(W-32,TOP-26,5,54); ctx.fillRect(W-32,BOT-26,5,54);
+  ctx.font='bold 12px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=lbl; ctx.fillText('终点 100m',W-44,TOP-30);
+  ctx.fillText('终点 100m',W-44,BOT+44);
+  // 里程碑
+  ctx.textAlign='center'; ctx.font='10px sans-serif'; ctx.fillStyle=sub;
+  for(var p=20;p<=80;p+=20){ ctx.fillText(p+'m',px(p),TOP-30); ctx.fillText(p+'m',px(p),BOT+44); }
+  // 名牌
+  ctx.textAlign='left'; ctx.font='bold 13px sans-serif';
+  ctx.fillStyle=css('--carrot'); ctx.fillText('🐰 小兔',X0+4,TOP-30);
+  ctx.fillStyle=css('--accent');  ctx.fillText('🐢 乌龟',X0+4,BOT+44);
+}
+
+function drawCarrots(){
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='19px serif';
+  carrots.forEach(function(c){ if(c.taken) return;
+    var bob=Math.sin(t*2+c.r)*3;
+    ctx.fillText('🥕',px(c.p),CARY+bob);
+  });
+}
+
+function drawHare(x,y){
+  var asleep=hare.sleep>0, eating=hare.eating&&!asleep;
+  var moving=state==='running'&&hare.v>0.4;
+  var hop=moving?Math.abs(Math.sin(t*6.5))*5:0;
+  var bob=moving?Math.sin(t*13)*2.4:0;
+  var cy=y-hop, bodyY=cy+bob;
+  var legA=moving?Math.sin(t*13)*9:0, legB=moving?Math.sin(t*13+Math.PI)*9:0;
+  var fillc='#f4f5f7', linec='rgba(90,90,90,.32)';
+  ctx.lineWidth=1.6; ctx.strokeStyle=linec;
+  function leg(ox,oy,off){ ctx.fillStyle='#e6e9ee'; ctx.beginPath();
+    ctx.ellipse(x+ox+off*0.35,bodyY+oy,6,10,off*0.03,0,6.3); ctx.fill(); ctx.stroke(); }
+  function ear(ex,ey,ang){ ctx.save(); ctx.translate(ex,ey); ctx.rotate(ang);
+    ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(0,-15,5.5,16,0,0,6.3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffc9d6'; ctx.beginPath(); ctx.ellipse(0,-15,2.5,11,0,0,6.3); ctx.fill(); ctx.restore(); }
+  ctx.fillStyle='#d9d2f2'; circle(x-36,bodyY+8,6);            // 尾巴
+  leg(-24,10,legA);                                           // 后腿
+  ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(x-10,bodyY,26,18,-0.1,0,6.3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#fbfcfd'; ctx.beginPath(); ctx.ellipse(x-14,bodyY+4,13,11,0,0,6.3); ctx.fill();
+  leg(-2,10,legB);                                            // 前腿
+  var arm=moving?Math.sin(t*13+1)*6:(eating?6:-3);
+  ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(x+10,bodyY-2+arm*0.4,6,8,0.6,0,6.3); ctx.fill(); ctx.stroke();
+  // 头
+  var nhx=x+20, nhy=bodyY-15+(eating?6:0);
+  ctx.beginPath(); ctx.ellipse(nhx,nhy,16,14,0.1,0,6.3); ctx.fillStyle=fillc; ctx.fill(); ctx.stroke();
+  var sway=moving?Math.sin(t*13)*0.15:0;
+  ear(nhx-3,nhy-11,asleep?0.3:(eating?0.1:-0.5)+sway);
+  ear(nhx+5,nhy-12,asleep?0.45:(eating?0.32:-0.28)-sway);
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1.8;
+  if(asleep){ [-2,8].forEach(function(k){ ctx.beginPath(); ctx.arc(nhx+k,nhy-2,3.2,Math.PI*1.15,Math.PI*1.9); ctx.stroke(); }); }
+  else { ctx.fillStyle='#3a3a3a'; circle(nhx+6,nhy-3,2.3); }
+  ctx.fillStyle='#ff9fb0'; circle(nhx+15,nhy+2,2.5);
+  ctx.strokeStyle='rgba(130,130,130,.55)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(nhx+13,nhy+4); ctx.lineTo(nhx+23,nhy+1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(nhx+13,nhy+5); ctx.lineTo(nhx+23,nhy+7); ctx.stroke();
+  if(eating){ ctx.font='15px serif'; ctx.textAlign='center'; ctx.fillText('😋',x+24,bodyY-34); }
+  if(asleep){ ctx.fillStyle='#b07ad6'; ctx.textAlign='left';
+    for(var i=0;i<3;i++){ var ph=(t*0.8+i*0.33)%1; ctx.globalAlpha=1-ph;
+      ctx.font='bold '+(11+i*4)+'px sans-serif'; ctx.fillText('Z',x+28+i*9,bodyY-30-i*7-ph*20); }
+    ctx.globalAlpha=1; }
+}
+
+function drawTor(x,y){
+  var moving=state==='running', ph=moving?t*5:0, bob=moving?Math.sin(ph*2)*1.3:0;
+  var sh=css('--shell'), step=Math.sin(ph)*4;
+  ctx.save(); ctx.translate(0,y+bob); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(40,70,50,.5)';
+  ctx.fillStyle=shade(sh,-18);                              // 腿
+  [[-20,1],[20,-1]].forEach(function(o){ ctx.beginPath();
+    ctx.ellipse(x+o[0]+step*o[1],12,7,5,0,0,6.3); ctx.fill(); ctx.stroke(); });
+  ctx.fillStyle=shade(sh,10);                               // 头
+  ctx.beginPath(); ctx.ellipse(x+34,2,11,9,0.2,0,6.3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#3a3a3a'; circle(x+40,0,2);
+  ctx.strokeStyle='rgba(40,70,50,.55)'; ctx.beginPath(); ctx.moveTo(x+30,-5); ctx.lineTo(x+26,-11); ctx.stroke();
+  ctx.fillStyle=shade(sh,-8); ctx.beginPath();              // 尾
+  ctx.moveTo(x-28,0); ctx.lineTo(x-37,4); ctx.lineTo(x-27,7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=sh; ctx.beginPath();                        // 壳
+  ctx.ellipse(x,0,30,20,0,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=shade(sh,-16); ctx.beginPath();
+  ctx.moveTo(x-30,1); ctx.quadraticCurveTo(x,12,x+30,1); ctx.lineTo(x+30,6);
+  ctx.quadraticCurveTo(x,17,x-30,6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=shade(sh,-30); ctx.lineWidth=1.2;
+  [-15,-5,5,15].forEach(function(o){ ctx.beginPath(); ctx.moveTo(x+o,-2); ctx.lineTo(x+o*1.6,-15); ctx.stroke(); });
+  ctx.restore();
+  if(moving&&tor.d>45&&hare.d<tor.d){ ctx.font='13px serif'; ctx.textAlign='center'; ctx.fillText('💪',x-42,y-24); }
+}
+
+function fx(){
+  if(state==='running'&&hare.v>0.4){ ctx.fillStyle='rgba(255,255,255,.85)';
+    for(var i=0;i<5;i++) circle(px(hare.d)-16-i*9,TOP+Math.sin(t*7+i)*7,2.2); }
+  ctx.strokeStyle='rgba(90,140,100,.55)'; ctx.lineWidth=1.4;
+  for(var k=1;k<=3;k++){ ctx.beginPath(); ctx.moveTo(px(tor.d)-38-k*7,BOT+16);
+    ctx.lineTo(px(tor.d)-44-k*7,BOT+24); ctx.stroke(); }
+  if(state==='finished'){
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='bold 25px sans-serif';
+    ctx.fillStyle='rgba(0,0,0,.62)'; rr8(W/2-170,30,340,44,12); ctx.fill();
+    ctx.fillStyle='#ffd54d'; ctx.fillText('🏁 '+winner+' 获胜 🏁',W/2,52); ctx.restore();
+    var cols=['#e05c5c','#f6d44d','#5aa9e6','#7fd6a4'];
+    for(var i2=0;i2<20;i2++){ var ph2=(frame+i2*7)%60; ctx.globalAlpha=1-ph2/60;
+      ctx.fillStyle=cols[i2%4]; ctx.fillRect(W/2-150+(i2*37)%300,16+ph2*1.6,6,9); }
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawLines(){
+  if(!showLines) return;
+  var bx=56,by=44,bw=210,bh=72;
+  ctx.save(); ctx.fillStyle='rgba(0,0,0,.58)'; rr8(bx-10,by-10,bw+20,bh+34,10); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('剩余距离曲线（越靠左 = 已跑更远）',bx,by+2);
+  var y0=by+14,h0=bh-14, maxd=Math.max(20,hare.d,tor.d);
+  ctx.strokeStyle='rgba(255,255,255,.28)'; ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw,y0+h0); ctx.stroke();
+  ctx.lineWidth=2;
+  ctx.strokeStyle=css('--carrot'); ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw*clamp(hare.d/maxd,0,1),y0); ctx.stroke();
+  ctx.strokeStyle=css('--accent'); ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw*clamp(tor.d/maxd,0,1),y0); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.fillText('🐰 '+hare.d.toFixed(0)+'m ｜ 🐢 '+tor.d.toFixed(0)+'m',bx,y0+h0+16);
+  ctx.restore();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  bg(); track(); drawCarrots();
+  drawTor(px(tor.d),BOT); drawHare(px(hare.d),TOP);
+  fx(); drawLines();
+}
+
+/* ===== 循环 ===== */
+function loop(now){
+  raf=requestAnimationFrame(loop);
+  var d=Math.min(0.05,(now-last)/1000); if(!isFinite(d)||d<0) d=0; last=now;
+  if(state==='running') physics(d*speed);
+  frame++; draw();
+}
+
+/* ===== UI ===== */
+function showMsg(who,text){ msgEl.hidden=false;
+  msgEl.innerHTML='<span class="who">'+who+'</span> '+text; }
+function hideMsg(){ msgEl.hidden=true; }
+function hud(){
+  clockEl.textContent=t.toFixed(1);
+  distEl.textContent=clamp(FIN-hare.d,0,100).toFixed(0);
+  rankEl.textContent = state==='finished' ? (winner||'—')
+    : (hare.d>tor.d?'🐰 领先':(hare.d<tor.d?'🐢 领先':'并列'));
+}
+
+mainBtn.addEventListener('click',start);
+wakeBtn.addEventListener('click',wake);
+$('reset').addEventListener('click',function(){ reset(true); toIdle(); });
+$('showLines').addEventListener('change',function(e){ showLines=e.target.checked; });
+$('autoRun').addEventListener('change',function(e){ autoRun=e.target.checked; });
+$('theme').addEventListener('click',function(){
+  var dark=document.body.dataset.theme==='dark';
+  document.body.dataset.theme=dark?'light':'dark';
+  $('theme').textContent=dark?'🌙 深色':'☀️ 浅色';
+});
+[].forEach.call(document.querySelectorAll('#speed button'),function(b){
+  b.addEventListener('click',function(){ setSpeed(+b.dataset.s); });
+});
+function setSpeed(s){ speed=s;
+  [].forEach.call(document.querySelectorAll('#speed button'),function(x){
+    x.classList.toggle('on',+x.dataset.s===s); }); }
+
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){ e.preventDefault(); start(); }
+  else if(e.key==='r'||e.key==='R'){ reset(true); toIdle(); }
+  else if(e.key==='w'||e.key==='W'){ wake(); }
+  else if(e.key==='1'||e.key==='2'||e.key==='4'){ setSpeed(+e.key); }
+});
+
+/* 供自动化测试 / 截图使用 */
+window.race={
+  state:function(){ return {state:state,t:t,hare:hare.d,tor:tor.d,naps:+nNapEl.textContent,speed:speed}; },
+  place:function(h,d){ hare.d=clamp(h,0,FIN); tor.d=clamp(d,0,FIN); hud(); draw(); },
+  start:start, pause:pause, reset:function(){ reset(true); toIdle(); }, setSpeed:setSpeed,
+  wake:wake, theme:function(v){ document.body.dataset.theme=v;
+    $('theme').textContent=v==='dark'?'☀️ 浅色':'🌙 深色'; },
+  lines:function(v){ showLines=v; $('showLines').checked=v; }
+};
+
+reset(true);
+if(Q.get('auto')==='1'){ start(); }
+if(Q.get('pose')){ var ps=Q.get('pose').split(',');
+  hare.d=clamp(+ps[0]||0,0,FIN); tor.d=clamp(+ps[1]||0,0,FIN); t=+ps[2]||0;
+  if(ps[3]) hare.sleep=+ps[3];
+  state=ps[4]||'running';
+  if(state==='finished'){ winner = hare.d>=FIN?'🐰 小兔':'🐢 乌龟';
+    mainBtn.textContent='↻ 再来一次';
+    showMsg(winner+' 获胜！','演示画面：'+(winner==='🐰 小兔'?'兔子只打了两次盹，醒来后一路狂奔抢在乌龟前面撞线。':'兔子睡过了头，一步不停的乌龟先撞线。')); }
+  if(ps[5]==='1'){ showLines=true; $('showLines').checked=true; }
+  hud(); }
+raf=requestAnimationFrame(function(n){ last=n; loop(n); });
+})();
         <button id="startBtn">▶ 开始比赛</button>
         <button id="pauseBtn">⏸ 暂停</button>
         <button id="resetBtn">↺ 重置</button>
