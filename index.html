@@ -114,7 +114,7 @@ footer code{color:var(--ink)}
   </div>
 
   <div class="stage">
-    <canvas id="scene" width="1080" height="560" aria-label="地球与月球在不同地质时期的宇宙场景"></canvas>
+    <canvas id="scene" width="1080" height="560" aria-label="日心场景：太阳居中，地球绕太阳公转，月球绕地球公转，随地质时期演变"></canvas>
     <div class="hud">
       <div>
         <div class="top">
@@ -359,6 +359,7 @@ function fmtAge(my){
 /* ------------------------------------------------------------------ *
  * 绘制
  * ------------------------------------------------------------------ */
+const probe={};   // 供自检读取的几何结果
 function spherePoint(lat,lon,spin,tilt){
   const la=lat*Math.PI/180, lo=(lon+spin)*Math.PI/180;
   const cl=Math.cos(la);
@@ -404,39 +405,68 @@ function draw(){
   }
   ctx.globalAlpha=1;
 
-  // 太阳（左侧，红巨星时膨胀）
-  const sunR=H*(0.16+0.55*s.giant), sx=-W*0.06, sy=H*0.22;
-  const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,sunR*3.1);
-  sg.addColorStop(0, s.giant>0.3?"rgba(255,186,120,.95)":"rgba(255,246,212,.95)");
-  sg.addColorStop(.35, s.giant>0.3?"rgba(255,126,64,.34)":"rgba(255,214,140,.30)");
-  sg.addColorStop(1,"rgba(255,180,120,0)");
-  ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sx,sy,sunR*3.1,0,6.2832); ctx.fill();
-
-  const ex=W*0.40+drift*0.35, ey=H*0.50+bob*0.4, R=Math.min(H*0.30,W*0.17);
+  // ---------- 日心场景：太阳居中，地球绕太阳公转，月球绕地球公转 ----------
+  const sunX=W*0.5, sunY=H*0.5;
+  const orbitRot=-0.14;
+  const aE=Math.min(W*0.36,H*0.62), bE=aE*0.40;      // 地球轨道（透视椭圆）
+  const eAng=clock*0.16+pos*0.30;                     // 公转相位
+  const rotC=Math.cos(orbitRot), rotS=Math.sin(orbitRot);
+  const eox=Math.cos(eAng)*aE, eoy=Math.sin(eAng)*bE;
+  const ex=sunX+eox*rotC-eoy*rotS, ey=sunY+eox*rotS+eoy*rotC;
+  const earthFar=Math.sin(eAng)<0;                    // 轨道上半 = 太阳远侧
+  const R=Math.min(H*0.155,W*0.085);
   const spin=(clock*(40/Math.max(s.day,3))*0.6)%360;
   const tilt=23.4;
-  const dirx=(sx-ex), diry=(sy-ey), dl=Math.hypot(dirx,diry)||1;
+  const dirx=(sunX-ex), diry=(sunY-ey), dl=Math.hypot(dirx,diry)||1;
 
-  // 月球轨道（透视椭圆）：半径随地质时期拉长，但始终留在画面内
-  const orbitTilt=-0.10;
-  const minA=R*2.0, maxA=Math.max((W-ex)*0.82, minA*1.4);
-  const orbitA=lerp(minA,maxA,clamp(s.dist,0,1)), orbitB=orbitA*0.24;
+  // 原行星盘（星云时代）
+  if(s.nebula>0.05){
+    ctx.save(); ctx.translate(sunX,sunY); ctx.rotate(orbitRot);
+    for(let i=0;i<3;i++){
+      ctx.strokeStyle="hsla("+(28+i*22)+",80%,65%,"+(0.10*s.nebula)+")";
+      ctx.lineWidth=H*(0.10-i*0.02);
+      ctx.beginPath(); ctx.ellipse(0,0,aE*(0.72+i*0.16),bE*(0.72+i*0.16),0,0,6.2832); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 地球轨道线
+  ctx.save(); ctx.translate(sunX,sunY); ctx.rotate(orbitRot);
+  ctx.strokeStyle=dark?"rgba(150,190,255,.20)":"rgba(50,80,130,.26)";
+  ctx.setLineDash([6,8]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.ellipse(0,0,aE,bE,0,0,6.2832); ctx.stroke();
+  ctx.restore(); ctx.setLineDash([]);
+
+  // 轨道上的星子（仅星云时代）
+  if(s.nebula>0.05){
+    const rd=mulberry(808);
+    for(let i=0;i<26;i++){
+      const a=rd()*6.2832, rr=0.74+rd()*0.4;
+      const px=Math.cos(a)*aE*rr, py=Math.sin(a)*bE*rr;
+      const x=sunX+(px*rotC-py*rotS), y=sunY+(px*rotS+py*rotC);
+      ctx.globalAlpha=s.nebula*(0.35+0.5*rd());
+      ctx.fillStyle=dark?"#c9b79a":"#8a7a63";
+      ctx.beginPath(); ctx.arc(x,y,1+rd()*2.2,0,6.2832); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
   const hasMoon=s.moon>0.02;
-  // 月球位置：角度被限制在地球右侧附近，保证任何时期都能在画面中看到它
-  const mAng=-0.16+0.42*Math.sin(clock*0.05+pos*0.62)+0.06*Math.sin(clock*0.31);
-  const cm=Math.cos(mAng), sm=Math.sin(mAng);
-  const rotC=Math.cos(orbitTilt), rotS=Math.sin(orbitTilt);
-  const mx=ex+cm*orbitA*rotC-sm*orbitB*rotS;
-  const my=ey+cm*orbitA*rotS+sm*orbitB*rotC;
-  const mR=clamp(R*0.15*(1.35-0.55*s.dist),3,R*0.2);
-  const moonBehind=sm<0;   // 轨道上半 = 远侧
+  // 月球绕地球：轨道半径随地质时期拉长（真实退行）
+  const mA0=R*1.95, mA1=R*3.35;
+  const mOrb=lerp(mA0,mA1,clamp(s.dist,0,1)), mOrbB=mOrb*0.34;
+  const mAng=clock*0.9+pos*0.4;
+  const mmx=Math.cos(mAng)*mOrb, mmy=Math.sin(mAng)*mOrbB;
+  const mx=ex+mmx, my=ey+mmy;
+  const mR=clamp(R*0.17*(1.25-0.45*s.dist),2.5,R*0.24);
+  const moonBehind=Math.sin(mAng)>0;   // 椭圆下半 = 地球远侧
 
   const drawMoon=()=>{
     ctx.save();
     ctx.shadowColor="rgba(220,235,255,.45)"; ctx.shadowBlur=mR*1.2;
     ctx.beginPath(); ctx.arc(mx,my,mR,0,6.2832); ctx.clip();
-    const mg=ctx.createRadialGradient(mx-dirx/dl*mR*.5,my-diry/dl*mR*.5,mR*.1,mx,my,mR*1.2);
-    mg.addColorStop(0,"#f6f8fd"); mg.addColorStop(.6,"#c3cbD8"); mg.addColorStop(1,"#3f4653");
+    const mg=ctx.createRadialGradient(mx+dirx/dl*mR*.5,my+diry/dl*mR*.5,mR*.1,mx,my,mR*1.2);
+    mg.addColorStop(0,"#f6f8fd"); mg.addColorStop(.6,"#c3cbd8"); mg.addColorStop(1,"#3f4653");
     ctx.fillStyle=mg; ctx.fillRect(mx-mR,my-mR,mR*2,mR*2);
     const rr=mulberry(1212);
     for(let i=0;i<14;i++){
@@ -450,138 +480,167 @@ function draw(){
     ctx.beginPath(); ctx.arc(mx,my,mR,0,6.2832); ctx.stroke();
   };
 
-  if(hasMoon){
-  ctx.save(); ctx.translate(ex,ey); ctx.rotate(orbitTilt);
-  ctx.strokeStyle=dark?"rgba(190,210,245,.16)":"rgba(60,84,126,.22)";
-  ctx.setLineDash([5,7]); ctx.lineWidth=1;
-  ctx.beginPath(); ctx.ellipse(0,0,orbitA,orbitB,0,0,6.2832); ctx.stroke();
-  ctx.restore(); ctx.setLineDash([]);
-  if(moonBehind) drawMoon();
-  }
-  const ag=ctx.createRadialGradient(ex,ey,R*0.85,ex,ey,R*1.5);
-  ag.addColorStop(0,"rgba(90,190,255,"+(0.10+0.22*s.ocean*(1-s.giant))+")");
-  ag.addColorStop(1,"rgba(90,190,255,0)");
-  ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(ex,ey,R*1.5,0,6.2832); ctx.fill();
-
-  // 地球本体
-  ctx.save();
-  ctx.beginPath(); ctx.arc(ex,ey,R,0,6.2832); ctx.clip();
-  const base=ctx.createRadialGradient(ex-R*.45,ey-R*.5,R*.1,ex,ey,R*1.35);
-  base.addColorStop(0, s.lava>0.5?"#ff8b3a":"#3f9fd8");
-  base.addColorStop(.55,s.lava>0.5?"#c8461b":"#1c6da5");
-  base.addColorStop(1, s.lava>0.5?"#5d1a0b":"#08243f");
-  ctx.fillStyle=base; ctx.fillRect(ex-R,ey-R,R*2,R*2);
-
-  // 岩浆裂纹
-  if(s.lava>0.05){
-    ctx.globalAlpha=s.lava*0.85;
-    const rr=mulberry(3131);
-    for(let i=0;i<26;i++){
-      const lat=rr()*140-70, lon=rr()*360-180, len=rr()*30+12;
-      const p=spherePoint(lat,lon,spin,tilt);
-      if(p.z<=0.05) continue;
-      ctx.strokeStyle="rgba(255,"+Math.round(120+80*rr())+",40,"+(0.5*p.z)+")";
-      ctx.lineWidth=Math.max(0.6,1.8*p.z);
-      ctx.beginPath(); ctx.moveTo(ex+p.x*R,ey+p.y*R);
-      ctx.lineTo(ex+p.x*R+Math.cos(len)*len*0.5,ey+p.y*R+Math.sin(len)*len*0.5); ctx.stroke();
+  const drawEarthSystem=()=>{
+    if(hasMoon){
+      ctx.save(); ctx.translate(ex,ey);
+      ctx.strokeStyle=dark?"rgba(190,210,245,.22)":"rgba(60,84,126,.28)";
+      ctx.setLineDash([3,5]); ctx.lineWidth=1;
+      ctx.beginPath(); ctx.ellipse(0,0,mOrb,mOrbB,0,0,6.2832); ctx.stroke();
+      ctx.restore(); ctx.setLineDash([]);
+      if(moonBehind) drawMoon();
     }
-    ctx.globalAlpha=1;
-  }
+    // 大气辉光
+    const ag=ctx.createRadialGradient(ex,ey,R*0.85,ex,ey,R*1.5);
+    ag.addColorStop(0,"rgba(90,190,255,"+(0.10+0.22*s.ocean*(1-s.giant))+")");
+    ag.addColorStop(1,"rgba(90,190,255,0)");
+    ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(ex,ey,R*1.5,0,6.2832); ctx.fill();
 
-  // 陆地
-  const set=LAND_SETS[Math.round(s.landSet)]||[];
-  if(s.land>0.02){
-    for(const c of set){
-      const p=spherePoint(c[0],c[1],spin,tilt);
-      if(p.z<=0.02) continue;
-      const sub=mulberry(Math.round((c[0]+90)*100+(c[1]+180)));
-      const baseShade=s.ice>0.55?[226,238,248]:(s.life>0.5?[86,132,68]:[150,128,90]);
-      for(let k=0;k<c[3];k++){
-        const ox=(sub()*2-1)*c[2]*0.055*R, oy=(sub()*2-1)*c[2]*0.04*R;
-        const rad=c[2]/17*R*(0.45+0.55*sub())*(0.55+0.45*p.z);
-        const cx=ex+p.x*R+ox, cy=ey+p.y*R+oy;
-        const lg=ctx.createRadialGradient(cx-rad*.3,cy-rad*.3,rad*.05,cx,cy,rad);
-        lg.addColorStop(0,"rgba("+baseShade+","+(0.95*s.land*p.z)+")");
-        lg.addColorStop(1,"rgba("+baseShade+","+(0.10*s.land*p.z)+")");
-        ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(cx,cy,rad,0,6.2832); ctx.fill();
-      }
-    }
-  }
+    // 地球本体
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ex,ey,R,0,6.2832); ctx.clip();
+    const base=ctx.createRadialGradient(ex-R*.35,ey-R*.4,R*.1,ex,ey,R*1.35);
+    base.addColorStop(0, s.lava>0.5?"#ff8b3a":"#3f9fd8");
+    base.addColorStop(.55,s.lava>0.5?"#c8461b":"#1c6da5");
+    base.addColorStop(1, s.lava>0.5?"#5d1a0b":"#08243f");
+    ctx.fillStyle=base; ctx.fillRect(ex-R,ey-R,R*2,R*2);
 
-  // 冰盖（极地投影圆，避免硬边带）
-  if(s.ice>0.03){
-    for(const side of [-1,1]){
-      const p=spherePoint(side*90,0,spin,tilt);
-      const capR=R*(0.30+0.34*s.ice);
-      const cg=ctx.createRadialGradient(ex+p.x*R,ey+p.y*R,capR*0.15,ex+p.x*R,ey+p.y*R,capR);
-      cg.addColorStop(0,"rgba(244,251,255,"+(0.92*s.ice)+")");
-      cg.addColorStop(.7,"rgba(232,244,255,"+(0.55*s.ice)+")");
-      cg.addColorStop(1,"rgba(232,244,255,0)");
-      ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,capR,0,6.2832); ctx.fill();
-    }
-  }
-
-  // 生命色斑（藻华 / 森林）
-  if(s.life>0.3){
-    ctx.globalAlpha=s.life*0.4;
-    const rr=mulberry(9091);
-    for(let i=0;i<40;i++){
-      const p=spherePoint(rr()*160-80,rr()*360-180,spin*1.02,tilt);
-      if(p.z<=0.1) continue;
-      ctx.fillStyle="rgba(60,180,140,"+(0.35*p.z)+")";
-      ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,R*0.02*p.z+0.6,0,6.2832); ctx.fill();
-    }
-    ctx.globalAlpha=1;
-  }
-
-  // 云层（比地表稍快）
-  if(s.cloud>0.05){
-    const rr=mulberry(5150);
-    for(let i=0;i<16;i++){
-      const p=spherePoint(rr()*130-65,rr()*360-180,spin*1.18+18,tilt);
-      if(p.z<=0.02) continue;
-      const rad=R*(0.10+rr()*0.16)*(0.5+0.5*p.z);
-      ctx.fillStyle="rgba(255,255,255,"+(0.30*s.cloud*Math.pow(p.z,0.6))+")";
-      ctx.beginPath(); ctx.ellipse(ex+p.x*R,ey+p.y*R,rad,rad*0.42,rr()*3,0,6.2832); ctx.fill();
-    }
-  }
-
-  // 昼夜分界
-  const tx=ctx.createRadialGradient(ex+dirx/dl*R*0.9,ey+diry/dl*R*0.9,R*0.15,ex,ey,R*2.1);
-  tx.addColorStop(0,"rgba(0,0,0,0)");
-  tx.addColorStop(.42,"rgba(0,0,0,.12)");
-  tx.addColorStop(1,"rgba(2,4,12,.86)");
-  ctx.fillStyle=tx; ctx.fillRect(ex-R,ey-R,R*2,R*2);
-
-  // 夜面城市灯火
-  if(s.city>0.05){
-    const rr=mulberry(6060);
-    for(const c of (LAND_SETS[3]||[])){
-      for(let k=0;k<5;k++){
-        const p=spherePoint(c[0]+rr()*10-5,c[1]+rr()*10-5,spin,tilt);
+    // 岩浆裂纹
+    if(s.lava>0.05){
+      ctx.globalAlpha=s.lava*0.85;
+      const rr=mulberry(3131);
+      for(let i=0;i<22;i++){
+        const lat=rr()*140-70, lon=rr()*360-180, len=rr()*24+10;
+        const p=spherePoint(lat,lon,spin,tilt);
         if(p.z<=0.05) continue;
-        const lit=(p.x*dirx+p.y*diry)/dl;
-        if(lit>0.15) continue;
-        ctx.fillStyle="rgba(255,206,120,"+(0.85*s.city*p.z)+")";
-        ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,1.5*p.z,0,6.2832); ctx.fill();
+        ctx.strokeStyle="rgba(255,"+Math.round(120+80*rr())+",40,"+(0.5*p.z)+")";
+        ctx.lineWidth=Math.max(0.5,1.5*p.z);
+        ctx.beginPath(); ctx.moveTo(ex+p.x*R,ey+p.y*R);
+        ctx.lineTo(ex+p.x*R+Math.cos(len)*len*0.35,ey+p.y*R+Math.sin(len)*len*0.35); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+
+    // 陆地
+    const set=LAND_SETS[Math.round(s.landSet)]||[];
+    if(s.land>0.02){
+      for(const c of set){
+        const p=spherePoint(c[0],c[1],spin,tilt);
+        if(p.z<=0.02) continue;
+        const sub=mulberry(Math.round((c[0]+90)*100+(c[1]+180)));
+        const baseShade=s.ice>0.55?[226,238,248]:(s.life>0.5?[86,132,68]:[150,128,90]);
+        for(let k=0;k<c[3];k++){
+          const ox=(sub()*2-1)*c[2]*0.055*R, oy=(sub()*2-1)*c[2]*0.04*R;
+          const rad=c[2]/17*R*(0.45+0.55*sub())*(0.55+0.45*p.z);
+          const cx=ex+p.x*R+ox, cy=ey+p.y*R+oy;
+          const lg=ctx.createRadialGradient(cx-rad*.3,cy-rad*.3,rad*.05,cx,cy,rad);
+          lg.addColorStop(0,"rgba("+baseShade+","+(0.95*s.land*p.z)+")");
+          lg.addColorStop(1,"rgba("+baseShade+","+(0.10*s.land*p.z)+")");
+          ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(cx,cy,rad,0,6.2832); ctx.fill();
+        }
       }
     }
-  }
-  ctx.restore();
 
-  // 球体轮廓高光
-  ctx.strokeStyle=dark?"rgba(150,205,255,.4)":"rgba(40,90,140,.35)";
-  ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(ex,ey,R,0,6.2832); ctx.stroke();
+    // 冰盖
+    if(s.ice>0.03){
+      for(const side of [-1,1]){
+        const p=spherePoint(side*90,0,spin,tilt);
+        const capR=R*(0.30+0.34*s.ice);
+        const cg=ctx.createRadialGradient(ex+p.x*R,ey+p.y*R,capR*0.15,ex+p.x*R,ey+p.y*R,capR);
+        cg.addColorStop(0,"rgba(244,251,255,"+(0.92*s.ice)+")");
+        cg.addColorStop(.7,"rgba(232,244,255,"+(0.55*s.ice)+")");
+        cg.addColorStop(1,"rgba(232,244,255,0)");
+        ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,capR,0,6.2832); ctx.fill();
+      }
+    }
 
-  // 撞击 / 流星
+    // 生命色斑
+    if(s.life>0.3){
+      ctx.globalAlpha=s.life*0.4;
+      const rr=mulberry(9091);
+      for(let i=0;i<34;i++){
+        const p=spherePoint(rr()*160-80,rr()*360-180,spin*1.02,tilt);
+        if(p.z<=0.1) continue;
+        ctx.fillStyle="rgba(60,180,140,"+(0.35*p.z)+")";
+        ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,R*0.02*p.z+0.6,0,6.2832); ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    }
+
+    // 云层
+    if(s.cloud>0.05){
+      const rr=mulberry(5150);
+      for(let i=0;i<14;i++){
+        const p=spherePoint(rr()*130-65,rr()*360-180,spin*1.18+18,tilt);
+        if(p.z<=0.02) continue;
+        const rad=R*(0.10+rr()*0.16)*(0.5+0.5*p.z);
+        ctx.fillStyle="rgba(255,255,255,"+(0.30*s.cloud*Math.pow(p.z,0.6))+")";
+        ctx.beginPath(); ctx.ellipse(ex+p.x*R,ey+p.y*R,rad,rad*0.42,rr()*3,0,6.2832); ctx.fill();
+      }
+    }
+
+    // 昼夜分界（始终背向太阳的一侧变暗）
+    const tx=ctx.createRadialGradient(ex+dirx/dl*R*0.9,ey+diry/dl*R*0.9,R*0.15,ex,ey,R*2.1);
+    tx.addColorStop(0,"rgba(0,0,0,0)");
+    tx.addColorStop(.42,"rgba(0,0,0,.12)");
+    tx.addColorStop(1,"rgba(2,4,12,.86)");
+    ctx.fillStyle=tx; ctx.fillRect(ex-R,ey-R,R*2,R*2);
+
+    // 夜面城市灯火
+    if(s.city>0.05){
+      const rr=mulberry(6060);
+      for(const c of (LAND_SETS[3]||[])){
+        for(let k=0;k<5;k++){
+          const p=spherePoint(c[0]+rr()*10-5,c[1]+rr()*10-5,spin,tilt);
+          if(p.z<=0.05) continue;
+          const lit=(p.x*dirx+p.y*diry)/dl;
+          if(lit>0.15) continue;
+          ctx.fillStyle="rgba(255,206,120,"+(0.85*s.city*p.z)+")";
+          ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,1.5*p.z,0,6.2832); ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+
+    // 球体轮廓高光
+    ctx.strokeStyle=dark?"rgba(150,205,255,.4)":"rgba(40,90,140,.35)";
+    ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(ex,ey,R,0,6.2832); ctx.stroke();
+
+    if(hasMoon&&!moonBehind) drawMoon();
+    probe.earth={x:ex,y:ey}; probe.moon={x:mx,y:my}; probe.sun={x:sunX,y:sunY}; probe.R=R;
+  };
+
+  // 太阳本体（地球走到远侧时被太阳遮住）
+  const sunR=Math.min(H,W)*(0.085+0.42*s.giant);
+  const sg=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*3.4);
+  sg.addColorStop(0, s.giant>0.3?"rgba(255,196,140,1)":"rgba(255,250,225,1)");
+  sg.addColorStop(.28, s.giant>0.3?"rgba(255,140,70,.85)":"rgba(255,222,150,.8)");
+  sg.addColorStop(.5, s.giant>0.3?"rgba(255,110,50,.28)":"rgba(255,205,130,.26)");
+  sg.addColorStop(1,"rgba(255,180,120,0)");
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sunX,sunY,sunR*3.4,0,6.2832); ctx.fill();
+
+  if(earthFar) drawEarthSystem();
+
+  ctx.fillStyle=s.giant>0.3?"#ffb26a":"#fff6dc";
+  ctx.beginPath(); ctx.arc(sunX,sunY,sunR,0,6.2832); ctx.fill();
+  const sp=ctx.createRadialGradient(sunX-sunR*.3,sunY-sunR*.3,sunR*.1,sunX,sunY,sunR);
+  sp.addColorStop(0,"rgba(255,255,255,.75)"); sp.addColorStop(1,"rgba(255,170,90,0)");
+  ctx.fillStyle=sp; ctx.beginPath(); ctx.arc(sunX,sunY,sunR,0,6.2832); ctx.fill();
+
+  if(!earthFar) drawEarthSystem();
+
+  probe.orbit={a:aE,b:bE};
+
+  // 撞击 / 流星（朝地球汇聚）
   if(s.rocks>0.03){
     for(const rk of rocks){
       const life=(clock*rk.v+rk.p)%1;
       if(life>0.75) continue;
-      const x=W*rk.x-life*W*0.22, y=H*rk.y+life*H*0.1;
+      const sx0=W*rk.x, sy0=H*rk.y;
+      const x=lerp(sx0,ex,life/0.75), y=lerp(sy0,ey,life/0.75);
+      const ang=Math.atan2(ey-sy0,ex-sx0);
       ctx.globalAlpha=s.rocks*(1-life/0.75)*0.8;
       ctx.strokeStyle="#ffd9a0"; ctx.lineWidth=rk.s*0.7;
-      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+18,y+8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-Math.cos(ang)*16,y-Math.sin(ang)*16); ctx.stroke();
       ctx.globalAlpha=1;
     }
     // 撞击闪
@@ -592,9 +651,6 @@ function draw(){
         ctx.beginPath(); ctx.arc(ex+p.x*R,ey+p.y*R,R*0.1,0,6.2832); ctx.fill(); }
     }
   }
-
-  // 月球（近侧时画在地球前面）
-  if(hasMoon&&!moonBehind) drawMoon();
 
   // 暗角
   const vg=ctx.createRadialGradient(W*.5,H*.5,H*.35,W*.5,H*.5,H*.95);
@@ -735,6 +791,20 @@ function selftest(){
   chk("groups_4",new Set(ERAS.map(e=>e.group)).size===4,ERAS.map(e=>e.group).join(","));
   chk("ui_filled",!!UI.introEarth&&!!UI.introMoon&&!!UI.epiEarth&&!!UI.epiMoon&&!!UI.note3&&!!UI.hint&&!!UI.timeline);
   chk("moon_absent_at_nebula",SCENE["nebula"].moon===0&&SCENE["impact"].moon===1);
+  // 日心几何：地球绕太阳转（位置随时间变化、保持在画面内），月球绕地球转
+  try{
+    const c0={x:W/2,y:H/2}; setPos(10,false);
+    clock=100; draw(); const a={e:{...probe.earth},m:{...probe.moon},s:{...probe.sun}};
+    clock=106; draw(); const b={e:{...probe.earth},m:{...probe.moon}};
+    const moved=Math.hypot(b.e.x-a.e.x,b.e.y-a.e.y);
+    chk("earth_orbits_sun",moved>4,"moved="+moved.toFixed(1));
+    const sunC=Math.hypot(a.s.x-c0.x,a.s.y-c0.y)<2;
+    chk("sun_centered",sunC);
+    const inFrame=b.e.x>probe.R&&b.e.x<W-probe.R&&b.e.y>probe.R&&b.e.y<H-probe.R;
+    chk("earth_in_frame",inFrame,JSON.stringify(b.e));
+    const md=Math.hypot(b.m.x-b.e.x,b.m.y-b.e.y);
+    chk("moon_around_earth",md>probe.R*1.2&&md<probe.R*6,"md="+md.toFixed(1)+" R="+probe.R.toFixed(1));
+  }catch(e){ chk("heliocentric",false,e.message); }
   const before={},after={};
   try{ for(let i=0;i<N;i++){ pos=i; shownIdx=-1; draw(); renderText(); before[i]=el("textEarth").textContent; after[i]=el("textMoon").textContent; } chk("draw_all_eras",true); }
   catch(e){ chk("draw_all_eras",false,e.message); }
