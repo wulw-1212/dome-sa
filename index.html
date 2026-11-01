@@ -332,7 +332,6 @@ let rocks=[];
 const N=ERAS.length;
 let pos=0;               // 连续幕位（0..N-1）
 let playing=false, speed=1, last=0, clock=0, dwell=6.2;
-let dirty=true;
 
 function eraAt(t){return ERAS[clamp(Math.round(t),0,N-1)];}
 function mix(t){
@@ -655,7 +654,7 @@ function buildNav(){
     box.appendChild(d);
   }
 }
-function setPos(v,stop){ pos=clamp(v,0,N-1); el("range").value=Math.round(pos/(N-1)*1000); if(stop&&playing) togglePlay(false); dirty=true; }
+function setPos(v,stop){ pos=clamp(v,0,N-1); el("range").value=Math.round(pos/(N-1)*1000); if(stop&&playing) togglePlay(false); }
 
 /* 播放控制 */
 function togglePlay(force){
@@ -693,9 +692,9 @@ function frame(ts){
     pos+=dt*speed/dwell;
     if(pos>=N-1){pos=N-1;togglePlay(false);}
     el("range").value=Math.round(pos/(N-1)*1000);
-    dirty=true;
   }
-  if(playing||dirty||true) draw();
+  // 场景持续绘制：自转、闪烁与月球位置都依赖 clock
+  draw();
   renderText();
   requestAnimationFrame(frame);
 }
@@ -791,7 +790,7 @@ function selftest(){
 }
 
 /* 启动 */
-window.addEventListener("resize",()=>{resize();dirty=true;});
+window.addEventListener("resize",()=>{resize();});
 resize(); buildNav(); applyUI();
 const q=new URLSearchParams(location.search);
 setPos(Math.round(+(q.get("era")||0)));
