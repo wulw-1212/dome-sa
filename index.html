@@ -15,6 +15,29 @@
   --bg:#f4f6fb; --bg2:#e7ecf6; --panel:rgba(255,255,255,.82); --line:rgba(20,32,60,.14);
   --ink:#16203a; --muted:#5c6b87; --earth:#2f7fbf; --moon:#6f7f96; --accent:#b8791a;
   --shadow:0 14px 34px rgba(22,32,58,.14);
+<title>小兔和乌龟赛跑</title>
+<style>
+:root{
+  --ink:#2b3a2e; --paper:#ffffff; --accent:#2e7d52; --carrot:#e8842c;
+  --shell:#5a9367; --grass:#dcedc8; --sky1:#a8ddf2; --sky2:#eaf7fd; --muted:#7a8a7c;
+}
+[data-theme="dark"]{
+  --ink:#e7efdf; --paper:#161d18; --accent:#7fd6a4; --carrot:#ffb066;
+  --shell:#4f7f5f; --grass:#22301f; --sky1:#14303f; --sky2:#0d2231; --muted:#9fb0a2;
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>乒乓球 · Table Tennis</title>
+<style>
+:root{
+  --ink:#1e2d38; --paper:#f4f7fa; --card:#ffffff; --accent:#1f7ae0; --accent-ink:#fff;
+  --p1:#e2452f; --p2:#2f6fe2; --muted:#66788a; --line:rgba(110,135,160,.30);
+  --tbl-top:#1f74ad; --tbl-bot:#12557f; --tbl-line:#f0f8ff;
+  --floor1:#dbe5ee; --floor2:#b8c7d6; --ball:#faf4e4; --shadow:rgba(15,40,60,.30); --net:#eef5fb;
+}
+[data-theme="dark"]{
+  --ink:#e5edf4; --paper:#0d1419; --card:#16202a; --accent:#4aa8ff; --accent-ink:#08131e;
+  --p1:#ff6f57; --p2:#64a6ff; --muted:#93a7b8; --line:rgba(150,180,205,.26);
+  --tbl-top:#1a628f; --tbl-bot:#0a3450; --tbl-line:#dcecfb;
+  --floor1:#131c24; --floor2:#070d12; --ball:#fdf7e8; --shadow:rgba(0,0,0,.55); --net:#c7dbe9;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -868,6 +891,1574 @@ if(q.get("theme")==="light") setTheme("light");
 el("play").textContent=UI.play;
 requestAnimationFrame(frame);
 if(new URLSearchParams(location.search).has("selftest")) selftest();
+  font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); padding:22px 16px 40px;
+  transition:background .3s,color .3s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+h1{margin:0 0 6px;font-size:clamp(21px,3.6vw,32px)}
+.sub{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
+.scene{margin:16px 0 0;border-radius:18px;overflow:hidden;background:var(--sky2);
+  border:1px solid rgba(127,127,127,.28)}
+#stage{display:block;width:100%;height:auto}
+.card{background:var(--paper);border:1px solid rgba(127,127,127,.28);border-radius:16px;
+  padding:14px 16px;margin-top:14px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:999px;padding:9px 18px;
+  border:1px solid rgba(127,127,127,.35);background:var(--paper);color:var(--ink);
+  transition:transform .12s,box-shadow .2s,opacity .2s}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.16)}
+button:disabled{opacity:.45;cursor:not-allowed}
+#main{background:var(--accent);color:#fff;border-color:transparent;font-weight:700}
+.seg{display:inline-flex;background:rgba(127,127,127,.16);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 14px;border:none;background:transparent;opacity:.75;border-radius:999px}
+.seg button.on{background:var(--paper);color:var(--accent);opacity:1;font-weight:700;
+  box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.stat{font-size:14px;line-height:1.9;text-align:right}
+.stat b{font-variant-numeric:tabular-nums}
+.legend{font-size:13px;color:var(--muted);line-height:1.9;margin:10px 0 0}
+.legend .carrot{color:var(--carrot);font-weight:700}
+.legend .sleep{color:#b07ad6;font-weight:700}
+label.opt{font-size:14px;display:inline-flex;align-items:center;gap:6px;user-select:none}
+.msg{margin-top:14px;border-radius:16px;padding:12px 16px;background:var(--grass);
+  border:1px solid rgba(127,127,127,.28);font-size:15px;line-height:1.7}
+.msg[hidden]{display:none}
+.msg .who{font-weight:700}
+footer{margin-top:20px;color:var(--muted);font-size:12px;text-align:center}
+@media (max-width:640px){ .stat{text-align:left} }
+</style>
+</head>
+<body data-theme="light">
+<div class="wrap">
+  <h1>🐢 小兔和乌龟赛跑 🐰</h1>
+  <p class="sub">伊索寓言的实时动画版。兔子跑得快，却忍不住停下来啃胡萝卜、打完哈欠就睡着；
+    乌龟不快，但一步也不停。<br>快捷键：<b>空格</b> 开始 / 暂停，<b>R</b> 重置，<b>W</b> 叫醒兔子，<b>1 / 2 / 4</b> 切换倍速。</p>
+
+  <div class="scene"><canvas id="stage" width="980" height="340"></canvas></div>
+  background:var(--paper); color:var(--ink); padding:20px 14px 44px; transition:background .3s,color .3s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+h1{margin:0;font-size:clamp(20px,3.4vw,30px)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
+.scene{position:relative;margin-top:14px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--floor2)}
+#stage{display:block;width:100%;height:auto;touch-action:none}
+.hud{position:absolute;left:0;top:0;right:0;display:flex;flex-wrap:wrap;gap:8px;padding:9px 12px;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:7px;background:rgba(8,18,28,.44);color:#fff;border-radius:999px;
+  padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums;backdrop-filter:blur(3px)}
+.chip b{font-size:16px;font-weight:700}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25)}
+.chip.serving .dot{background:#ffd54a;box-shadow:0 0 9px #ffd54a}
+.chip.p1 b{color:#ff9d88} .chip.p2 b{color:#a2c8ff}
+.msg{position:absolute;left:50%;top:33%;transform:translate(-50%,-50%);text-align:center;color:#fff;
+  font-size:clamp(15px,2.7vw,25px);font-weight:700;text-shadow:0 2px 16px rgba(0,0,0,.65);
+  pointer-events:none;opacity:0;transition:opacity .18s;max-width:88%}
+.msg.show{opacity:1}
+.msg small{display:block;font-weight:500;font-size:62%;margin-top:7px;opacity:.92}
+.mask{position:absolute;inset:0;display:none;place-items:center;padding:16px;background:rgba(6,14,22,.55);
+  backdrop-filter:blur(4px);color:#fff;text-align:center}
+.mask.show{display:grid}
+.mask .box{background:var(--card);color:var(--ink);border-radius:14px;padding:18px 22px;max-width:560px;
+  box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.mask h3{margin:0 0 8px;font-size:20px}
+.mask p{margin:0;color:var(--muted);font-size:14px;line-height:1.8}
+.mask kbd{background:var(--line);border-radius:5px;padding:1px 6px;font-family:inherit;font-size:12px;color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:999px;padding:8px 16px;color:var(--ink);
+  border:1px solid var(--line);background:var(--card);transition:transform .12s,box-shadow .2s}
+button:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.14)}
+#startBtn{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700}
+label.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.seg{display:inline-flex;background:var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 13px;border:none;background:transparent;border-radius:999px;font-size:13px}
+.seg button.on{background:var(--card);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.keys{margin:12px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(236px,1fr));
+  gap:6px 18px;font-size:13px;color:var(--muted)}
+.keys kbd{background:var(--line);border-radius:5px;padding:1px 6px;font-family:inherit;font-size:12px;color:var(--ink)}
+.foot{margin:10px 0 0;color:var(--muted);font-size:12.5px;line-height:1.7}
+.log{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted)}
+.log li{background:var(--line);border-radius:6px;padding:2px 8px}
+.touchbar{display:none;gap:10px;margin-top:12px}
+.touchbar button{flex:1;padding:12px;font-size:15px;font-weight:700}
+body.touch .touchbar{display:flex}
+@media (max-width:560px){.chip{font-size:11.5px;padding:4px 9px}.chip b{font-size:14px}.hud{padding:6px 8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏓 乒乓球</h1>
+  <p class="sub">带重力、弹跳、擦网与「先落本台再过网」发球规则的俯视角乒乓球。11 分制、净胜 2 分、
+    发球权每 2 分轮换（10:10 后每分轮换），擦网好球判 LET 重发。单文件、纯离线、零依赖。</p>
+
+  <div class="scene">
+    <canvas id="stage" width="960" height="620" aria-label="乒乓球比赛画面"></canvas>
+    <div class="hud">
+      <span class="chip p1" id="chip1"><span class="dot"></span><span id="lbl1">你</span> <b id="s1">0</b></span>
+      <span class="chip">局分 <b id="g1">0</b> : <b id="g2">0</b></span>
+      <span class="chip p2" id="chip2"><span class="dot"></span><b id="s2">0</b> <span id="lbl2">电脑</span></span>
+      <span class="chip">回合 <b id="rally">0</b></span>
+      <span class="chip">最长回合 <b id="longest">0</b></span>
+      <span class="chip">最快球速 <b id="speed">0</b> km/h</span>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="mask" id="menuMask"><div class="box">
+      <h3>🏓 开打一局</h3>
+      <p>先在下方选 <b>模式 / 难度 / 赛制</b>，再点 <b>开始比赛</b>。<br>
+      鼠标或 <kbd>←</kbd><kbd>→</kbd> 移动下方红拍；<kbd>空格</kbd>按住蓄力、松开即发球；
+      对打中按一次 <kbd>空格</kbd> 是扣杀。</p>
+    </div></div>
+    <div class="mask" id="pauseMask"><div class="box">
+      <h3>已暂停</h3><p>按 <kbd>P</kbd> 或 <kbd>Esc</kbd> 继续。</p>
+    </div></div>
+    <div class="mask" id="overMask"><div class="box">
+      <h3 id="overTitle">比赛结束</h3>
+      <p id="overText"></p>
+      <p style="margin-top:10px">按 <kbd>空格</kbd> 或 <kbd>Enter</kbd> 再来一场。</p>
+    </div></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="controls">
+        <button id="main">▶ 开始比赛</button>
+        <button id="wake" hidden>🥕 叫醒兔子</button>
+        <button id="reset">↺ 重置</button>
+        <span class="seg" id="speed">
+          <button data-s="1" class="on">1×</button>
+          <button data-s="2">2×</button>
+          <button data-s="4">4×</button>
+        </span>
+        <label class="opt"><input type="checkbox" id="showLines"> 速度曲线</label>
+        <label class="opt"><input type="checkbox" id="autoRun"> 自动重赛</label>
+        <button id="theme">🌙 深色</button>
+      </div>
+      <div class="stat">
+        用时 <b id="clock">0.0</b>s ｜ 兔子距终点 <b id="dist">100</b>%<br>
+        <span style="color:var(--carrot)">啃到胡萝卜 <b id="nCarrot">0</b></span>
+        ｜ <span style="color:#b07ad6">睡着 <b id="nNap">0</b> 次</span>
+        ｜ 名次 <b id="rank">—</b>
+      </div>
+    </div>
+    <p class="legend">
+      <span class="carrot">🥕 胡萝卜</span>沿途共 4 根，兔子经过必停下来啃一口（约 1 秒）；
+      每次啃完约有六成概率当场睡着 <b>4–9 秒</b>，睡着时点 <span class="sleep">🥕 叫醒兔子</span>（或按 <b>W</b>）可立刻起身继续跑。
+      谁先到达 100m 终点线谁赢 —— 打瞌睡是随机的，所以每局胜负都可能不同。
+    </p>
+  </div>
+
+  <div class="msg" id="msg" hidden></div>
+
+  <footer>单文件 HTML · 无任何外部依赖 · 直接用浏览器打开即可</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ===== 常量 ===== */
+var W=980,H=340, FIN=100, TOP=150, BOT=228, X0=52, X1=W-52, CARY=190;
+var TOR_V=1.75;              // 乌龟：恒速 %/s
+var HARE_BASE=2.55, HARE_AMP=1.35, HARE_OMEGA=2.1;  // 兔子：平均/起伏/频率
+var NAP_MIN=4.0, NAP_MAX=9.0, NAP_P=0.6;             // 瞌睡时长与概率
+var EAT_T=0.9;                                       // 啃一根胡萝卜的耗时
+
+/* ===== 状态 ===== */
+var cvs=document.getElementById('stage'), ctx=cvs.getContext('2d');
+function $(id){ return document.getElementById(id); }
+var mainBtn=$('main'), wakeBtn=$('wake'), msgEl=$('msg');
+var clockEl=$('clock'), distEl=$('dist'), rankEl=$('rank');
+var nCarrotEl=$('nCarrot'), nNapEl=$('nNap');
+var state='idle', t=0, frame=0, speed=1, showLines=false, autoRun=false;
+var hare, tor, carrots=[], scenery=null, winner=null, last=0, raf=null;
+var Q=(new URLSearchParams(location.search));
+if(Q.get('theme')==='dark'){ document.body.dataset.theme='dark'; $('theme').textContent='☀️ 浅色'; }
+
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function css(n){ return getComputedStyle(document.body).getPropertyValue(n).trim()||'#888'; }
+function shade(col,amt){
+  var m=col.match(/^#([0-9a-f]{6})$/i); if(!m) return col;
+  var n=parseInt(m[1],16);
+  var r=clamp((n>>16)+amt,0,255), g=clamp(((n>>8)&255)+amt,0,255), b=clamp((n&255)+amt,0,255);
+  return 'rgb('+r+','+g+','+b+')';
+}
+var KINDS=['🐿️','🦔','🐁','🦊','🐸','🐞','🦉'];
+
+function makeScenery(){
+  scenery={clouds:[],hills:[],trees:[],flowers:[],spectators:[]};
+  for(var i=0;i<4;i++) scenery.clouds.push({x:rnd(30,900),y:rnd(22,58),s:rnd(.7,1.35),v:rnd(4,10)});
+  for(i=0;i<10;i++) scenery.hills.push({x:i*100+rnd(-16,16),h:rnd(18,42)});
+  for(i=0;i<5;i++) scenery.trees.push({x:rnd(80,900),y:rnd(272,300),s:rnd(.8,1.1)});
+  for(i=0;i<26;i++) scenery.flowers.push({x:rnd(10,970),y:rnd(300,330),r:rnd(2.2,4)});
+  for(i=0;i<6;i++) scenery.spectators.push({x:110+i*rnd(110,160),k:KINDS[i%KINDS.length],ph:rnd(0,6.3)});
+}
+makeScenery();
+
+function reset(full){
+  t=0;
+  hare={d:0,v:0,sleep:0,eat:0,eating:false,napAfter:false};
+  tor={d:0};
+  if(full){
+    carrots=[{p:22,r:0,taken:false},{p:41,r:1.7,taken:false},{p:63,r:3.4,taken:false},{p:83,r:5.1,taken:false}];
+    winner=null; rankEl.textContent='—';
+  } else carrots.forEach(function(c){ c.taken=false; });
+  hideMsg(); wakeBtn.hidden=true;
+  clockEl.textContent='0.0'; distEl.textContent='100';
+  nCarrotEl.textContent='0'; nNapEl.textContent='0';
+}
+
+/* ===== 控制 ===== */
+function start(){
+  if(state==='running'){ pause(); return; }
+  if(state==='finished') reset(false);
+  state='running'; mainBtn.textContent='⏸ 暂停';
+  msgEl.hidden=true;
+}
+function pause(){ if(state!=='running') return; state='paused'; mainBtn.textContent='▶ 继续'; }
+function toIdle(){ state='idle'; mainBtn.textContent='▶ 开始比赛'; }
+function wake(){
+  if(!hare||hare.sleep<=0) return;
+  hare.sleep=0; hare.eating=false; hare.eat=0; hare.napAfter=false; wakeBtn.hidden=true;
+  showMsg('🐿️ 松鼠：','「别睡啦，乌龟已经过半程了！」兔子一骨碌爬起来继续追。');
+}
+
+/* ===== 物理 ===== */
+function physics(dt){
+  t+=dt;
+  tor.d+=TOR_V*dt;                                  // 乌龟绝不停
+  if(hare.sleep>0){ hare.v=0; hare.sleep-=dt;       // 睡觉
+    if(hare.sleep<=0){ hare.sleep=0; hare.eating=false; wakeBtn.hidden=true; }
+  } else if(hare.eat>0){                            // 啃胡萝卜：停下不动
+    hare.v=0; hare.eat-=dt;
+    if(hare.eat<=0){ hare.eat=0;
+      if(hare.napAfter){ hare.napAfter=false; hare.sleep=rnd(NAP_MIN,NAP_MAX);
+        nNapEl.textContent=(+nNapEl.textContent+1); wakeBtn.hidden=false;
+        showMsg('💤','兔子啃完胡萝卜，趴在场边睡着了……乌龟还在往前走。'); }
+      else hare.eating=false;
+    }
+  }
+  else { hare.v=HARE_BASE+HARE_AMP*Math.sin(t*HARE_OMEGA); hare.d+=hare.v*dt; }
+  if(hare.d>FIN) hare.d=FIN;
+  if(tor.d>FIN) tor.d=FIN;
+
+  carrots.forEach(function(c){
+    if(c.taken) return;
+    if(hare.sleep>0||hare.eat>0) return;            // 睡着/进食时不再触发
+    if(Math.abs(c.p-hare.d)<1.1){
+      c.taken=true; hare.eating=true; hare.eat=EAT_T;
+      nCarrotEl.textContent=(+nCarrotEl.textContent+1);
+      hare.napAfter=Math.random()<NAP_P;
+    }
+  });
+
+  distEl.textContent=clamp(FIN-hare.d,0,100).toFixed(0);
+  clockEl.textContent=t.toFixed(1);
+  rankEl.textContent = hare.d>tor.d?'🐰 领先':(hare.d<tor.d?'🐢 领先':'并列');
+
+  if(hare.d>=FIN||tor.d>=FIN){
+    winner = hare.d>=FIN ? '🐰 小兔' : '🐢 乌龟';
+    state='finished'; mainBtn.textContent='↻ 再来一次'; rankEl.textContent=winner;
+    showMsg(winner+' 获胜！', winner==='🐰 小兔'
+      ? '这局兔子只打了 '+nNapEl.textContent+' 次盹，醒来后一路狂奔，抢在乌龟前面撞线。'
+      : '兔子一共睡了 '+nNapEl.textContent+' 次，乌龟一步没停，稳稳爬到了终点。');
+    if(autoRun) setTimeout(function(){ if(state==='finished'){ reset(false); start(); } },2600);
+  }
+}
+
+/* ===== 绘制 ===== */
+function px(d){ return X0+(X1-X0)*clamp(d,0,FIN)/FIN; }
+function rr8(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,6.3); ctx.fill(); }
+
+function bg(){
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,css('--sky1')); g.addColorStop(1,css('--sky2'));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // 太阳
+  ctx.save(); ctx.globalAlpha=.9; ctx.fillStyle=css('--carrot');
+  circle(884,56,21); ctx.globalAlpha=.16; circle(884,56,33); ctx.restore();
+  // 云
+  ctx.fillStyle=document.body.dataset.theme==='dark'?'rgba(255,255,255,.22)':'rgba(255,255,255,.72)';
+  scenery.clouds.forEach(function(c){ var x=(c.x+t*c.v)%(W+120)-60;
+    circle(x,c.y,19*c.s); circle(x+22*c.s,c.y+5,14*c.s); circle(x-22*c.s,c.y+6,13*c.s); });
+  // 远山 + 草地
+  ctx.fillStyle=css('--grass');
+  ctx.beginPath(); ctx.moveTo(0,122);
+  scenery.hills.forEach(function(h){ ctx.quadraticCurveTo(h.x+50,122-h.h,h.x+100,122); });
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+  // 小花
+  ctx.globalAlpha=.4; ctx.fillStyle=css('--shell');
+  scenery.flowers.forEach(function(f){ circle(f.x,f.y,f.r); });
+  ctx.globalAlpha=1;
+  // 树
+  scenery.trees.forEach(function(tr){
+    ctx.save(); ctx.translate(tr.x,tr.y); ctx.scale(tr.s,tr.s);
+    ctx.fillStyle='#8d6a4a'; ctx.fillRect(-3,-14,6,20);
+    ctx.fillStyle=css('--shell'); circle(0,-26,14); circle(-11,-17,10); circle(11,-17,10);
+    ctx.restore();
+  });
+  // 观众
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='19px serif';
+  scenery.spectators.forEach(function(s){
+    var b=state==='running'?Math.sin(t*3+s.ph)*2.6:0;
+    ctx.fillText(s.k,s.x,300+b);
+  });
+}
+
+function track(){
+  var dark=document.body.dataset.theme==='dark';
+  var lbl=dark?'rgba(226,238,224,.8)':'rgba(70,70,70,.85)';
+  var sub=dark?'rgba(226,238,224,.55)':'rgba(70,70,70,.6)';
+  ctx.fillStyle=dark?'rgba(255,255,255,.10)':'rgba(255,255,255,.55)';
+  ctx.fillRect(X0,TOP-24,X1-X0,46); ctx.fillRect(X0,BOT-24,X1-X0,46);
+  ctx.setLineDash([14,12]); ctx.lineWidth=2;
+  ctx.strokeStyle=dark?'rgba(255,255,255,.28)':'rgba(120,120,120,.4)';
+  [TOP+22,BOT+22].forEach(function(y){ ctx.beginPath(); ctx.moveTo(X0,y); ctx.lineTo(X1,y); ctx.stroke(); });
+  ctx.setLineDash([]);
+  // 终点彩带柱
+  for(var i=0;i<9;i++){ ctx.fillStyle=i%2?'#e05c5c':'#f6d44d';
+    ctx.fillRect(W-40,TOP-22+i*5,8,5); ctx.fillRect(W-40,BOT-22+i*5,8,5); }
+  ctx.fillStyle=dark?'rgba(230,240,228,.7)':'rgba(80,80,80,.8)';
+  ctx.fillRect(W-32,TOP-26,5,54); ctx.fillRect(W-32,BOT-26,5,54);
+  ctx.font='bold 12px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=lbl; ctx.fillText('终点 100m',W-44,TOP-30);
+  ctx.fillText('终点 100m',W-44,BOT+44);
+  // 里程碑
+  ctx.textAlign='center'; ctx.font='10px sans-serif'; ctx.fillStyle=sub;
+  for(var p=20;p<=80;p+=20){ ctx.fillText(p+'m',px(p),TOP-30); ctx.fillText(p+'m',px(p),BOT+44); }
+  // 名牌
+  ctx.textAlign='left'; ctx.font='bold 13px sans-serif';
+  ctx.fillStyle=css('--carrot'); ctx.fillText('🐰 小兔',X0+4,TOP-30);
+  ctx.fillStyle=css('--accent');  ctx.fillText('🐢 乌龟',X0+4,BOT+44);
+}
+
+function drawCarrots(){
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='19px serif';
+  carrots.forEach(function(c){ if(c.taken) return;
+    var bob=Math.sin(t*2+c.r)*3;
+    ctx.fillText('🥕',px(c.p),CARY+bob);
+  });
+}
+
+function drawHare(x,y){
+  var asleep=hare.sleep>0, eating=hare.eating&&!asleep;
+  var moving=state==='running'&&hare.v>0.4;
+  var hop=moving?Math.abs(Math.sin(t*6.5))*5:0;
+  var bob=moving?Math.sin(t*13)*2.4:0;
+  var cy=y-hop, bodyY=cy+bob;
+  var legA=moving?Math.sin(t*13)*9:0, legB=moving?Math.sin(t*13+Math.PI)*9:0;
+  var fillc='#f4f5f7', linec='rgba(90,90,90,.32)';
+  ctx.lineWidth=1.6; ctx.strokeStyle=linec;
+  function leg(ox,oy,off){ ctx.fillStyle='#e6e9ee'; ctx.beginPath();
+    ctx.ellipse(x+ox+off*0.35,bodyY+oy,6,10,off*0.03,0,6.3); ctx.fill(); ctx.stroke(); }
+  function ear(ex,ey,ang){ ctx.save(); ctx.translate(ex,ey); ctx.rotate(ang);
+    ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(0,-15,5.5,16,0,0,6.3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffc9d6'; ctx.beginPath(); ctx.ellipse(0,-15,2.5,11,0,0,6.3); ctx.fill(); ctx.restore(); }
+  ctx.fillStyle='#d9d2f2'; circle(x-36,bodyY+8,6);            // 尾巴
+  leg(-24,10,legA);                                           // 后腿
+  ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(x-10,bodyY,26,18,-0.1,0,6.3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#fbfcfd'; ctx.beginPath(); ctx.ellipse(x-14,bodyY+4,13,11,0,0,6.3); ctx.fill();
+  leg(-2,10,legB);                                            // 前腿
+  var arm=moving?Math.sin(t*13+1)*6:(eating?6:-3);
+  ctx.fillStyle=fillc; ctx.beginPath(); ctx.ellipse(x+10,bodyY-2+arm*0.4,6,8,0.6,0,6.3); ctx.fill(); ctx.stroke();
+  // 头
+  var nhx=x+20, nhy=bodyY-15+(eating?6:0);
+  ctx.beginPath(); ctx.ellipse(nhx,nhy,16,14,0.1,0,6.3); ctx.fillStyle=fillc; ctx.fill(); ctx.stroke();
+  var sway=moving?Math.sin(t*13)*0.15:0;
+  ear(nhx-3,nhy-11,asleep?0.3:(eating?0.1:-0.5)+sway);
+  ear(nhx+5,nhy-12,asleep?0.45:(eating?0.32:-0.28)-sway);
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1.8;
+  if(asleep){ [-2,8].forEach(function(k){ ctx.beginPath(); ctx.arc(nhx+k,nhy-2,3.2,Math.PI*1.15,Math.PI*1.9); ctx.stroke(); }); }
+  else { ctx.fillStyle='#3a3a3a'; circle(nhx+6,nhy-3,2.3); }
+  ctx.fillStyle='#ff9fb0'; circle(nhx+15,nhy+2,2.5);
+  ctx.strokeStyle='rgba(130,130,130,.55)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(nhx+13,nhy+4); ctx.lineTo(nhx+23,nhy+1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(nhx+13,nhy+5); ctx.lineTo(nhx+23,nhy+7); ctx.stroke();
+  if(eating){ ctx.font='15px serif'; ctx.textAlign='center'; ctx.fillText('😋',x+24,bodyY-34); }
+  if(asleep){ ctx.fillStyle='#b07ad6'; ctx.textAlign='left';
+    for(var i=0;i<3;i++){ var ph=(t*0.8+i*0.33)%1; ctx.globalAlpha=1-ph;
+      ctx.font='bold '+(11+i*4)+'px sans-serif'; ctx.fillText('Z',x+28+i*9,bodyY-30-i*7-ph*20); }
+    ctx.globalAlpha=1; }
+}
+
+function drawTor(x,y){
+  var moving=state==='running', ph=moving?t*5:0, bob=moving?Math.sin(ph*2)*1.3:0;
+  var sh=css('--shell'), step=Math.sin(ph)*4;
+  ctx.save(); ctx.translate(0,y+bob); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(40,70,50,.5)';
+  ctx.fillStyle=shade(sh,-18);                              // 腿
+  [[-20,1],[20,-1]].forEach(function(o){ ctx.beginPath();
+    ctx.ellipse(x+o[0]+step*o[1],12,7,5,0,0,6.3); ctx.fill(); ctx.stroke(); });
+  ctx.fillStyle=shade(sh,10);                               // 头
+  ctx.beginPath(); ctx.ellipse(x+34,2,11,9,0.2,0,6.3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#3a3a3a'; circle(x+40,0,2);
+  ctx.strokeStyle='rgba(40,70,50,.55)'; ctx.beginPath(); ctx.moveTo(x+30,-5); ctx.lineTo(x+26,-11); ctx.stroke();
+  ctx.fillStyle=shade(sh,-8); ctx.beginPath();              // 尾
+  ctx.moveTo(x-28,0); ctx.lineTo(x-37,4); ctx.lineTo(x-27,7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=sh; ctx.beginPath();                        // 壳
+  ctx.ellipse(x,0,30,20,0,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=shade(sh,-16); ctx.beginPath();
+  ctx.moveTo(x-30,1); ctx.quadraticCurveTo(x,12,x+30,1); ctx.lineTo(x+30,6);
+  ctx.quadraticCurveTo(x,17,x-30,6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=shade(sh,-30); ctx.lineWidth=1.2;
+  [-15,-5,5,15].forEach(function(o){ ctx.beginPath(); ctx.moveTo(x+o,-2); ctx.lineTo(x+o*1.6,-15); ctx.stroke(); });
+  ctx.restore();
+  if(moving&&tor.d>45&&hare.d<tor.d){ ctx.font='13px serif'; ctx.textAlign='center'; ctx.fillText('💪',x-42,y-24); }
+}
+
+function fx(){
+  if(state==='running'&&hare.v>0.4){ ctx.fillStyle='rgba(255,255,255,.85)';
+    for(var i=0;i<5;i++) circle(px(hare.d)-16-i*9,TOP+Math.sin(t*7+i)*7,2.2); }
+  ctx.strokeStyle='rgba(90,140,100,.55)'; ctx.lineWidth=1.4;
+  for(var k=1;k<=3;k++){ ctx.beginPath(); ctx.moveTo(px(tor.d)-38-k*7,BOT+16);
+    ctx.lineTo(px(tor.d)-44-k*7,BOT+24); ctx.stroke(); }
+  if(state==='finished'){
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='bold 25px sans-serif';
+    ctx.fillStyle='rgba(0,0,0,.62)'; rr8(W/2-170,30,340,44,12); ctx.fill();
+    ctx.fillStyle='#ffd54d'; ctx.fillText('🏁 '+winner+' 获胜 🏁',W/2,52); ctx.restore();
+    var cols=['#e05c5c','#f6d44d','#5aa9e6','#7fd6a4'];
+    for(var i2=0;i2<20;i2++){ var ph2=(frame+i2*7)%60; ctx.globalAlpha=1-ph2/60;
+      ctx.fillStyle=cols[i2%4]; ctx.fillRect(W/2-150+(i2*37)%300,16+ph2*1.6,6,9); }
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawLines(){
+  if(!showLines) return;
+  var bx=56,by=44,bw=210,bh=72;
+  ctx.save(); ctx.fillStyle='rgba(0,0,0,.58)'; rr8(bx-10,by-10,bw+20,bh+34,10); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText('剩余距离曲线（越靠左 = 已跑更远）',bx,by+2);
+  var y0=by+14,h0=bh-14, maxd=Math.max(20,hare.d,tor.d);
+  ctx.strokeStyle='rgba(255,255,255,.28)'; ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw,y0+h0); ctx.stroke();
+  ctx.lineWidth=2;
+  ctx.strokeStyle=css('--carrot'); ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw*clamp(hare.d/maxd,0,1),y0); ctx.stroke();
+  ctx.strokeStyle=css('--accent'); ctx.beginPath();
+  ctx.moveTo(bx,y0+h0); ctx.lineTo(bx+bw*clamp(tor.d/maxd,0,1),y0); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.fillText('🐰 '+hare.d.toFixed(0)+'m ｜ 🐢 '+tor.d.toFixed(0)+'m',bx,y0+h0+16);
+  ctx.restore();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  bg(); track(); drawCarrots();
+  drawTor(px(tor.d),BOT); drawHare(px(hare.d),TOP);
+  fx(); drawLines();
+}
+
+/* ===== 循环 ===== */
+function loop(now){
+  raf=requestAnimationFrame(loop);
+  var d=Math.min(0.05,(now-last)/1000); if(!isFinite(d)||d<0) d=0; last=now;
+  if(state==='running') physics(d*speed);
+  frame++; draw();
+}
+
+/* ===== UI ===== */
+function showMsg(who,text){ msgEl.hidden=false;
+  msgEl.innerHTML='<span class="who">'+who+'</span> '+text; }
+function hideMsg(){ msgEl.hidden=true; }
+function hud(){
+  clockEl.textContent=t.toFixed(1);
+  distEl.textContent=clamp(FIN-hare.d,0,100).toFixed(0);
+  rankEl.textContent = state==='finished' ? (winner||'—')
+    : (hare.d>tor.d?'🐰 领先':(hare.d<tor.d?'🐢 领先':'并列'));
+}
+
+mainBtn.addEventListener('click',start);
+wakeBtn.addEventListener('click',wake);
+$('reset').addEventListener('click',function(){ reset(true); toIdle(); });
+$('showLines').addEventListener('change',function(e){ showLines=e.target.checked; });
+$('autoRun').addEventListener('change',function(e){ autoRun=e.target.checked; });
+$('theme').addEventListener('click',function(){
+  var dark=document.body.dataset.theme==='dark';
+  document.body.dataset.theme=dark?'light':'dark';
+  $('theme').textContent=dark?'🌙 深色':'☀️ 浅色';
+});
+[].forEach.call(document.querySelectorAll('#speed button'),function(b){
+  b.addEventListener('click',function(){ setSpeed(+b.dataset.s); });
+});
+function setSpeed(s){ speed=s;
+  [].forEach.call(document.querySelectorAll('#speed button'),function(x){
+    x.classList.toggle('on',+x.dataset.s===s); }); }
+
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){ e.preventDefault(); start(); }
+  else if(e.key==='r'||e.key==='R'){ reset(true); toIdle(); }
+  else if(e.key==='w'||e.key==='W'){ wake(); }
+  else if(e.key==='1'||e.key==='2'||e.key==='4'){ setSpeed(+e.key); }
+});
+
+/* 供自动化测试 / 截图使用 */
+window.race={
+  state:function(){ return {state:state,t:t,hare:hare.d,tor:tor.d,naps:+nNapEl.textContent,speed:speed}; },
+  place:function(h,d){ hare.d=clamp(h,0,FIN); tor.d=clamp(d,0,FIN); hud(); draw(); },
+  start:start, pause:pause, reset:function(){ reset(true); toIdle(); }, setSpeed:setSpeed,
+  wake:wake, theme:function(v){ document.body.dataset.theme=v;
+    $('theme').textContent=v==='dark'?'☀️ 浅色':'🌙 深色'; },
+  lines:function(v){ showLines=v; $('showLines').checked=v; }
+};
+
+reset(true);
+if(Q.get('auto')==='1'){ start(); }
+if(Q.get('pose')){ var ps=Q.get('pose').split(',');
+  hare.d=clamp(+ps[0]||0,0,FIN); tor.d=clamp(+ps[1]||0,0,FIN); t=+ps[2]||0;
+  if(ps[3]) hare.sleep=+ps[3];
+  state=ps[4]||'running';
+  if(state==='finished'){ winner = hare.d>=FIN?'🐰 小兔':'🐢 乌龟';
+    mainBtn.textContent='↻ 再来一次';
+    showMsg(winner+' 获胜！','演示画面：'+(winner==='🐰 小兔'?'兔子只打了两次盹，醒来后一路狂奔抢在乌龟前面撞线。':'兔子睡过了头，一步不停的乌龟先撞线。')); }
+  if(ps[5]==='1'){ showLines=true; $('showLines').checked=true; }
+  hud(); }
+raf=requestAnimationFrame(function(n){ last=n; loop(n); });
+})();
+        <button id="startBtn">▶ 开始比赛</button>
+        <button id="pauseBtn">⏸ 暂停</button>
+        <button id="resetBtn">↺ 重置</button>
+      </div>
+      <div class="controls">
+        <span class="seg" id="modeSeg">
+          <button data-mode="single" class="on">单人对电脑</button>
+          <button data-mode="two">双人对战</button>
+          <button data-mode="demo">AI 表演赛</button>
+        </span>
+        <label class="opt">难度 <select id="diffSel">
+          <option value="easy">简单</option><option value="normal" selected>中等</option><option value="hard">困难</option>
+        </select></label>
+        <label class="opt">赛制 <select id="boSel">
+          <option value="1" selected>一局 11 分</option><option value="3">三局两胜</option><option value="5">五局三胜</option>
+        </select></label>
+        <button id="soundBtn">🔊 音效</button>
+        <button id="themeBtn">🌙 深色</button>
+      </div>
+    </div>
+    <ul class="keys">
+      <li><kbd>←</kbd><kbd>→</kbd> 或鼠标 / 触摸拖动 — 移动红拍</li>
+      <li><kbd>空格</kbd> 按住蓄力·松开 — 发球；对打中按一次 — 扣杀</li>
+      <li>双人模式：上方蓝拍用 <kbd>A</kbd><kbd>D</kbd>，<kbd>Shift</kbd> 蓄力发球</li>
+      <li><kbd>P</kbd>/<kbd>Esc</kbd> 暂停 · <kbd>R</kbd> 重置 · <kbd>M</kbd> 静音 · <kbd>T</kbd> 深色</li>
+    </ul>
+    <ul class="log" id="log"></ul>
+    <p class="foot" id="foot"></p>
+  </div>
+  <div class="touchbar">
+    <button id="touchServe">按住蓄力发球</button>
+    <button id="touchSmash">扣杀</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* __CORE_START__ ======================================================= */
+/* 规则与物理内核：只用标准数学，不访问 DOM，可在 Node 中直接抽出做单元测试。 */
+
+const TABLE = {
+  L: 2.74, W: 1.525, NET: 0.1525,    // 真实球台尺寸（m）
+  NET_HALF: 1.525 / 2 + 0.06,        // 网（含网柱外沿）横向半宽
+  G: 6.2,                            // 游戏尺度重力（略小于 9.8，便于操作）
+  REST: 0.80,                        // 台面弹性
+  FRIC: 0.955,                       // 弹跳后水平速度保留
+  REACH: 0.30,                       // 球拍横向覆盖半径（m）
+  PLANE: 1.52,                       // 球拍所在平面（底线后方）
+  START_Y: 1.44,                     // 发球时球相对底线的位置
+  Z_MAX: 1.35,                       // 拍面能击到的最高球
+  DEAD_Y: 2.20, DEAD_X: 1.40,        // 死球判定线
+  SMASH_WINDOW: 0.16,                // 扣杀输入有效窗口（s）
+  GRAZE: 0.035,                      // 擦网（网顶掠过）判定厚度
+  HUMAN_SPEED: 5.4,                  // 人手球拍最大移动速度（m/s）
+  SUB: 1 / 300
+};
+
+const DIFFICULTY = {
+  easy:   { name:'简单', speed:2.1, err:0.34, react:0.22, aim:0.30, fault:0.18, smash:0.05 },
+  normal: { name:'中等', speed:3.4, err:0.15, react:0.11, aim:0.15, fault:0.07, smash:0.14 },
+  hard:   { name:'困难', speed:5.2, err:0.045, react:0.04, aim:0.06, fault:0.02, smash:0.26 }
+};
+
+function mulberry32(a){
+  let t = a >>> 0;
+  return function(){
+    t = (t + 0x6D2B79F5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+const other = s => s === 'p1' ? 'p2' : 'p1';
+const signOf = s => s === 'p1' ? 1 : -1;
+const SIDES = ['p1', 'p2'];
+
+/**
+ * 乒乓球规则 + 物理内核。
+ * @param {object} cfg {seed, mode, diff, target, winBy, gamesToWin, firstServer}
+ */
+function createGame(cfg){
+  cfg = cfg || {};
+  const T = TABLE, halfW = T.W / 2, halfL = T.L / 2;
+  const rnd = mulberry32(cfg.seed != null ? cfg.seed : (Date.now() & 0x7fffffff));
+
+  const S = {
+    phase: 'menu',                 // menu | serve | rally | dead | over
+    paused: false,
+    mode: cfg.mode || 'single',    // single | two | demo
+    diff: cfg.diff || 'normal',
+    target: cfg.target || 11,
+    winBy: cfg.winBy || 2,
+    gamesToWin: cfg.gamesToWin || 1,
+    points: 0,                     // 本局已打分数（决定发球轮换）
+    score: { p1: 0, p2: 0 },
+    games: { p1: 0, p2: 0 },
+    gameLog: [],
+    firstServer: cfg.firstServer || 'p1',
+    server: cfg.firstServer || 'p1',
+    receiver: other(cfg.firstServer || 'p1'),
+    ball: { x: 0, y: 0, z: 0.3, vx: 0, vy: 0, vz: 0, spin: 0, live: false },
+    paddle: { p1: { x: 0, want: 0, vx: 0 }, p2: { x: 0, want: 0, vx: 0 } },
+    lastHitter: null,
+    serving: false,                // 仍处于发球判定中
+    netTouched: false,             // 本球路是否擦过网带
+    bounces: { p1: 0, p2: 0 },     // 本球路在各方台面的落地次数
+    rally: 0, longestRally: 0, maxSpeed: 0,
+    hits: { p1: 0, p2: 0 }, misses: { p1: 0, p2: 0 },
+    stats: { points: 0, lets: 0, serveFaults: 0, aces: 0, smashes: 0 },
+    winner: null, pointWinner: null, reason: '', faultBy: null,
+    charging: false, charge: 0, smashAt: -99,
+    deadTimer: 0, serveTimer: 0, elapsed: 0,
+    ai: { err: { p1: 0, p2: 0 }, ready: { p1: 0, p2: 0 }, pred: { p1: 0, p2: 0 }, engaged: { p1: false, p2: false } },
+    events: []
+  };
+  const B = S.ball;
+
+  function emit(ev){ S.events.push(ev); }
+
+  /* ---------- 发球权：每 2 分轮换，局末平分后每分轮换 ---------- */
+  function serverFor(a, b){
+    const deuce = a >= S.target - 1 && b >= S.target - 1;
+    const idx = Math.floor((a + b) / (deuce ? 1 : 2));
+    return (idx % 2 === 0) ? S.firstServer : other(S.firstServer);
+  }
+
+  function isHuman(side){
+    if (S.mode === 'single') return side === 'p1';
+    if (S.mode === 'two') return true;
+    return false;                  // demo：双方都由 AI 出拍
+  }
+
+  /* ---------- 弹道求解：给定落点与飞行时长，反推初速度 ---------- */
+  function solveShot(tx, ty, time){
+    const vx = (tx - B.x) / time, vy = (ty - B.y) / time;
+    const vz = 0.5 * T.G * time - B.z / time;
+    let clear = -1;
+    if ((B.y > 0 && vy < 0) || (B.y < 0 && vy > 0)){
+      const tc = -B.y / vy;
+      clear = (tc > 0 && tc < time) ? B.z + vz * tc - 0.5 * T.G * tc * tc : -1;
+    }
+    return { vx, vy, vz, time, clear };
+  }
+
+  /* 逐步放慢（加弧）直到能过网；实在不行就用最弧的一档（可能下网，交给物理） */
+  function chooseShot(tx, ty, speed){
+    const dist = Math.max(0.3, Math.hypot(tx - B.x, ty - B.y));
+    let best = solveShot(tx, ty, dist / speed);
+    for (let k = 0; k < 8; k++){
+      const shot = solveShot(tx, ty, (dist / speed) * (1 + k * 0.15));
+      best = shot;
+      if (shot.clear > T.NET + 0.05) break;
+    }
+    return best;
+  }
+
+  function applyShot(shot, side, spin){
+    B.vx = shot.vx; B.vy = shot.vy; B.vz = shot.vz;
+    B.spin = spin; B.live = true;
+    S.lastHitter = side;
+    S.netTouched = false;
+    S.bounces.p1 = 0; S.bounces.p2 = 0;
+    const sp = Math.hypot(B.vx, B.vy, B.vz);
+    if (sp > S.maxSpeed) S.maxSpeed = sp;
+    if (!S.serving){
+      S.rally++;
+      if (S.rally > S.longestRally) S.longestRally = S.rally;
+    }
+    S.hits[side]++;
+    emit({ t: 'hit', side, speed: sp, serve: S.serving });
+  }
+
+  /* ---------- 回球 ---------- */
+  function hitReturn(side){
+    const p = S.paddle[side], d = DIFFICULTY[S.diff], opp = S.paddle[other(side)];
+    const human = isHuman(side);
+    const off = clamp((B.x - p.x) / T.REACH, -1.2, 1.2);
+    const edge = Math.abs(off) > 0.8;                  // 拍边缘碰球：更容易失误
+    let smash = human
+      ? (S.elapsed - S.smashAt < T.SMASH_WINDOW && B.z > 0.22)
+      : (B.z > 0.30 && rnd() < d.smash);
+    if (smash) S.stats.smashes++;
+
+    // 落点：把球打向对手的空当；边缘碰球时瞄准更深、更容易出界
+    const away = opp.x >= 0 ? -1 : 1;
+    let aimX, depth, speed;
+    if (human){
+      aimX = clamp(off * 0.55 + p.vx * 0.05, -1, 1) * halfW * 0.9;
+      if (rnd() < 0.22) aimX = away * halfW * 0.7;
+      depth = smash ? 0.82 + rnd() * 0.14 : 0.40 + rnd() * 0.5;
+      speed = smash ? 8.4 + rnd() * 1.2 : 5.0 + rnd() * 1.3;
+      if (edge){ depth += 0.18; speed += 1.0; }
+    } else {
+      aimX = (away * 0.70 + (rnd() * 2 - 1) * d.aim) * halfW;
+      if (rnd() < 0.25) aimX = (rnd() * 2 - 1) * halfW * 0.85;
+      depth = 0.42 + rnd() * 0.5;
+      speed = smash ? 8.0 : 4.2 + d.speed * 0.75 + rnd() * 1.2;
+      if (edge){ aimX *= 1.25; depth += 0.15; }
+    }
+    const err = human ? (rnd() * 2 - 1) * 0.05 : (rnd() * 2 - 1) * d.aim * 0.6;
+    const tx = clamp(aimX + err, -halfW - 0.30, halfW + 0.30);
+    const ty = -signOf(side) * clamp(depth, 0.12, 1.0) * halfL;
+    S.serving = false;
+    playReturn(side, tx, ty, speed, smash);
+    S.smashAt = -99;
+  }
+
+  function playReturn(side, tx, ty, speed, smash){
+    const p = S.paddle[side];
+    applyShot(chooseShot(tx, ty, speed), side, clamp(p.vx * 0.28, -2.4, 2.4));
+    if (smash) emit({ t: 'smash', side });
+  }
+
+  /* ---------- 发球：球必须先落本方台面，弹起过网后再落对方台面 ---------- */
+  // 解析模拟一次发球的完整两段轨迹，判断是否合法、过网余量多少
+  function judgeServe(shot, x1, y1){
+    const sgn = signOf(S.server);
+    const ownSide = sgn * y1 > 0.05 && Math.abs(x1) <= halfW - 0.02 && Math.abs(y1) <= halfL - 0.02;
+    if (!ownSide) return { ok: false, why: 'first' };
+    const vzLand = shot.vz - T.G * shot.time;
+    const vz1 = -vzLand * T.REST;
+    if (vz1 <= 0) return { ok: false, why: 'first' };
+    const vx1 = shot.vx * T.FRIC, vy1 = shot.vy * T.FRIC;
+    const t2 = 2 * vz1 / T.G;
+    const x2 = x1 + vx1 * t2, y2 = y1 + vy1 * t2;
+    if (sgn * y2 > 0) return { ok: false, why: 'short' };               // 弹起后没能过网
+    if (Math.abs(x2) > halfW - 0.03 || Math.abs(y2) > halfL - 0.03) return { ok: false, why: 'long' };
+    const tc = -y1 / vy1;
+    if (!(tc > 0 && tc < t2)) return { ok: false, why: 'short' };
+    const zNet = vz1 * tc - 0.5 * T.G * tc * tc;
+    const margin = zNet - T.NET;
+    if (margin < 0.02) return { ok: false, why: 'net', margin };
+    return { ok: true, margin, depth: -sgn * y2 / halfL, spread: Math.abs(x2) / halfW };
+  }
+
+  // 在候选发球里挑一个合法的：对「第一落点 × 出手速度」做小网格搜索。
+  // power 越大越贴网、越深，风险也越高；badBias 用于 AI 偶发的失误发球（故意选最差的）。
+  function findServe(side, power, badBias){
+    const sgn = signOf(side), p = S.paddle[side];
+    let best = null;
+    for (let iy = 0; iy < 9; iy++){
+      const y1 = sgn * (0.24 + iy * 0.09 + (rnd() * 2 - 1) * 0.03);
+      const x1 = clamp(p.x + (rnd() * 2 - 1) * halfW * 0.55, -halfW + 0.08, halfW - 0.08);
+      for (let is = 0; is < 11; is++){
+        const speed = 1.7 + is * 0.42 + (rnd() * 2 - 1) * 0.15;
+        const time = Math.max(0.1, Math.hypot(x1 - B.x, y1 - B.y) / speed);
+        const shot = solveShot(x1, y1, time);
+        const res = judgeServe(shot, x1, y1);
+        let score;
+        if (res.ok){
+          score = 60 + Math.min(res.margin, 0.2) * 40
+            + (1 - Math.abs(res.depth - (0.55 + power * 0.35))) * 14
+            - Math.abs(res.spread - 0.45) * 6 + power * 5;
+        } else if (res.why === 'net'){
+          score = 6 + (res.margin || -1) * 30;         // 贴网：最接近合法
+        } else score = rnd() * 0.5;                     // 完全不合理
+        if (badBias) score = -score;
+        if (!best || score > best.score) best = { score, shot, x1, y1, res };
+      }
+    }
+    return best;
+  }
+
+  function launchServe(side, power){
+    const sgn = signOf(side), p = S.paddle[side];
+    B.x = clamp(p.x, -halfW + 0.06, halfW - 0.06);
+    B.y = sgn * T.START_Y; B.z = 0.26; B.spin = 0;
+    S.server = side; S.receiver = other(side);
+    S.serving = true; S.lastHitter = side;
+    S.netTouched = false;
+    S.bounces.p1 = 0; S.bounces.p2 = 0; S.rally = 0;
+    S.phase = 'rally';
+    const d = DIFFICULTY[S.diff];
+    const sloppy = !isHuman(side) && rnd() < d.fault;
+    if (sloppy) S.stats.serveFaults++;
+    const pick = findServe(side, sloppy ? 0.15 : power, sloppy);
+    applyShot(pick.shot, side, clamp(p.vx * 0.22, -1.6, 1.6));
+    S.charging = false; S.charge = 0;
+    return pick;
+  }
+
+  /* ---------- 得分 ---------- */
+  function award(winner, reason, faultSide){
+    if (S.phase === 'dead' || S.phase === 'over') return;
+    S.reason = reason; S.faultBy = faultSide || null;
+    B.live = false; S.charging = false; S.charge = 0;
+
+    if (winner === null){                                   // LET：不计分，换发重打
+      S.stats.lets++;
+      emit({ t: 'let', side: S.server });
+      S.pointWinner = null;
+      S.phase = 'dead'; S.deadTimer = 1.0;
+      return;
+    }
+    S.pointWinner = winner;
+    S.score[winner]++; S.points++;
+    if (S.rally === 0) S.stats.aces++;
+    S.stats.points++;
+    emit({ t: 'score', winner, reason, score: { p1: S.score.p1, p2: S.score.p2 } });
+
+    const a = S.score.p1, b = S.score.p2;
+    const gameDone = (a >= S.target || b >= S.target) && Math.abs(a - b) >= S.winBy;
+    if (!gameDone){
+      S.phase = 'dead'; S.deadTimer = 1.1;
+      return;
+    }
+    S.games[winner]++;
+    S.gameLog.push({ p1: a, p2: b, winner });
+    emit({ t: 'gameEnd', winner, p1: a, p2: b, games: { p1: S.games.p1, p2: S.games.p2 } });
+    if (S.games[winner] >= S.gamesToWin){
+      S.winner = winner;
+      S.phase = 'over';
+      S.reason = '比赛结束';
+      emit({ t: 'matchEnd', winner, games: { p1: S.games.p1, p2: S.games.p2 } });
+      return;
+    }
+    S.score.p1 = 0; S.score.p2 = 0; S.points = 0;
+    S.firstServer = other(S.firstServer);                   // 下一局换先发
+    S.phase = 'dead'; S.deadTimer = 3.0;
+  }
+
+  function startPoint(){
+    S.phase = 'serve';
+    S.rally = 0; S.bounces.p1 = 0; S.bounces.p2 = 0;
+    S.lastHitter = null; S.serving = true;
+    S.netTouched = false;
+    S.charging = false; S.charge = 0; S.smashAt = -99;
+    S.server = serverFor(S.score.p1, S.score.p2);
+    S.receiver = other(S.server);
+    S.ai.engaged.p1 = false; S.ai.engaged.p2 = false;
+    S.ai.ready.p1 = 0; S.ai.ready.p2 = 0;
+    const sgn = signOf(S.server), p = S.paddle[S.server];
+    B.live = false; B.spin = 0; B.vx = B.vy = B.vz = 0;
+    B.x = clamp(p.x, -halfW + 0.06, halfW - 0.06);
+    B.y = sgn * T.START_Y; B.z = 0.26;
+    S.serveTimer = isHuman(S.server) ? 0 : 0.5 + rnd() * 0.7;
+    emit({ t: 'serve', side: S.server, score: { p1: S.score.p1, p2: S.score.p2 } });
+  }
+
+  /* ---------- 单步物理积分 ---------- */
+  function integrate(b, h){
+    b.vx += b.spin * h * 0.26;
+    b.spin *= (1 - 1.6 * h);
+    b.x += b.vx * h; b.y += b.vy * h;
+    b.vz -= T.G * h; b.z += b.vz * h;
+  }
+
+  function onTable(x, y){
+    return Math.abs(x) <= halfW + 0.015 && Math.abs(y) <= halfL + 0.015;
+  }
+
+  /* 向前推算球到达某一侧拍面平面时的横向位置（找不到就返回 null） */
+  function predictPlane(side){
+    const sgn = signOf(side), plane = sgn * T.PLANE;
+    if ((sgn > 0 && B.vy <= 0.02) || (sgn < 0 && B.vy >= -0.02)) return null;
+    const b = { x: B.x, y: B.y, z: B.z, vx: B.vx, vy: B.vy, vz: B.vz, spin: B.spin };
+    const h = 1 / 150;
+    for (let i = 0; i < 420; i++){
+      const y0 = b.y, x0 = b.x, z0 = b.z;
+      integrate(b, h);
+      if (b.z <= 0 && b.vz <= 0){
+        if (!onTable(b.x, b.y)) return null;
+        b.vz = -b.vz * T.REST; b.vx *= T.FRIC; b.vy *= T.FRIC; b.z = 0;
+      }
+      if ((sgn > 0 && b.y >= plane) || (sgn < 0 && b.y <= plane)){
+        const f = (plane - y0) / (b.y - y0);
+        return { x: x0 + (b.x - x0) * f, z: Math.max(0, z0 + (b.z - z0) * f) };
+      }
+      if (Math.abs(b.y) > T.DEAD_Y || Math.abs(b.x) > T.DEAD_X) return null;
+    }
+    return null;
+  }
+
+  /* ---------- AI 跑位与击球 ---------- */
+  function aiMove(side, dt){
+    const d = DIFFICULTY[S.diff], p = S.paddle[side];
+    const towards = side === 'p1' ? B.vy > 0.04 : B.vy < -0.04;
+    if (S.phase === 'rally' && B.live && towards && !S.ai.engaged[side]){
+      S.ai.engaged[side] = true;
+      const pr = predictPlane(side);
+      S.ai.pred[side] = pr ? pr.x : 0;
+      S.ai.err[side] = (rnd() * 2 - 1) * d.err;
+      S.ai.ready[side] = d.react;
+    }
+    if (S.ai.ready[side] > 0) S.ai.ready[side] -= dt;
+    let want;
+    if (S.phase === 'serve'){
+      want = side === S.server ? clamp(p.x, -0.5, 0.5) : 0;
+    } else if (!B.live || !towards){
+      want = 0;                                   // 回中路准备下一板
+    } else {
+      const lag = S.ai.ready[side] > 0 ? S.ai.err[side] * 0.25 : S.ai.err[side];
+      want = S.ai.pred[side] + lag;
+    }
+    want = clamp(want, -halfW - 0.3, halfW + 0.3);
+    const maxStep = d.speed * dt;
+    const before = p.x;
+    p.x = clamp(p.x + clamp(want - p.x, -maxStep, maxStep), -1.2, 1.2);
+    p.vx = (p.x - before) / Math.max(dt, 1e-4);
+    p.want = want;
+  }
+
+  /* ---------- 判定：球已离开比赛（出界 / 下网 / 对方未接到） ---------- */
+  function finishAsOut(){
+    const hitter = S.lastHitter || S.server, recv = other(hitter);
+    if (S.serving){
+      if (S.bounces[S.server] === 0) award(recv, '发球未先落本方台面', S.server);
+      else if (S.bounces[recv] >= 1) award(hitter, '对方没接到', recv);
+      else award(recv, '发球出界', S.server);
+      return;
+    }
+    if (S.bounces[recv] >= 1) award(hitter, '对方没接到', recv);
+    else if (S.netTouched) award(recv, '回球下网', hitter);
+    else award(recv, '回球出界', hitter);
+  }
+
+  /* ---------- 落地判定 ---------- */
+  function handleLanding(){
+    const side = B.y > 0 ? 'p1' : 'p2';
+    const hitter = S.lastHitter || S.server;
+    const recv = other(hitter);
+
+    if (!onTable(B.x, B.y)){ finishAsOut(); return; }
+
+    S.bounces[side]++;
+    emit({ t: 'bounce', side, power: Math.min(1, Math.abs(B.vz) / 2.2), x: B.x, y: B.y });
+
+    if (S.serving){
+      const srv = S.server, rcv = other(srv);
+      if (S.bounces[srv] === 1 && side === srv){
+        /* 第一落点在本方台面：合法，继续 */
+      } else if (S.bounces[srv] > 1){
+        award(rcv, '发球未过网', srv); return;
+      } else if (S.bounces[rcv] === 1){
+        if (S.netTouched){ award(null, 'LET 擦网重发', null); return; }
+        S.serving = false;                      // 发球生效，回合开始
+      } else {
+        award(rcv, '发球失误', srv); return;
+      }
+    } else {
+      if (side === hitter && S.bounces[hitter] >= 1){
+        award(recv, '回球落本方台面', hitter); return;
+      }
+      if (S.bounces[side] >= 2){
+        award(S.lastHitter || other(side), '两跳得分', side); return;
+      }
+    }
+    const incoming = B.vz;
+    B.vz = -incoming * T.REST; B.vx *= T.FRIC; B.vy *= T.FRIC; B.z = 0;
+  }
+
+  /* ---------- 过网判定 ---------- */
+  function handleNetCross(prevX, prevZ, f){
+    const xCross = prevX + (B.x - prevX) * f;
+    const zCross = prevZ + (B.z - prevZ) * f;
+    B.x = xCross;
+    if (Math.abs(xCross) > T.NET_HALF) return;   // 从网柱外侧绕过：不碰网，落点仍需进台
+    if (zCross > T.NET) return;
+    if (T.NET - zCross <= T.GRAZE){
+      S.netTouched = true;             // 擦网带：球继续飞行，若落入对方台面判 LET
+      B.z = T.NET;
+      B.vz += 0.28; B.vx *= 0.92; B.vy *= 0.90;
+      emit({ t: 'graze', side: S.lastHitter });
+      return;
+    }
+    S.netTouched = true;               // 下网：球被网挡回
+    B.y = 0; B.z = Math.max(0, zCross);
+    B.vy = -B.vy * 0.22; B.vx *= 0.35; B.vz = Math.min(B.vz, 0.12) * 0.4;
+    B.spin = 0;
+    emit({ t: 'net', side: S.lastHitter });
+  }
+
+  /* ---------- 拍面平面上的回击 ---------- */
+  function handlePlane(side, prevY){
+    const sgn = signOf(side), plane = sgn * T.PLANE;
+    const crossed = sgn > 0 ? (prevY < plane && B.y >= plane) : (prevY > plane && B.y <= plane);
+    if (!crossed) return false;
+    if (S.lastHitter === side) return false;
+    const p = S.paddle[side];
+    const inReach = Math.abs(B.x - p.x) <= T.REACH && B.z <= T.Z_MAX && B.z >= -0.02;
+    if (S.bounces[side] < 1){
+      // 球还没在本方台面弹起：拍面让开，等它落地（出界则由落地判定扣分）。
+      // 若这时强行挥拍就是「抢击犯规」，按规则判对方得分。
+      if (inReach && (isHuman(side) ? S.smashAt > S.elapsed - T.SMASH_WINDOW : false)){
+        award(other(side), '抢击犯规', side);
+        return true;
+      }
+      return false;
+    }
+    if (inReach){ hitReturn(side); return true; }
+    S.misses[side]++;
+    emit({ t: 'whiff', side });
+    return false;
+  }
+
+  /* ---------- 一个子步 ---------- */
+  const SUB = TABLE.SUB;
+  let acc = 0;
+  function physics(){
+    const h = SUB;
+    const prevY = B.y, prevX = B.x, prevZ = B.z;
+    integrate(B, h);
+    const sp = Math.hypot(B.vx, B.vy, B.vz);
+    if (sp > S.maxSpeed) S.maxSpeed = sp;
+
+    if ((prevY > 0) !== (B.y > 0)){                       // 越过球网所在平面
+      const f = prevY / (prevY - B.y || 1e-9);
+      handleNetCross(prevX, prevZ, f);
+    }
+    if (B.z <= 0 && B.vz <= 0){ handleLanding(); return; }
+    if (handlePlane('p1', prevY)) return;
+    if (handlePlane('p2', prevY)) return;
+    if (Math.abs(B.y) > T.DEAD_Y || Math.abs(B.x) > T.DEAD_X) finishAsOut();
+  }
+
+  /* ---------- 主循环 ---------- */
+  function step(dt){
+    if (S.paused || S.phase === 'menu' || S.phase === 'over') return;
+    dt = Math.min(Math.max(dt, 0), 0.05);
+    S.elapsed += dt;
+
+    for (const side of SIDES){
+      const p = S.paddle[side];
+      if (isHuman(side)){
+        const target = clamp(p.want, -1.2, 1.2);
+        const maxStep = TABLE.HUMAN_SPEED * dt;
+        const before = p.x;
+        p.x = clamp(p.x + clamp(target - p.x, -maxStep, maxStep), -1.2, 1.2);
+        p.vx = (p.x - before) / Math.max(dt, 1e-4);
+      } else aiMove(side, dt);
+    }
+
+    if (S.phase === 'rally'){
+      acc += dt;
+      let guard = 0;
+      while (acc >= SUB && guard++ < 240 && S.phase === 'rally' && B.live){
+        physics();
+        acc -= SUB;
+      }
+      if (S.phase !== 'rally') acc = 0;
+    } else if (S.phase === 'serve'){
+      acc = 0;
+      if (isHuman(S.server)){
+        if (S.charging) S.charge = Math.min(1, S.charge + dt / 1.05);
+        const sgn = signOf(S.server), p = S.paddle[S.server];
+        B.x = clamp(p.x, -halfW + 0.06, halfW - 0.06);
+        B.y = sgn * T.START_Y;
+        B.z = 0.26 + (S.charging ? Math.sin(S.charge * Math.PI) * 0.14 : Math.sin(S.elapsed * 2.4) * 0.02);
+      } else {
+        S.serveTimer -= dt;
+        if (S.serveTimer <= 0) launchServe(S.server, 0.35 + rnd() * 0.55);
+      }
+    } else if (S.phase === 'dead'){
+      acc = 0;
+      S.deadTimer -= dt;
+      if (S.deadTimer <= 0) startPoint();
+    }
+  }
+
+  const api = {
+    S, TABLE, DIFFICULTY, isHuman, serverFor,
+    startMatch(over){
+      Object.assign(S, over || {});
+      S.score.p1 = 0; S.score.p2 = 0; S.games.p1 = 0; S.games.p2 = 0;
+      S.points = 0; S.gameLog = []; S.rally = 0; S.longestRally = 0; S.maxSpeed = 0;
+      S.hits.p1 = 0; S.hits.p2 = 0; S.misses.p1 = 0; S.misses.p2 = 0;
+      S.stats = { points: 0, lets: 0, serveFaults: 0, aces: 0, smashes: 0 };
+      S.winner = null; S.pointWinner = null; S.reason = ''; S.faultBy = null;
+      S.elapsed = 0; S.paused = false; S.events.length = 0; acc = 0;
+      S.firstServer = S.firstServer || 'p1';
+      S.server = S.firstServer; S.receiver = other(S.server);
+      S.paddle.p1.x = S.paddle.p1.want = S.paddle.p1.vx = 0;
+      S.paddle.p2.x = S.paddle.p2.want = S.paddle.p2.vx = 0;
+      B.live = false;
+      startPoint();
+    },
+    setPaddle(side, x){ S.paddle[side].want = clamp(x, -1.2, 1.2); },
+    beginServe(side){
+      if (S.phase === 'serve' && side === S.server && isHuman(side)) S.charging = true;
+    },
+    endServe(side){
+      if (S.phase === 'serve' && side === S.server && isHuman(side) && S.charging)
+        launchServe(side, 0.30 + 0.70 * S.charge);
+      else S.charging = false;
+    },
+    smash(side){ if (isHuman(side)) S.smashAt = S.elapsed; },
+    pause(v){ S.paused = v === undefined ? !S.paused : !!v; },
+    toMenu(){ S.phase = 'menu'; S.paused = false; B.live = false; },
+    step
+  };
+  return api;
+}
+
+if (typeof module !== 'undefined' && module.exports){
+  module.exports = { createGame, TABLE, DIFFICULTY, mulberry32, clamp, other, signOf };
+}
+/* __CORE_END__ ========================================================= */
+
+/* __UI_START__ ========================================================= */
+if (typeof window !== 'undefined' && typeof document !== 'undefined'){
+(function(){
+  const T = TABLE, halfW = T.W / 2, halfL = T.L / 2;
+  const cv = document.getElementById('stage');
+  const ctx = cv.getContext('2d');
+  const qs = new URLSearchParams(location.search);
+  const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const el = id => document.getElementById(id);
+
+  const game = createGame({
+    seed: qs.get('seed') != null ? +qs.get('seed') : undefined,
+    mode: qs.get('mode') || 'single',
+    diff: qs.get('ai') || 'normal',
+    target: +(qs.get('target') || 11),
+    winBy: +(qs.get('winby') || 2),
+    gamesToWin: +(qs.get('bo') || 1),
+    firstServer: qs.get('serve') || 'p1'
+  });
+  const S = game.S;
+  window.__game = game;                 // 供自动化演示与调试使用
+
+  /* ---------- 主题 ---------- */
+  const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+  let dark = qs.get('theme') === 'dark' || (qs.get('theme') !== 'light' && prefersDark);
+  function applyTheme(){
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    el('themeBtn').textContent = dark ? '☀️ 浅色' : '🌙 深色';
+  }
+  applyTheme();
+
+  /* ---------- 音效 ---------- */
+  let ac = null, muted = qs.get('sound') === 'off';
+  function tone(freq, dur, type, gain){
+    if (muted) return;
+    try{
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(gain, ac.currentTime + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + dur + 0.02);
+    }catch(e){ muted = true; el('soundBtn').textContent = '🔇 静音'; }
+  }
+  function onEvent(ev){
+    if (ev.t === 'hit') tone(ev.serve ? 545 : 460 + Math.min(280, ev.speed * 32), 0.07, 'square', 0.11);
+    else if (ev.t === 'bounce') tone(250 + ev.power * 150, 0.05, 'triangle', 0.04 + ev.power * 0.09);
+    else if (ev.t === 'net') tone(140, 0.14, 'sawtooth', 0.08);
+    else if (ev.t === 'graze') tone(760, 0.07, 'sine', 0.09);
+    else if (ev.t === 'whiff') tone(200, 0.05, 'sine', 0.05);
+    else if (ev.t === 'score') tone(ev.winner === 'p1' ? 880 : 300, 0.18, 'triangle', 0.14);
+    else if (ev.t === 'let') tone(430, 0.15, 'sine', 0.1);
+    else if (ev.t === 'smash') tone(1000, 0.08, 'sawtooth', 0.13);
+    else if (ev.t === 'gameEnd'){ tone(660, 0.2, 'triangle', 0.13); setTimeout(() => tone(990, 0.24, 'triangle', 0.13), 190); }
+    else if (ev.t === 'matchEnd'){ tone(523, 0.2, 'triangle', 0.15); setTimeout(() => tone(784, 0.32, 'triangle', 0.15), 210); }
+  }
+
+  /* ---------- 投影：把台面 (x,y,z) 米坐标画成伪 3D ---------- */
+  const W0 = cv.width, H0 = cv.height;
+  const FAR = { y: 122, s: 200 }, NEAR = { y: 546, s: 286 };
+  function project(x, y, z){
+    const t = (y + halfL) / T.L;
+    const s = FAR.s + (NEAR.s - FAR.s) * t;
+    return { x: W0 / 2 + x * s, y: (FAR.y + (NEAR.y - FAR.y) * t) - z * s * 0.8, s };
+  }
+  function toTableX(px){ return (px - W0 / 2) / NEAR.s * 1.28; }
+
+  /* ---------- 绘制 ---------- */
+  function quad(a, b, c, d, fill){
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  }
+  function segLine(x1, y1, z1, x2, y2, z2, w, color){
+    const a = project(x1, y1, z1), b = project(x2, y2, z2);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.lineWidth = w; ctx.strokeStyle = color; ctx.stroke();
+  }
+  function disc(x, y, r, fill){
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
+  }
+  const ripples = [];
+
+  function drawWorld(){
+    const g = ctx.createLinearGradient(0, 0, 0, H0);
+    g.addColorStop(0, css('--floor1')); g.addColorStop(1, css('--floor2'));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W0, H0);
+
+    const fL = project(-halfW, -halfL, 0), fR = project(halfW, -halfL, 0);
+    const nR = project(halfW, halfL, 0), nL = project(-halfW, halfL, 0);
+
+    // 台体侧面与地面阴影
+    ctx.fillStyle = 'rgba(10,25,40,.30)';
+    ctx.beginPath();
+    ctx.moveTo(nL.x - 12, nL.y + 30); ctx.lineTo(nR.x + 12, nR.y + 30);
+    ctx.lineTo(nR.x, nR.y); ctx.lineTo(nL.x, nL.y); ctx.closePath(); ctx.fill();
+    const legFar = 0.76;
+    for (const sx of [-1, 1]){
+      const top = project(sx * halfW * 0.82, legFar, 0), bot = project(sx * halfW * 0.86, legFar, -0.74);
+      ctx.strokeStyle = 'rgba(40,60,80,.55)'; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bot.x, bot.y); ctx.stroke();
+    }
+
+    const tg = ctx.createLinearGradient(0, fL.y, 0, nL.y);
+    tg.addColorStop(0, css('--tbl-top')); tg.addColorStop(1, css('--tbl-bot'));
+    quad(fL, fR, nR, nL, tg);
+    ctx.fillStyle = 'rgba(6,22,36,.55)';
+    ctx.fillRect(nL.x, nL.y, nR.x - nL.x, 10);
+
+    const line = css('--tbl-line');
+    segLine(-halfW, -halfL, .002, halfW, -halfL, .002, 3, line);
+    segLine(-halfW, halfL, .002, halfW, halfL, .002, 3, line);
+    segLine(-halfW, -halfL, .002, -halfW, halfL, .002, 3, line);
+    segLine(halfW, -halfL, .002, halfW, halfL, .002, 3, line);
+    segLine(0, -halfL, .002, 0, halfL, .002, 2, 'rgba(255,255,255,.6)');
+
+    // 弹跳涟漪
+    for (let i = ripples.length - 1; i >= 0; i--){
+      const rp = ripples[i], age = (S.elapsed - rp.t0) / 0.34;
+      if (age >= 1){ ripples.splice(i, 1); continue; }
+      const pp = project(rp.x, rp.y, 0.004);
+      ctx.globalAlpha = (1 - age) * 0.55;
+      ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(pp.x, pp.y, 5 + age * 26, (5 + age * 26) * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    drawPaddle('p2');
+    drawBall();
+
+    // 球网
+    const nT = T.NET;
+    quad(project(-T.NET_HALF, 0, 0), project(-T.NET_HALF, 0, nT),
+         project(T.NET_HALF, 0, nT), project(T.NET_HALF, 0, 0), 'rgba(224,238,248,.32)');
+    for (let i = -8; i <= 8; i++){
+      const x = (i / 8) * T.NET_HALF;
+      segLine(x, 0, 0, x, 0, nT, 1, 'rgba(255,255,255,.3)');
+    }
+    segLine(-T.NET_HALF, 0, nT, T.NET_HALF, 0, nT, 3, css('--net'));
+    segLine(-T.NET_HALF, 0, -0.03, -T.NET_HALF, 0, nT + 0.04, 5, 'rgba(35,55,75,.9)');
+    segLine(T.NET_HALF, 0, -0.03, T.NET_HALF, 0, nT + 0.04, 5, 'rgba(35,55,75,.9)');
+
+    drawPaddle('p1');
+
+    if (S.phase === 'serve'){
+      const p = S.paddle[S.server], pr = project(p.x, signOf(S.server) * T.PLANE, 0.12);
+      const below = S.server === 'p1';
+      ctx.textAlign = 'center'; ctx.font = '600 15px system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      const label = game.isHuman(S.server)
+        ? (S.charging ? `蓄力 ${Math.round(S.charge * 100)}%` : '按住空格 / 点画面蓄力发球')
+        : `${sideLabel(S.server)}发球中…`;
+      ctx.fillText(label, clamp(pr.x, 110, W0 - 110), below ? pr.y + 58 : pr.y - 40);
+      if (S.charging){
+        const bx = clamp(pr.x, 110, W0 - 110) - 62, by = below ? pr.y + 64 : pr.y - 56;
+        ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(bx, by, 124, 7);
+        ctx.fillStyle = '#ffd54a'; ctx.fillRect(bx, by, 124 * S.charge, 7);
+      }
+    }
+  }
+
+  function drawPaddle(side){
+    const p = S.paddle[side], sgn = signOf(side);
+    const c = project(p.x, sgn * T.PLANE, 0.10);
+    const r = 0.13 * c.s;
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(1, 0.86);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(3, 6, r, r * 0.86, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c69a5e';
+    ctx.fillRect(-4.5, sgn > 0 ? r * 0.5 : -r * 1.75, 9, r * 1.3);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = css(side === 'p1' ? '--p1' : '--p2'); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill();
+    ctx.restore();
+  }
+
+  let trail = [];
+  function drawBall(){
+    const b = S.ball;
+    if (!b.live && S.phase !== 'serve') return;
+    const sh = project(b.x, b.y, 0), h = Math.max(0, b.z);
+    ctx.save();
+    ctx.globalAlpha = clamp(0.46 - h * 0.15, 0.05, 0.46);
+    ctx.fillStyle = css('--shadow');
+    ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 8 + h * 6, (8 + h * 6) * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    for (let i = 0; i < trail.length; i++){
+      const pp = project(trail[i].x, trail[i].y, trail[i].z);
+      ctx.globalAlpha = (i / trail.length) * 0.3;
+      disc(pp.x, pp.y, 3 + i * 0.35, css('--ball'));
+    }
+    ctx.globalAlpha = 1;
+    const bp = project(b.x, b.y, Math.max(h, 0.014));
+    const rad = Math.max(6, bp.s * 0.024);
+    const rg = ctx.createRadialGradient(bp.x - rad * 0.32, bp.y - rad * 0.36, rad * 0.18, bp.x, bp.y, rad);
+    rg.addColorStop(0, '#ffffff'); rg.addColorStop(1, css('--ball'));
+    ctx.beginPath(); ctx.arc(bp.x, bp.y, rad, 0, Math.PI * 2); ctx.fillStyle = rg; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.stroke();
+    if (Math.abs(b.y) > halfL + 0.42){
+      ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '600 12px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(b.y > 0 ? '球在画面下方' : '球在画面上方', clamp(bp.x, 70, W0 - 70), clamp(bp.y, 30, H0 - 12));
+    }
+  }
+
+  /* ---------- HUD / 文字 ---------- */
+  let msgTimer = 0;
+  function showMsg(text, sub, hold){
+    const m = el('msg'); m.textContent = text;
+    if (sub){ const s = document.createElement('small'); s.textContent = sub; m.appendChild(s); }
+    m.classList.add('show'); msgTimer = hold || 1.4;
+  }
+  function sideLabel(side){
+    if (S.mode === 'single') return side === 'p1' ? '你' : '电脑';
+    if (S.mode === 'two') return side === 'p1' ? '玩家 1' : '玩家 2';
+    return side === 'p1' ? 'AI 红' : 'AI 蓝';
+  }
+  function updateHUD(){
+    el('lbl1').textContent = sideLabel('p1');
+    el('lbl2').textContent = sideLabel('p2');
+    el('s1').textContent = S.score.p1; el('s2').textContent = S.score.p2;
+    el('g1').textContent = S.games.p1; el('g2').textContent = S.games.p2;
+    el('rally').textContent = S.rally; el('longest').textContent = S.longestRally;
+    el('speed').textContent = Math.round(S.maxSpeed * 3.6);
+    el('chip1').classList.toggle('serving', S.server === 'p1' && S.phase !== 'over');
+    el('chip2').classList.toggle('serving', S.server === 'p2' && S.phase !== 'over');
+    el('menuMask').classList.toggle('show', S.phase === 'menu');
+    el('pauseMask').classList.toggle('show', S.paused && S.phase !== 'menu' && S.phase !== 'over');
+    el('overMask').classList.toggle('show', S.phase === 'over');
+    if (S.phase === 'over'){
+      el('overTitle').textContent = `${sideLabel(S.winner)} 赢得比赛 🏆`;
+      el('overText').textContent = `局分 ${S.games.p1} : ${S.games.p2} · ` +
+        S.gameLog.map(g => `${g.p1}:${g.p2}`).join(' / ') +
+        ` · 最长回合 ${S.longestRally} 板 · 扣杀 ${S.stats.smashes} 次`;
+    }
+    el('startBtn').textContent = S.phase === 'menu' ? '▶ 开始比赛'
+      : S.phase === 'over' ? '▶ 再来一场' : '▶ 重新开始';
+  }
+  function renderLog(){
+    const ul = el('log');
+    ul.innerHTML = '';
+    const rows = S.gameLog.slice(-6).map(g => `第 ${S.gameLog.indexOf(g) + 1} 局 ${g.p1}:${g.p2}`);
+    if (!rows.length){
+      const li = document.createElement('li');
+      li.textContent = `球台 ${T.L}m × ${T.W}m · 网高 ${T.NET}m（真实尺寸）`;
+      ul.appendChild(li);
+    }
+    rows.forEach(r => { const li = document.createElement('li'); li.textContent = r; ul.appendChild(li); });
+  }
+
+  /* ---------- 输入 ---------- */
+  const keys = {};
+  let pointerX = null;
+  function clientToTableX(clientX){
+    const r = cv.getBoundingClientRect();
+    return toTableX((clientX - r.left) * (W0 / r.width));
+  }
+  function humanSides(){ return S.mode === 'single' ? ['p1'] : S.mode === 'two' ? ['p1', 'p2'] : []; }
+  const primary = 'p1';
+
+  cv.addEventListener('pointermove', e => { pointerX = clientToTableX(e.clientX); });
+  cv.addEventListener('pointerdown', e => {
+    document.body.classList.add('touch');
+    pointerX = clientToTableX(e.clientX);
+    if (S.phase === 'menu'){ startMatch(); return; }
+    if (S.phase === 'over'){ startMatch(); return; }
+    if (S.phase === 'serve') game.beginServe(primary);
+    else game.smash(primary);
+  });
+  addEventListener('pointerup', () => { if (S.charging) game.endServe(primary); });
+  addEventListener('pointercancel', () => { if (S.charging) game.endServe(primary); });
+
+  addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (e.code === 'Space' || k === ' '){
+      e.preventDefault();
+      if (S.phase === 'menu' || S.phase === 'over') startMatch();
+      else if (S.phase === 'serve') game.beginServe(primary);
+      else game.smash(primary);
+      return;
+    }
+    if (k === 'shift'){ game.beginServe('p2'); return; }
+    if (k === 'p' || e.key === 'Escape'){ if (S.phase !== 'menu' && S.phase !== 'over') game.pause(); return; }
+    if (k === 'r'){ resetAll(); return; }
+    if (k === 'm'){ toggleMute(); return; }
+    if (k === 't'){ dark = !dark; applyTheme(); return; }
+    if (k === 'enter'){ if (S.phase === 'menu' || S.phase === 'over') startMatch(); return; }
+    keys[k] = true;
+  });
+  addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    keys[k] = false;
+    if (e.code === 'Space' || k === ' '){ if (S.charging) game.endServe(primary); }
+    if (k === 'shift'){ if (S.charging && S.server === 'p2') game.endServe('p2'); }
+  });
+  el('touchServe').addEventListener('pointerdown', () => { if (S.phase === 'serve') game.beginServe(primary); });
+  el('touchServe').addEventListener('pointerup', () => { if (S.charging) game.endServe(primary); });
+  el('touchSmash').addEventListener('pointerdown', () => game.smash(primary));
+
+  /* ---------- 控件 ---------- */
+  let mode = qs.get('mode') || 'single';
+  const seg = el('modeSeg');
+  function paintSeg(){ [...seg.children].forEach(b => b.classList.toggle('on', b.dataset.mode === mode)); }
+  paintSeg();
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    mode = b.dataset.mode; paintSeg();
+    if (S.phase !== 'menu') startMatch();
+  });
+  el('diffSel').value = S.diff;
+  el('boSel').value = String(S.gamesToWin);
+  el('startBtn').addEventListener('click', startMatch);
+  el('pauseBtn').addEventListener('click', () => { if (S.phase !== 'menu' && S.phase !== 'over') game.pause(); });
+  el('resetBtn').addEventListener('click', resetAll);
+  el('themeBtn').addEventListener('click', () => { dark = !dark; applyTheme(); });
+  el('soundBtn').addEventListener('click', toggleMute);
+  function toggleMute(){
+    muted = !muted;
+    el('soundBtn').textContent = muted ? '🔇 静音' : '🔊 音效';
+    if (!muted) tone(680, 0.08, 'triangle', 0.11);
+  }
+  el('soundBtn').textContent = muted ? '🔇 静音' : '🔊 音效';
+
+  function startMatch(){
+    S.mode = mode;
+    S.diff = el('diffSel').value;
+    S.gamesToWin = +el('boSel').value;
+    game.startMatch({});
+    showMsg('比赛开始', '先发球：' + sideLabel(S.server), 1.6);
+    foot(); renderLog();
+  }
+  function resetAll(){
+    game.toMenu();
+    S.score.p1 = 0; S.score.p2 = 0; S.games.p1 = 0; S.games.p2 = 0;
+    S.rally = 0; S.longestRally = 0; S.maxSpeed = 0; S.gameLog = [];
+    S.stats = { points: 0, lets: 0, serveFaults: 0, aces: 0, smashes: 0 };
+    S.ball.live = false; trail.length = 0; ripples.length = 0;
+    showMsg('已回到准备页', '选模式后点「开始比赛」', 1.1);
+    foot(); renderLog();
+  }
+  function foot(){
+    el('foot').textContent =
+      `当前：${sideLabel('p1')} vs ${sideLabel('p2')} · ${DIFFICULTY[S.diff].name}难度 · ` +
+      (S.gamesToWin === 1 ? '一局 11 分' : `${S.gamesToWin * 2 - 1} 局 ${S.gamesToWin} 胜`) +
+      ` · 球台 ${T.L}m × ${T.W}m、网高 ${T.NET}m（真实尺寸）`;
+  }
+
+  /* ---------- 主循环 ---------- */
+  let last = performance.now(), frozen = false;
+  function frame(now){
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+    last = now;
+    if (frozen){ drawWorld(); updateHUD(); requestAnimationFrame(frame); return; }
+    for (const side of humanSides()){
+      let want = S.paddle[side].want;
+      if (side === 'p1'){
+        if (pointerX !== null) want = pointerX;
+        if (keys['arrowleft']) want -= 3.4 * dt;
+        if (keys['arrowright']) want += 3.4 * dt;
+      } else {
+        if (keys['a']) want -= 3.4 * dt;
+        if (keys['d']) want += 3.4 * dt;
+      }
+      game.setPaddle(side, clamp(want, -1.2, 1.2));
+    }
+    const phaseBefore = S.phase, scoreBefore = S.score.p1 + S.score.p2, gamesBefore = S.gameLog.length;
+    game.step(dt);
+    let newGame = false;
+    while (S.events.length){
+      const ev = S.events.shift();
+      onEvent(ev);
+      if (ev.t === 'bounce') ripples.push({ t0: S.elapsed, x: ev.x, y: ev.y });
+      if (ev.t === 'score') showMsg(sideLabel(ev.winner) + ' 拿下一分', ev.reason, 1.15);
+      if (ev.t === 'let') showMsg('LET · 擦网重发', '不计分，重新发球', 1.25);
+      if (ev.t === 'gameEnd') newGame = true;
+      if (ev.t === 'matchEnd') renderLog();
+    }
+    if (S.gameLog.length !== gamesBefore) renderLog();
+    if (S.phase !== phaseBefore && S.phase === 'serve' && scoreBefore === S.score.p1 + S.score.p2 && !newGame){
+      /* 同一分内的 LET 重发：无需额外提示 */
+    }
+    if (S.ball.live){ trail.push({ x: S.ball.x, y: S.ball.y, z: S.ball.z }); if (trail.length > 11) trail.shift(); }
+    else if (trail.length) trail.shift();
+    if (msgTimer > 0){ msgTimer -= dt; if (msgTimer <= 0) el('msg').classList.remove('show'); }
+    drawWorld();
+    updateHUD();
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- 自动化演示参数：?auto=1 直接开打，?ff=<秒> 先推进若干秒再出画 ---------- */
+  // 无头截图时 requestAnimationFrame 不会自然推进，这里用固定步长同步快进。
+  function fastForward(seconds){
+    const dt = 1 / 60;
+    for (let i = 0; i < Math.round(seconds * 60); i++){
+      if (S.phase === 'over') break;
+      if (S.phase === 'serve' && game.isHuman(S.server) && !S.charging){
+        game.beginServe(S.server);
+      } else if (S.phase === 'serve' && game.isHuman(S.server) && S.charge > 0.7){
+        game.endServe(S.server);
+      }
+      for (const side of humanSides()){
+        // 快进时玩家拍自动追踪来球，便于单人模式也能打出连续回合
+        const b = S.ball;
+        const towards = side === 'p1' ? b.vy > 0 : b.vy < 0;
+        game.setPaddle(side, towards && b.live ? clamp(b.x, -1.2, 1.2) : 0);
+      }
+      game.step(dt);
+      S.events.length = 0;
+      if (S.ball.live){ trail.push({ x: S.ball.x, y: S.ball.y, z: S.ball.z }); if (trail.length > 11) trail.shift(); }
+    }
+  }
+
+  if (qs.get('auto') === '1'){
+    mode = qs.get('mode') || (qs.get('demo') === '1' ? 'demo' : 'single');
+    paintSeg();
+    startMatch();
+    if (qs.get('demo') === '1'){
+      S.mode = 'demo';
+      el('lbl1').textContent = sideLabel('p1');
+      el('lbl2').textContent = sideLabel('p2');
+    }
+    const ff = +(qs.get('ff') || 0);
+    if (ff > 0){
+      fastForward(ff);
+      el('msg').classList.remove('show'); msgTimer = 0;
+    }
+    // 截图用：直接摆出发球蓄力条
+    const charge = qs.get('charge');
+    if (charge !== null && S.phase === 'serve' && game.isHuman(S.server)){
+      game.beginServe(S.server); S.charge = clamp(+charge, 0, 1);
+      el('msg').classList.remove('show'); msgTimer = 0;
+    }
+    if (qs.get('freeze') === '1') frozen = true;
+    if (qs.get('pause') === '1') game.pause(true);
+  }
+  requestAnimationFrame(frame);
+  foot(); renderLog();
+})();
+}
+/* __UI_END__ */
 </script>
 </body>
 </html>

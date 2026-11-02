@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>靶场射击 · 打枪小游戏</title>
+<style>
+  :root {
+    --ink: #e8eef6;
+    --dim: #8fa2b8;
+    --accent: #ffb547;
+    --danger: #ff5c5c;
+    --panel: rgba(11, 17, 26, 0.86);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(120% 90% at 50% 8%, #16233a 0%, #0a1120 55%, #05080f 100%);
+    color: var(--ink);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; overflow: hidden; }
+  /* #frame keeps the 1280x720 logical size and is scaled as a whole, so the
+     HUD text scales with the canvas and never clips on small screens. */
+  #frame { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: top left; }
+  canvas { display: block; width: 1280px; height: 720px; background: #0a1120; border-radius: 10px; cursor: none; }
+  .hud { position: absolute; pointer-events: none; letter-spacing: .02em; }
+  /* The frame is uniformly scaled down on small screens, so type sizes are
+     expressed relative to a root size that divides the scale back out. */
+  .hud, .panel { font-size: clamp(13px, calc(15px / var(--s, 1)), 46px); }
+  .hud-left { left: 16px; top: 14px; }
+  .hud-right { right: 16px; top: 14px; text-align: right; }
+  .hud-bottom { left: 16px; right: 16px; bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .label { color: var(--dim); font-size: .8em; text-transform: uppercase; }
+  .score { font-size: 2.25em; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .combo { color: var(--accent); font-weight: 700; font-size: 1.05em; }
+  .timer { font-size: 1.75em; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--danger); }
+  .wave { color: var(--dim); font-size: .85em; }
+  .meter { width: 12.5em; height: .4em; border-radius: .2em; background: rgba(255,255,255,.14); overflow: hidden; margin-top: .4em; }
+  .meter > i { display: block; height: 100%; background: var(--accent); width: 100%; }
+  .mag { display: flex; gap: .33em; align-items: center; }
+  .mag > i { width: .85em; height: 1.6em; border-radius: .2em; background: #c98f3a; box-shadow: inset 0 -.27em 0 rgba(0,0,0,.28); }
+  .mag > i.empty { background: rgba(255,255,255,.13); box-shadow: none; }
+  .magtext { font-variant-numeric: tabular-nums; font-weight: 700; margin-left: .55em; }
+  .stats { color: var(--dim); font-size: .85em; }
+  #reloadHint { color: var(--danger); font-weight: 700; }
+  .panel {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: rgba(4, 8, 15, .72); backdrop-filter: blur(3px); border-radius: 10px;
+    text-align: center; padding: 1.6em;
+  }
+  .panel[hidden] { display: none; }
+  .card { background: var(--panel); border: 1px solid rgba(255,255,255,.1); border-radius: .95em; padding: 1.75em 2em; max-width: 38em; }
+  .card h1 { margin: 0 0 .4em; font-size: 2em; }
+  .card h2 { margin: 0 0 .65em; font-size: 1.6em; }
+  .card p { margin: .4em 0; color: var(--dim); font-size: .95em; line-height: 1.6; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: .3em .8em; margin: 1em 0 1.2em; text-align: left; font-size: .95em; }
+  .keys b { color: var(--accent); font-family: ui-monospace, Consolas, monospace; font-weight: 700; }
+  .grade { font-size: 4.1em; font-weight: 800; color: var(--accent); line-height: 1; }
+  .rows { display: grid; grid-template-columns: 1fr 1fr; gap: .4em 1.7em; margin: 1em 0 1.2em; font-size: 1em; }
+  .rows > div { display: flex; justify-content: space-between; gap: .95em; }
+  .rows span { color: var(--dim); }
+  .rows strong { font-variant-numeric: tabular-nums; }
+  button {
+    pointer-events: auto; cursor: pointer; border: 0; border-radius: 999px;
+    background: linear-gradient(180deg, #ffc766, #e8951f); color: #241803;
+    font: inherit; font-weight: 800; font-size: 1.15em; padding: .7em 1.8em;
+  }
+  button:active { transform: translateY(1px); }
+  .note { margin-top: .8em; font-size: .8em; }
+  #pausePanel .card h2 { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="stage"><div id="frame">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div class="hud hud-left">
+    <div class="label">得分 Score</div>
+    <div class="score" id="score">0</div>
+    <div class="combo" id="combo"></div>
+  </div>
+  <div class="hud hud-right">
+    <div class="timer" id="time">60.0</div>
+    <div class="meter"><i id="timeBar"></i></div>
+    <div class="wave" id="wave">第 1 波</div>
+  </div>
+  <div class="hud hud-bottom">
+    <div>
+      <div class="mag" id="mag"></div>
+      <div class="stats" id="reloadHint"></div>
+    </div>
+    <div class="stats" id="stats">命中率 0% · 最高连击 0</div>
+  </div>
+
+  <div class="panel" id="menuPanel">
+    <div class="card">
+      <h1>靶场射击</h1>
+      <p>60 秒限时打靶。钢靶越靠近中心得分越高，连续命中触发连击倍率；<br>蓝色人形靶是误伤靶，打中要扣分。</p>
+      <div class="keys">
+        <b>鼠标移动</b><span>瞄准</span>
+        <b>左键 / 触屏</b><span>开火</span>
+        <b>R</b><span>换弹（弹匣 8 发）</span>
+        <b>P / Esc</b><span>暂停</span>
+        <b>Enter</b><span>开始 / 再来一局</span>
+      </div>
+      <button id="startBtn">开始射击</button>
+      <p class="note" id="bestNote"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="overPanel" hidden>
+    <div class="card">
+      <h2>时间到</h2>
+      <div class="grade" id="grade">C</div>
+      <div class="rows" id="resultRows"></div>
+      <button id="againBtn">再来一局</button>
+      <p class="note" id="overNote"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="pausePanel" hidden>
+    <div class="card"><h2>已暂停</h2><p>按 P / Esc 继续。</p></div>
+  </div>
+</div></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------------------------------------------------------------- constants
+  const W = 1280, H = 720;
+  const HORIZON = 262;          // vanishing line of the range
+  const FLOOR_NEAR = 700;       // ground y at depth 1
+  const FLOOR_FAR = 318;        // ground y at depth 0
+  const MAG_SIZE = 8;
+  const RELOAD_TIME = 1.05;
+  const DEFAULT_DURATION = 60;
+
+  const q = new URLSearchParams(location.search);
+  const DURATION = Math.max(5, Number(q.get("duration")) || DEFAULT_DURATION);
+  const DEMO = q.get("demo") === "auto";         // auto-aim spectator mode
+  const AUTOSTART = q.has("autostart");
+  const RNG_SEED = q.has("seed") ? Number(q.get("seed")) : (Date.now() & 0xffffffff);
+  const SELFTEST = q.get("selftest") === "1";
+  // Dev-only: `?steps=N` advances the simulation N fixed frames with no rAF,
+  // so headless captures and scripted checks see a deterministic game state.
+  const STEPS = q.has("steps") ? Math.max(0, Number(q.get("steps")) || 0) : null;
+  // Dev-only: `&shoot=N` aims at the front-most target and fires N times.
+  const SHOOT = q.has("shoot") ? Math.max(0, Number(q.get("shoot")) || 0) : 0;
+  // Dev-only: `&settle=N` frames to advance after the last shot (1 keeps the flash).
+  const SETTLE = q.has("settle") ? Math.max(0, Number(q.get("settle")) || 0) : 6;
+  // Dev-only: `&every=N` fires at the front-most target every N frames during the stepped run.
+  const EVERY = q.has("every") ? Math.max(1, Number(q.get("every")) || 0) : 0;
+
+  // ------------------------------------------------------------------- core
+  const core = {
+    createRng(seed) {
+      let s = (seed >>> 0) || 1;
+      return () => {
+        s ^= s << 13; s >>>= 0;
+        s ^= s >> 17;
+        s ^= s << 5; s >>>= 0;
+        return s / 4294967296;
+      };
+    },
+
+    /** Map a lane/depth target to screen space. */
+    project(lx, d) {
+      const s = 0.34 + 0.86 * d;
+      const ground = FLOOR_FAR + (FLOOR_NEAR - FLOOR_FAR) * d;
+      const x = W / 2 + lx * (150 + 430 * d);
+      return { x, ground, s };
+    },
+
+    makeTarget(rng, wave) {
+      const d = 0.15 + rng() * 0.8;
+      const hazard = rng() < Math.min(0.26, 0.06 + wave * 0.035);
+      const bonus = !hazard && rng() < Math.max(0.06, 0.2 - wave * 0.02);
+      const base = hazard ? 40 : bonus ? 30 : 46;
+      const speed = (0.1 + rng() * 0.16) * (0.6 + wave * 0.2);
+      return {
+        id: ++targetSeq,
+        kind: hazard ? "hazard" : bonus ? "bonus" : "steel",
+        lx: (rng() * 2 - 1) * 0.86,
+        d,
+        r: base,
+        dir: rng() < 0.5 ? -1 : 1,
+        slide: speed * 0.55,
+        life: Math.max(0.95, 2.6 - wave * 0.22) + rng() * 0.7,
+        up: 0,
+        state: "rise",
+        t: 0,
+        scored: false,
+      };
+    },
+
+    /** Nearest still-shootable target under a point, or null. */
+    hitTest(targets, px, py) {
+      let best = null;
+      for (const t of targets) {
+        if (t.state !== "rise" && t.state !== "up") continue;
+        const p = core.project(t.lx, t.d);
+        const cy = p.ground - (t.r * 2.2 + t.r) * p.s;
+        const rr = t.r * p.s * (t.kind === "bonus" ? 1 : 1.08);
+        const dx = px - p.x, dy = py - cy;
+        if (dx * dx + dy * dy > rr * rr) continue;
+        if (!best || t.d > best.d) best = t;   // front target wins overlaps
+      }
+      return best;
+    },
+
+    /** Points for a hit: steel 100, bonus 220; closer to centre pays more. */
+    ringScore(t, dist) {
+      const rr = t.r * core.project(t.lx, t.d).s;
+      const frac = rr > 0 ? Math.min(1, dist / rr) : 1;
+      const base = t.kind === "bonus" ? 220 : t.kind === "hazard" ? 0 : 100;
+      const ring = frac <= 0.34 ? 1.5 : frac <= 0.68 ? 1.2 : 1;
+      return Math.round(base * ring);
+    },
+
+    comboMult(streak) {
+      return Math.min(5, 1 + Math.floor(streak / 3) * 0.5);
+    },
+
+    grade(score) {
+      return score >= 4200 ? "S" : score >= 3200 ? "A" : score >= 2200 ? "B"
+           : score >= 1200 ? "C" : score >= 500 ? "D" : "E";
+    },
+  };
+
+  let targetSeq = 0;
+  let rng = core.createRng(RNG_SEED);
+
+  // -------------------------------------------------------------------- state
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const el = {
+    frame: document.getElementById("frame"),
+    score: document.getElementById("score"),
+    combo: document.getElementById("combo"),
+    time: document.getElementById("time"),
+    timeBar: document.getElementById("timeBar"),
+    wave: document.getElementById("wave"),
+    mag: document.getElementById("mag"),
+    reloadHint: document.getElementById("reloadHint"),
+    stats: document.getElementById("stats"),
+    menu: document.getElementById("menuPanel"),
+    over: document.getElementById("overPanel"),
+    pause: document.getElementById("pausePanel"),
+    grade: document.getElementById("grade"),
+    rows: document.getElementById("resultRows"),
+    best: document.getElementById("bestNote"),
+    overNote: document.getElementById("overNote"),
+  };
+
+  const view = { scale: 1, dpr: 1 };
+  const aim = { x: W / 2, y: H / 2 };
+  const gun = { kick: 0, angle: 0 };
+  const sfx = {};
+
+  const g = {
+    mode: "menu",            // menu | playing | paused | over
+    score: 0, streak: 0, bestStreak: 0,
+    shots: 0, hits: 0, penalties: 0,
+    time: DURATION, elapsed: 0, wave: 1,
+    targets: [], holes: [], sparks: [], floats: [],
+    spawnIn: 0.4, flash: 0, shake: 0,
+    ammo: MAG_SIZE, reloading: 0,
+    demoAim: 0, demoFire: 0,
+  };
+
+  function bestScore() { return Number(localStorage.getItem("range-shooter-best") || 0); }
+
+  // --------------------------------------------------------------- audio (synth)
+  function initAudio() {
+    if (sfx.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    sfx.ctx = new AC();
+    sfx.master = sfx.ctx.createGain();
+    sfx.master.gain.value = 0.5;
+    sfx.master.connect(sfx.ctx.destination);
+    const len = Math.floor(sfx.ctx.sampleRate * 0.4);
+    sfx.noise = sfx.ctx.createBuffer(1, len, sfx.ctx.sampleRate);
+    const data = sfx.noise.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  }
+
+  function tone(freq, dur, type = "sine", gain = 0.25, slide = 0) {
+    if (!sfx.ctx) return;
+    const t = sfx.ctx.currentTime;
+    const o = sfx.ctx.createOscillator(), v = sfx.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+    v.gain.setValueAtTime(gain, t);
+    v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(v).connect(sfx.master);
+    o.start(t); o.stop(t + dur);
+  }
+
+  function burst(dur, cutoff, gain = 0.4) {
+    if (!sfx.ctx) return;
+    const t = sfx.ctx.currentTime;
+    const src = sfx.ctx.createBufferSource(); src.buffer = sfx.noise;
+    const f = sfx.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = cutoff;
+    const v = sfx.ctx.createGain();
+    v.gain.setValueAtTime(gain, t);
+    v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(v).connect(sfx.master);
+    src.start(t); src.stop(t + dur);
+  }
+
+  const sound = {
+    shot() { burst(0.16, 1400, 0.5); tone(180, 0.09, "square", 0.16, -120); },
+    hit(streak) { tone(880 + Math.min(streak, 12) * 45, 0.12, "triangle", 0.3, 260); burst(0.05, 5200, 0.12); },
+    penalty() { tone(160, 0.3, "sawtooth", 0.28, -70); },
+    miss() { burst(0.07, 500, 0.16); },
+    dry() { tone(2200, 0.04, "square", 0.08); },
+    reload() { tone(1200, 0.05, "square", 0.12); setTimeout(() => tone(760, 0.06, "square", 0.12), 260); setTimeout(() => tone(1500, 0.05, "square", 0.1, 300), 700); },
+    over() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.24, "triangle", 0.22), i * 130)); },
+  };
+
+  // ------------------------------------------------------------------- layout
+  function resize() {
+    const availW = window.innerWidth - 16, availH = window.innerHeight - 16;
+    const scale = Math.max(0.2, Math.min(availW / W, availH / H));
+    el.frame.style.transform = "scale(" + scale + ")";
+    el.frame.style.setProperty("--s", String(scale));
+    el.frame.style.left = Math.max(8, (window.innerWidth - W * scale) / 2) + "px";
+    el.frame.style.top = Math.max(8, (window.innerHeight - H * scale) / 2) + "px";
+    view.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * scale * view.dpr);
+    canvas.height = Math.round(H * scale * view.dpr);
+    view.scale = canvas.width / W;
+    renderHud();
+    if (STEPS !== null) render();   // resizing clears the canvas: repaint the stepped frame
+  }
+
+  function toLogical(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: ((clientX - r.left) / r.width) * W,
+      y: ((clientY - r.top) / r.height) * H,
+    };
+  }
+
+  // ------------------------------------------------------------------ actions
+  function startGame() {
+    initAudio();
+    Object.assign(g, {
+      mode: "playing", score: 0, streak: 0, bestStreak: 0,
+      shots: 0, hits: 0, penalties: 0,
+      time: DURATION, elapsed: 0, wave: 1,
+      targets: [], holes: [], sparks: [], floats: [],
+      spawnIn: 0.35, flash: 0, shake: 0, ammo: MAG_SIZE, reloading: 0,
+    });
+    rng = core.createRng(RNG_SEED);
+    el.menu.hidden = true; el.over.hidden = true; el.pause.hidden = true;
+    renderHud();
+  }
+
+  function setPaused(on) {
+    if (g.mode === "menu" || g.mode === "over") return;
+    g.mode = on ? "paused" : "playing";
+    el.pause.hidden = !on;
+  }
+
+  function reload() {
+    if (g.mode !== "playing" || g.reloading > 0 || g.ammo === MAG_SIZE) return;
+    g.reloading = RELOAD_TIME;
+    sound.reload();
+    renderHud();
+  }
+
+  function fire(px, py) {
+    if (g.mode !== "playing") return;
+    if (g.reloading > 0) return;
+    if (g.ammo <= 0) { sound.dry(); el.reloadHint.textContent = "弹匣空了 —— 按 R 换弹"; return; }
+
+    g.ammo--; g.shots++;
+    gun.kick = 1; g.flash = 0.06; g.shake = Math.min(g.shake + 5, 9);
+    sound.shot();
+
+    const t = core.hitTest(g.targets, px, py);
+    if (!t) {
+      g.streak = 0;
+      sound.miss();
+      g.holes.push({ x: px, y: py, life: 3.2 });
+      puff(px, py, "#7d8ea3", 5);
+      renderHud();
+      return;
+    }
+
+    const p = core.project(t.lx, t.d);
+    const cy = p.ground - (t.r * 2.2 + t.r) * p.s;
+    const dist = Math.hypot(px - p.x, py - cy);
+
+    if (t.kind === "hazard") {
+      g.streak = 0; g.penalties++;
+      const loss = Math.min(g.score, 150);
+      g.score -= loss;
+      sound.penalty();
+      float(px, py, "-" + loss + " 误伤", "#ff6b6b");
+      spark(px, py, "#ff7a7a", 14);
+    } else {
+      const gained = core.ringScore(t, dist);
+      const mult = core.comboMult(g.streak);
+      const pts = Math.round(gained * mult);
+      g.score += pts; g.hits++; g.streak++;
+      g.bestStreak = Math.max(g.bestStreak, g.streak);
+      sound.hit(g.streak);
+      float(px, py - 14, "+" + pts + (mult > 1 ? " ×" + mult : ""), mult > 1 ? "#ffd16a" : "#9fe2ff");
+      spark(p.x, cy, t.kind === "bonus" ? "#ffd16a" : "#c9d8ec", 12);
+    }
+    t.state = "hit"; t.t = 0; t.hitX = px; t.hitY = py;
+    renderHud();
+  }
+
+  function endGame() {
+    g.mode = "over";
+    sound.over();
+    const acc = g.shots ? Math.round(g.hits / g.shots * 100) : 0;
+    const grade = core.grade(g.score);
+    el.grade.textContent = grade;
+    el.rows.innerHTML = [
+      ["得分", g.score], ["命中率", acc + "%"],
+      ["命中 / 开枪", g.hits + " / " + g.shots], ["最高连击", g.bestStreak],
+      ["误伤罚靶", g.penalties], ["历史最佳", Math.max(bestScore(), g.score)],
+    ].map(([k, v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join("");
+    const prev = bestScore();
+    if (g.score > prev) localStorage.setItem("range-shooter-best", String(g.score));
+    el.overNote.textContent = g.score > prev ? "新纪录！比上一局最好成绩高 " + (g.score - prev) + " 分"
+                                             : "历史最佳 " + prev + " 分";
+    el.over.hidden = false;
+    canvas.style.cursor = "default";
+  }
+
+  // ------------------------------------------------------------------ effects
+  function spark(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = rng() * Math.PI * 2, v = 60 + rng() * 260;
+      g.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 0.4 + rng() * 0.3, color, size: 1 + rng() * 2.4 });
+    }
+  }
+  function puff(x, y, color, n) {
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (rng() - 0.5) * 2, v = 30 + rng() * 90;
+      g.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.3 + rng() * 0.25, color, size: 1.5 + rng() * 2.5 });
+    }
+  }
+  function float(x, y, text, color) {
+    g.floats.push({ x, y, text, color, life: 1 });
+  }
+
+  // -------------------------------------------------------------------- loop
+  function spawnInterval(wave) { return Math.max(0.42, 1.15 - wave * 0.11); }
+
+  function update(dt) {
+    g.elapsed += dt;
+    g.time = Math.max(0, g.time - dt);
+    const wave = 1 + Math.floor(g.elapsed / 12);
+    if (wave !== g.wave) { g.wave = wave; el.wave.textContent = "第 " + wave + " 波"; }
+
+    if (g.reloading > 0) {
+      g.reloading -= dt;
+      if (g.reloading <= 0) { g.reloading = 0; g.ammo = MAG_SIZE; renderHud(); }
+    }
+    if (g.ammo === 0 && g.reloading === 0) reload();
+
+    g.spawnIn -= dt;
+    if (g.spawnIn <= 0) {
+      g.targets.push(core.makeTarget(rng, g.wave));
+      g.spawnIn = spawnInterval(g.wave) * (0.6 + rng() * 0.8);
+    }
+
+    for (let i = g.targets.length - 1; i >= 0; i--) {
+      const t = g.targets[i];
+      t.t += dt;
+      if (t.state === "rise") { t.up = Math.min(1, t.up + dt / 0.13); if (t.up >= 1) t.state = "up"; }
+      else if (t.state === "up") {
+        if (t.slide) {
+          t.lx += t.dir * t.slide * dt;
+          if (t.lx > 0.9) { t.lx = 0.9; t.dir = -1; }
+          if (t.lx < -0.9) { t.lx = -0.9; t.dir = 1; }
+        }
+        if (t.t > t.life) { t.state = "fall"; t.t = 0; }
+      } else if (t.state === "fall") {
+        t.up = Math.max(0, t.up - dt / 0.16);
+        if (t.up <= 0) g.targets.splice(i, 1);
+      } else if (t.state === "hit") {
+        t.up = Math.max(0, t.up - dt / 0.22);
+        if (t.up <= 0) g.targets.splice(i, 1);
+      }
+    }
+
+    for (let i = g.holes.length - 1; i >= 0; i--) {
+      g.holes[i].life -= dt;
+      if (g.holes[i].life <= 0) g.holes.splice(i, 1);
+    }
+    for (let i = g.sparks.length - 1; i >= 0; i--) {
+      const s = g.sparks[i];
+      s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 620 * dt;
+      if (s.life <= 0) g.sparks.splice(i, 1);
+    }
+    for (let i = g.floats.length - 1; i >= 0; i--) {
+      const f = g.floats[i];
+      f.life -= dt; f.y -= 44 * dt;
+      if (f.life <= 0) g.floats.splice(i, 1);
+    }
+
+    g.flash = Math.max(0, g.flash - dt);
+    g.shake = Math.max(0, g.shake - dt * 26);
+    gun.kick = Math.max(0, gun.kick - dt * 4.2);
+
+    if (DEMO) demoStep(dt);
+
+    if (g.time <= 0) endGame();
+    else renderHud();
+  }
+
+  /** Spectator mode: aims at the front-most target and pulls the trigger. */
+  function demoStep(dt) {
+    g.demoAim += dt;
+    const t = core.hitTest(g.targets, aim.x, aim.y) || g.targets
+      .filter(x => x.state === "up" || x.state === "rise")
+      .sort((a, b) => b.d - a.d)[0];
+    if (t) {
+      const p = core.project(t.lx, t.d);
+      const cy = p.ground - (t.r * 2.2 + t.r) * p.s;
+      aim.x += (p.x - aim.x) * Math.min(1, dt * 9);
+      aim.y += (cy - aim.y) * Math.min(1, dt * 9);
+    }
+    g.demoFire -= dt;
+    if (g.demoFire <= 0 && t && g.ammo > 0 && g.reloading === 0) {
+      g.demoFire = 0.36;
+      fire(aim.x, aim.y);
+    }
+  }
+
+  // ------------------------------------------------------------------- render
+  function drawRange() {
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    sky.addColorStop(0, "#0d1626"); sky.addColorStop(1, "#1a2b45");
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, HORIZON + 6);
+
+    // back wall with lane baffles
+    ctx.fillStyle = "#22334f"; ctx.fillRect(0, HORIZON - 40, W, 110);
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    for (let i = 0; i < 9; i++) ctx.fillRect(40 + i * 150, HORIZON - 34, 12, 98);
+
+    // overhead lamps
+    for (let i = 0; i < 5; i++) {
+      const x = 140 + i * 250;
+      ctx.fillStyle = "rgba(255,220,150,.16)";
+      ctx.beginPath(); ctx.moveTo(x - 16, 40); ctx.lineTo(x + 16, 40);
+      ctx.lineTo(x + 96, HORIZON + 40); ctx.lineTo(x - 96, HORIZON + 40); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffe6ad"; ctx.fillRect(x - 18, 32, 36, 8);
+    }
+
+    // floor in perspective
+    const floor = ctx.createLinearGradient(0, HORIZON, 0, H);
+    floor.addColorStop(0, "#2b3849"); floor.addColorStop(1, "#4a5566");
+    ctx.fillStyle = floor; ctx.fillRect(0, HORIZON + 70, W, H);
+    ctx.fillStyle = "#1b2534"; ctx.fillRect(0, HORIZON, W, 70);
+
+    ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.lineWidth = 2;
+    for (let i = -4; i <= 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + i * 40, HORIZON + 70);
+      ctx.lineTo(W / 2 + i * 470, H + 40);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(0,0,0,.25)";
+    for (let d = 0; d < 5; d++) {
+      const y = HORIZON + 70 + (H - HORIZON - 70) * Math.pow(d / 4, 1.9);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // depth markers
+    ctx.fillStyle = "rgba(255,255,255,.05)";
+    for (const d of [0.25, 0.5, 0.75]) {
+      const p = core.project(0, d);
+      ctx.fillRect(W * 0.06, p.ground, W * 0.88, 2);
+    }
+  }
+
+  function drawTarget(t) {
+    const p = core.project(t.lx, t.d);
+    const r = t.r * p.s;
+    const lift = (t.r * 2.2 + t.r) * p.s * t.up;
+    const cy = p.ground - lift;
+    if (t.up <= 0.01) return;
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, t.up + 0.15);
+
+    // post + base shadow
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.ellipse(p.x, p.ground + 4, r * 1.15, r * 0.3, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "#5b6675";
+    ctx.fillRect(p.x - Math.max(2, r * 0.12), cy + r * 0.4, Math.max(4, r * 0.24), p.ground - cy);
+
+    if (t.kind === "hazard") {
+      ctx.fillStyle = "#3f7fd6";
+      ctx.beginPath();
+      ctx.arc(p.x, cy - r * 0.45, r * 0.42, 0, 7);           // head
+      ctx.fill();
+      ctx.beginPath();                                        // shoulders
+      ctx.moveTo(p.x - r * 0.75, cy + r);
+      ctx.quadraticCurveTo(p.x, cy - r * 0.2, p.x + r * 0.75, cy + r);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = Math.max(2, r * 0.14);
+      ctx.beginPath(); ctx.moveTo(p.x - r * 0.7, cy - r * 0.7); ctx.lineTo(p.x + r * 0.7, cy + r * 0.7); ctx.stroke();
+    } else {
+      const grad = ctx.createRadialGradient(p.x - r * 0.3, cy - r * 0.35, r * 0.1, p.x, cy, r);
+      const hot = t.kind === "bonus";
+      grad.addColorStop(0, hot ? "#ffe7a8" : "#e9f0f8");
+      grad.addColorStop(0.55, hot ? "#e0a52e" : "#b6c4d4");
+      grad.addColorStop(1, hot ? "#8f5f10" : "#6a7788");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(p.x, cy, r, 0, 7); ctx.fill();
+      for (const [frac, ringColor] of [[0.66, "#22303f"], [0.34, hot ? "#fff3cd" : "#f2f7fb"]]) {
+        ctx.beginPath(); ctx.strokeStyle = ringColor;
+        ctx.lineWidth = Math.max(1.5, r * 0.09);
+        ctx.arc(p.x, cy, r * frac, 0, 7); ctx.stroke();
+      }
+      ctx.fillStyle = "#16202c";
+      ctx.beginPath(); ctx.arc(p.x, cy, r * 0.1, 0, 7); ctx.fill();
+      if (hot) {
+        ctx.fillStyle = "#5a3c07";
+        ctx.font = `700 ${Math.round(r * 0.5)}px "Segoe UI", sans-serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("★", p.x, cy + r * 0.55);
+      }
+    }
+
+    if (t.state === "hit") {   // tilt away when knocked
+      ctx.strokeStyle = "rgba(255,255,255,.7)";
+      ctx.lineWidth = Math.max(2, r * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(t.hitX - r * 0.28, t.hitY - r * 0.28); ctx.lineTo(t.hitX + r * 0.28, t.hitY + r * 0.28);
+      ctx.moveTo(t.hitX + r * 0.28, t.hitY - r * 0.28); ctx.lineTo(t.hitX - r * 0.28, t.hitY + r * 0.28);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawGun() {
+    const px = 1090, py = H + 96;
+    const dx = aim.x - px, dy = aim.y - py;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    gun.angle = Math.atan2(uy, ux);
+    const back = gun.kick * gun.kick * 34;
+    const mx = px + ux * (250 - back), my = py + uy * (250 - back);
+
+    ctx.save();
+    ctx.translate(px - ux * back, py - uy * back);
+    ctx.rotate(gun.angle);
+    // barrel
+    ctx.fillStyle = "#2c333d";
+    ctx.beginPath();
+    ctx.roundRect(-20, -26, 268, 52, 16);
+    ctx.fill();
+    ctx.fillStyle = "#3f4855";
+    ctx.fillRect(30, -26, 200, 12);
+    ctx.fillStyle = "#1b2027";
+    ctx.fillRect(210, -14, 40, 28);
+    ctx.fillStyle = "rgba(255,255,255,.10)";
+    ctx.fillRect(-10, -22, 260, 6);
+    // front sight
+    ctx.fillStyle = "#ffb547";
+    ctx.fillRect(224, -30, 8, 8);
+    ctx.restore();
+
+    if (g.flash > 0) {
+      const fg = ctx.createRadialGradient(mx, my, 2, mx, my, 120);
+      fg.addColorStop(0, "rgba(255,244,200,.95)");
+      fg.addColorStop(0.35, "rgba(255,176,64,.55)");
+      fg.addColorStop(1, "rgba(255,150,40,0)");
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.arc(mx, my, 120, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(255,236,180,.9)";
+      ctx.save(); ctx.translate(mx, my); ctx.rotate(gun.angle);
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2, rr = i % 2 ? 8 : 30;
+        ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  }
+
+  function drawCrosshair() {
+    const { x, y } = aim;
+    ctx.save();
+    ctx.strokeStyle = g.reloading > 0 ? "rgba(255,92,92,.9)" : "rgba(255,220,150,.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 16, 0, 7); ctx.stroke();
+    ctx.beginPath();
+    for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(x + ax * 22, y + ay * 22); ctx.lineTo(x + ax * 34, y + ay * 34);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+    if (g.reloading > 0) {
+      ctx.strokeStyle = "#ff5c5c"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, 24, -Math.PI / 2, -Math.PI / 2 + (1 - g.reloading / RELOAD_TIME) * Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const sx = g.shake ? (rng() - 0.5) * g.shake : 0;
+    const sy = g.shake ? (rng() - 0.5) * g.shake : 0;
+    ctx.save();
+    ctx.translate(sx, sy);
+    drawRange();
+
+    for (const h of g.holes) {
+      ctx.fillStyle = `rgba(12,16,22,${Math.min(0.8, h.life)})`;
+      ctx.beginPath(); ctx.arc(h.x, h.y, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(0.25, h.life * 0.1)})`;
+      ctx.beginPath(); ctx.arc(h.x - 1, h.y - 1, 1.2, 0, 7); ctx.fill();
+    }
+
+    g.targets.slice().sort((a, b) => a.d - b.d).forEach(drawTarget);
+
+    for (const s of g.sparks) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, s.life * 2.4));
+      ctx.fillStyle = s.color;
+      ctx.fillRect(s.x, s.y, s.size, s.size);
+    }
+    ctx.globalAlpha = 1;
+
+    if (g.mode === "playing" || g.mode === "paused") drawGun();
+
+    ctx.font = '700 20px "Segoe UI", sans-serif';
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const f of g.floats) {
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    if (g.mode === "playing") drawCrosshair();
+
+    if (g.flash > 0) {
+      ctx.fillStyle = `rgba(255,240,210,${g.flash * 1.6})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // -------------------------------------------------------------- hud updates
+  let lastHud = "";
+  function renderHud() {
+    const acc = g.shots ? Math.round(g.hits / g.shots * 100) : 0;
+    const mult = core.comboMult(g.streak);
+    const sig = g.score + "|" + g.streak + "|" + g.ammo + "|" + Math.round(g.time * 10) + "|" + acc + "|" + g.bestStreak + "|" + g.mode;
+    if (sig === lastHud) return;
+    lastHud = sig;
+
+    el.score.textContent = g.score;
+    el.combo.textContent = g.streak >= 2 ? `连击 ${g.streak}  ×${mult}` : "";
+    el.time.textContent = g.time.toFixed(1);
+    el.time.classList.toggle("low", g.time <= 10);
+    el.timeBar.style.width = (g.time / DURATION * 100).toFixed(1) + "%";
+    el.stats.textContent = `命中率 ${acc}% · 最高连击 ${g.bestStreak}`;
+    el.reloadHint.textContent = g.reloading > 0 ? "换弹中…" : g.ammo === 0 ? "按 R 换弹" : "";
+
+    const pips = [];
+    for (let i = 0; i < MAG_SIZE; i++) pips.push(`<i class="${i < g.ammo ? "" : "empty"}"></i>`);
+    pips.push(`<span class="magtext">${g.ammo}/${MAG_SIZE}</span>`);
+    el.mag.innerHTML = pips.join("");
+  }
+
+  // ------------------------------------------------------------------- input
+  window.addEventListener("resize", resize);
+  canvas.addEventListener("pointermove", e => {
+    const p = toLogical(e.clientX, e.clientY);
+    aim.x = p.x; aim.y = p.y;
+  });
+  canvas.addEventListener("pointerdown", e => {
+    initAudio();
+    if (e.pointerType === "touch") { const p = toLogical(e.clientX, e.clientY); aim.x = p.x; aim.y = p.y; }
+    if (g.mode === "menu") { startGame(); return; }
+    if (g.mode === "over") { startGame(); return; }
+    fire(aim.x, aim.y);
+  });
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.getElementById("startBtn").addEventListener("click", () => { startGame(); canvas.focus(); });
+  document.getElementById("againBtn").addEventListener("click", () => startGame());
+
+  window.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if (k === "enter") { if (g.mode === "menu" || g.mode === "over") startGame(); }
+    else if (k === "r") reload();
+    else if (k === "p" || k === "escape") setPaused(g.mode === "playing");
+    else if (k === " ") { e.preventDefault(); if (g.mode === "playing") fire(aim.x, aim.y); }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) setPaused(true); });
+
+  let prev = 0;
+  function frame(ts) {
+    const dt = Math.min(0.034, prev ? (ts - prev) / 1000 : 0.016);
+    prev = ts;
+    if (g.mode === "playing") update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // --------------------------------------------------------------- self test
+  // Dev-only sanity checks: `?selftest=1` prints results into the page.
+  function runSelfTest() {
+    const out = [];
+    const ok = (name, cond) => out.push([name, !!cond]);
+    const r = core.createRng(1234);
+    ok("rng in [0,1)", r() >= 0 && r() < 1 && r() >= 0);
+    const a = core.createRng(7), b = core.createRng(7);
+    ok("rng is seeded", a() === b());
+
+    const p1 = core.project(0, 1), p2 = core.project(0, 0);
+    ok("near projects bigger", p1.s > p2.s && p1.ground > p2.ground);
+    ok("centre lane is mid-screen", Math.abs(core.project(0, 0.5).x - W / 2) < 1);
+
+    targetSeq = 0;
+    const rr = core.createRng(99);
+    const steel = { kind: "steel", lx: 0, d: 0.8, r: 46, up: 1, state: "up", life: 2, t: 0 };
+    const front = { kind: "steel", lx: 0, d: 1, r: 46, up: 1, state: "up", life: 2, t: 0 };
+    const falling = { kind: "steel", lx: 0, d: 0.9, r: 46, up: 0.4, state: "fall", life: 2, t: 0 };
+    const list = [steel, front, falling];
+    const fp = core.project(front.lx, front.d);
+    const fcy = fp.ground - (front.r * 2.2 + front.r) * fp.s;
+    ok("hitTest picks front target", core.hitTest(list, fp.x, fcy) === front);
+    ok("hitTest ignores falling target", core.hitTest([falling], core.project(falling.lx, falling.d).x, 5) === null);
+    ok("hitTest misses off-target", core.hitTest(list, 10, 10) === null);
+
+    const sp = core.project(steel.lx, steel.d);
+    const scy = sp.ground - (steel.r * 2.2 + steel.r) * sp.s;
+    ok("bullseye pays 1.5x", core.ringScore(steel, 0) === 150);
+    ok("outer ring pays 1x", core.ringScore(steel, sp.s * 45) === 100);
+    ok("combo starts at 1x", core.comboMult(2) === 1 && core.comboMult(3) === 1.5);
+    ok("combo caps at 5x", core.comboMult(100) === 5);
+    ok("hazard scores 0", core.ringScore({ kind: "hazard", lx: 0, d: 0.5, r: 40 }, 0) === 0);
+    ok("grades descend", core.grade(5000) === "S" && core.grade(100) === "E");
+
+    const kinds = new Set();
+    for (let i = 0; i < 400; i++) kinds.add(core.makeTarget(rr, 3).kind);
+    ok("all target kinds spawn", kinds.has("steel") && kinds.has("bonus") && kinds.has("hazard"));
+
+    // ammo / reload flow on a cloned game object
+    g.mode = "playing"; g.ammo = 1; g.reloading = 0; g.shots = 0; g.time = DURATION; g.targets = [];
+    fire(20, 20);
+    ok("firing consumes a round", g.ammo === 0 && g.shots === 1);
+    const before = g.shots;
+    fire(20, 20);
+    ok("empty magazine cannot fire", g.shots === before);
+    reload();
+    ok("reload locks the weapon", g.reloading === RELOAD_TIME);
+    for (let i = 0; i < 80; i++) update(1 / 60);
+    ok("reload refills", g.ammo === MAG_SIZE);
+
+    g.score = 500; g.streak = 0; g.penalties = 0; g.hits = 0; g.shots = 1;
+    targetSeq = 0;
+    const hz = core.makeTarget(core.createRng(20), 1);
+    hz.kind = "hazard"; hz.lx = 0; hz.d = 0.9; hz.up = 1; hz.state = "up"; hz.slide = 0;
+    const hp = core.project(0, 0.9), hcy = hp.ground - (hz.r * 2.2 + hz.r) * hp.s;
+    g.targets = [hz]; fire(hp.x, hcy);
+    ok("hazard hit penalises and breaks combo", g.score < 500 && g.streak === 0 && g.penalties === 1);
+
+    const st = core.makeTarget(core.createRng(21), 1);
+    st.kind = "steel"; st.lx = 0; st.d = 0.9; st.up = 1; st.state = "up"; st.slide = 0;
+    const scy2 = hp.ground - (st.r * 2.2 + st.r) * hp.s;
+    g.score = 0; g.ammo = MAG_SIZE; g.reloading = 0; g.targets = [st];
+    fire(hp.x, scy2);
+    ok("steel hit scores points", g.hits === 1 && g.score > 0 && g.streak === 1);
+
+    g.time = 0.01; g.targets = [];
+    update(0.05);
+    ok("clock expiry ends the run", g.mode === "over");
+
+    const fails = out.filter(x => !x[1]).length;
+    const box = document.createElement("div");
+    box.id = "selftest";
+    box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:9;background:#0b1120cc;" +
+      "color:#e8eef6;font:12px ui-monospace,Consolas,monospace;padding:8px 10px;border-radius:8px;max-height:46vh;overflow:auto";
+    box.innerHTML = `<b>SELFTEST ${out.length - fails}/${out.length} passed</b><br>` +
+      out.map(([n, p]) => `${p ? "PASS" : "FAIL"} ${n}`).join("<br>");
+    document.body.appendChild(box);
+    document.title = `[selftest ${out.length - fails}/${out.length}] 靶场射击 · 打枪小游戏`;
+  }
+
+  // --------------------------------------------------------------------- boot
+  resize();
+  el.best.textContent = bestScore() ? "历史最佳 " + bestScore() + " 分" : "";
+  renderHud();
+  if (SELFTEST) startGame(), runSelfTest();
+  else if (AUTOSTART || DEMO) startGame();
+
+  /** Dev-only: aim at the front-most live target and fire, then settle a few frames. */
+  function shootFront(settle = 6) {
+    const live = g.targets.filter(x => x.state === "up" || x.state === "rise")
+      .sort((a, b) => b.d - a.d)[0];
+    if (!live) return false;
+    const p = core.project(live.lx, live.d);
+    aim.x = p.x; aim.y = p.ground - (live.r * 2.2 + live.r) * p.s;
+    fire(aim.x, aim.y);
+    for (let i = 0; i < settle; i++) update(1 / 60);
+    return true;
+  }
+
+  if (STEPS !== null) {
+    if (g.mode === "menu") startGame();
+    for (let i = 0; i < STEPS; i++) {
+      update(1 / 60);
+      if (EVERY && i % EVERY === 0 && g.mode === "playing") shootFront(0);
+    }
+    for (let i = 0; i < SHOOT; i++) shootFront(i === SHOOT - 1 ? SETTLE : 6);
+    render();
+    // Dev hook for scripted checks: where the crosshair is and what it covers.
+    const t = core.hitTest(g.targets, aim.x, aim.y);
+    window.__dev = {
+      score: g.score, shots: g.shots, hits: g.hits, streak: g.streak,
+      ammo: g.ammo, time: +g.time.toFixed(2), targets: g.targets.length,
+      mode: g.mode, aim: { x: Math.round(aim.x), y: Math.round(aim.y) },
+      underCrosshair: t ? t.kind : null,
+      shootFront,
+    };
+    document.title = "[steps " + STEPS + (SHOOT ? " shoot " + SHOOT : "") + "] " + document.title;
+  } else {
+    requestAnimationFrame(frame);
+  }
+})();
+</script>
+</body>
+</html>
