@@ -41,7 +41,19 @@ A little bird with sky-blue wings lives in a nest in a big tree. At daybreak it 
 
 ---
 
-🌅 **日出小诗 / A Sunrise Poem**（只排在第一页，四行中英对照）
+🔤 **拼音 / Pinyin:**
+Dà shù de wō li zhù zhe yì zhī lán chìbǎng xiǎoniǎo. Tiān gāng liàng, tā tàn chū tóu, kànjiàn hǎo lán hǎo lán de tiān.
+
+---
+
+✨ **学习要点 / Learning Point:**
+汉字 (Character): 鸟 (niǎo) - bird
+相关词汇 (Vocabulary): 天 (tiān) - sky ｜ 窝 (wō) - nest
+情感 (Emotional): 好奇 —— 第一次认真看天有多蓝 (wonder: noticing how blue the sky is)
+
+---
+
+🌅 **日出小诗 / A Sunrise Poem**（第一页独有的诗卡，四行中英对照 + 拼音）
 
 天边先泛出一层淡淡的粉，
 接着漫开橘子一样的光，
@@ -54,18 +66,6 @@ the sun peeps up, showing half its face,
 and the little bird catches the first warm ray on open wings.
 
 拼音 / Pinyin: Tiānbiān xiān fànchū yì cénɡ dàndàn de fěn, jiēzhe mànkāi júzi yíyànɡ de ɡuānɡ, tàiyánɡ mànmàn lùchū bànbiān liǎn, xiǎoniǎo zhānɡkāi chìbǎnɡ, jiē zhù dì yī lǚ nuǎn.
-
----
-
-🔤 **拼音 / Pinyin:**
-Dà shù de wō li zhù zhe yì zhī lán chìbǎng xiǎoniǎo. Tiān gāng liàng, tā tàn chū tóu, kànjiàn hǎo lán hǎo lán de tiān.
-
----
-
-✨ **学习要点 / Learning Point:**
-汉字 (Character): 鸟 (niǎo) - bird
-相关词汇 (Vocabulary): 天 (tiān) - sky ｜ 窝 (wō) - nest
-情感 (Emotional): 好奇 —— 第一次认真看天有多蓝 (wonder: noticing how blue the sky is)
 
 ---
 
