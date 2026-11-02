@@ -275,3 +275,47 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 大范围缩放、页面内自检、520×900 窄屏），全部由无头 Edge 按上表参数抓取，可直接复现。
 （无头 Edge 的视口宽度下限约 504px，所以窄屏截图取 520×900；单列布局在 504px 处已由页面内
 「窄屏不溢出」一项校验。）
+
+---
+
+# 🐯 林中之虎 · A Picture of a Tiger
+
+一幅完全由 Canvas 现场绘制的孟加拉虎插画：单文件 HTML（[`tiger-drawing.html`](tiger-drawing.html)），
+零依赖、零图片、零构建，双击即可离线打开。
+
+画面分四层：渐变天空与日/月、三层远山、左右两侧的竹林与竹叶、前景草丛；虎由躯干、四肢、尾巴、
+头、颈、耳等 10 条路径拼成轮廓，肚皮与口鼻的白色、49 道条纹、耳背的黑白斑都只落在轮廓之内
+（离屏图层 + `source-atop`），最后统一罩一层时段光色与暗角。
+
+| 时段 | 画面 |
+| --- | --- |
+| 晨雾 Dawn | 低垂的暖日、斜射光柱、贴地晨雾 |
+| 正午 Noon | 高色温蓝天、竹林清晰、影子最短 |
+| 黄昏 Dusk | 落日压山、琥珀色罩层、眼睛开始反光 |
+| 星夜 Night | 星空与月亮、萤火、虎眼的照膜反光（夜视是人的六倍） |
+
+四种姿态（巡视 / 低吼 / 回首 / 潜行）会改变头颈、尾巴幅度与身体高度；移动鼠标时瞳孔跟着你看，
+点一下画面它会眨眼。`保存 PNG` 直接把当前画面导出为图片。
+
+## 自动化参数
+
+| 参数 | 作用 |
+| --- | --- |
+| `?time=dawn\|noon\|dusk\|night` | 指定时段（或 <kbd>1</kbd>–<kbd>4</kbd>） |
+| `?pose=0..3` | 指定姿态（或 <kbd>P</kbd> 循环） |
+| `?theme=dark` | 深色页面外壳（或 <kbd>T</kbd>） |
+| `?freeze=1&t=3.4` | 定格到指定动画时刻，供无头截图 |
+| `?selftest=1` | 页底显示 20 项自检结果 |
+
+页内暴露 `window.tiger`（`state()` / `set()` / `render()` / `savePNG()` / `runSelftest()`）。
+
+## 验证
+
+- `tiger-drawing.html?selftest=1`：20 项页内断言全部通过（含四个时段渲染无异常、四个姿态可循环、
+  条纹数 ≥ 40、可导出 PNG、无横向溢出）。
+- 无头 Edge 截图见 `docs/screenshots/`：`tiger-before-main-landing.png` 是改动前 `main` 上的实际内容
+  （仓库里没有任何虎的画面），`tiger-after-dawn|noon|dusk|night.png` 与
+  `tiger-after-dark.png`、`tiger-after-narrow-504x900.png`、`tiger-after-pose-*.png` 是本分支的运行画面。
+  窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。
+
+---
