@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="画一条中国龙：单文件 HTML + Canvas 程序化绘制的腾云驾雾神龙，可动画、可换种子、可导出 PNG。">
+<title>画一条龙 · Chinese Dragon</title>
+<style>
+:root{
+  --ink:#1c2433; --paper:#f5f2ea; --card:#ffffff; --accent:#b03a2e; --gold:#c9962e;
+  --muted:#6b7688; --line:rgba(60,72,95,.22); --jade:#2e8b6f;
+  --shadow:0 14px 34px rgba(28,36,51,.14);
+}
+[data-theme="dark"]{
+  --ink:#ecf1fa; --paper:#0b1020; --card:rgba(255,255,255,.05); --accent:#ff7a5c; --gold:#ffd27a;
+  --muted:#93a1bd; --line:rgba(160,180,220,.24); --jade:#54d8a8;
+  --shadow:0 18px 46px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Segoe UI",system-ui,sans-serif;
+  background:radial-gradient(1100px 640px at 72% -8%,var(--card),transparent 70%),var(--paper);
+  color:var(--ink); padding:20px 16px 34px; min-height:100vh; transition:background .35s,color .35s;
+}
+.wrap{max-width:1080px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font-size:clamp(21px,3.4vw,34px);letter-spacing:.03em;line-height:1.25}
+h1 .dot{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.8;max-width:72ch}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 14px;border:none;background:transparent;color:var(--muted);font-size:13px;border-radius:999px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--ink);color:var(--paper);font-weight:700}
+.stage{position:relative;margin-top:16px;border-radius:20px;overflow:hidden;
+  border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow)}
+#scene{display:block;width:100%;height:auto}
+.hud{position:absolute;inset:0;padding:14px 16px;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+.chip{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;background:var(--card)}
+.gauge{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.gauge b{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+.transport{margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 14px}
+button.ctl{font:inherit;cursor:pointer;border-radius:999px;padding:8px 18px;font-weight:700;
+  border:1px solid var(--line);background:var(--ink);color:var(--paper);transition:transform .12s}
+button.ctl:hover:not(:disabled){transform:translateY(-1px)}
+button.ctl.ghost{background:transparent;color:var(--ink);font-weight:600}
+button.ctl:disabled{opacity:.4;cursor:not-allowed}
+.scrub{flex:1 1 220px;min-width:160px;display:flex;flex-direction:column;gap:2px}
+.scrub input{width:100%;accent-color:var(--accent);cursor:pointer}
+.scrub .cap{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.notes{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:13px 17px}
+.notes p{margin:0 0 6px;font-size:13.5px;line-height:1.9;color:var(--ink)}
+.notes .h{font-size:12px;letter-spacing:.16em;color:var(--muted);margin-bottom:6px}
+footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.9;text-align:center}
+footer code{color:var(--ink)}
+#selftest{margin-top:12px;font-size:12px;line-height:1.8;color:var(--jade);white-space:pre-wrap;display:none}
+</style>
+</head>
+<body data-theme="dark">
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span>画一条龙</span><span class="dot"> · </span><span>Chinese Dragon</span></h1>
+      <p class="sub">一条程序化绘制的中国神龙：蛇身腾浪、鹿角龙须、鳞甲鬃毛、四爪踏云。点「再画一条」换一个新种子，龙形即不同；可导出 PNG 保存。</p>
+    </div>
+    <div class="seg" role="group" aria-label="配色">
+      <button id="tDark" class="on">夜云</button>
+      <button id="tLight">宣纸</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="scene" width="1200" height="720" aria-label="龙的画布"></canvas>
+    <div class="hud">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="chip" id="chipSeed">seed</span>
+        <span class="chip" id="chipPose">pose</span>
+      </div>
+      <div class="gauge">
+        <span><span>鳞片 scales</span> <b id="gScales">0</b></span>
+        <span><span>帧 frame</span> <b id="gFrame">0</b></span>
+        <span><span>FPS</span> <b id="gFps">0</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="ctl" id="btnPlay">暂停</button>
+    <button class="ctl ghost" id="btnRedraw">再画一条</button>
+    <button class="ctl ghost" id="btnExport">导出 PNG</button>
+    <div class="scrub">
+      <input type="range" id="speed" min="0" max="3" step="0.1" value="1">
+      <div class="cap"><span>静止</span><span>游动速度 · speed</span><span>快</span></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="h">画法 · HOW IT IS DRAWN</div>
+    <p>脊线是一条行进的正弦蛇形曲线；沿法向按头部粗、尾部细的宽度函数生成管状龙身，逐段铺叠鳞甲与金线腹脊；龙头含角、眼、须、鬣与獠牙；四爪沿脊线定位；云气与火珠衬托，全在一块 Canvas 上即时绘制，无图片素材。</p>
+  </div>
+
+  <pre id="selftest"></pre>
+  <footer>单文件 · 无依赖 · 离线可运行 — URL 参数 <code>?seed=</code> <code>?auto=0</code> <code>?speed=</code> <code>?theme=light</code> <code>?freeze=秒</code> <code>?selftest=1</code></footer>
+</div>
+
+<script>
+"use strict";
+/* ================= CORE_START ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+const LW=1200, LH=720; // logical canvas size
+
+// Spine: a traveling serpent wave, head on the left coiling toward the right.
+function spinePoints(seed, tSec, n){
+  const R = mulberry32(seed>>>0);
+  const amp1=70+R()*46, amp2=26+R()*18, freq1=1.1+R()*0.5, freq2=2.3+R()*0.9;
+  const yBase=360+(R()-0.5)*80, drift=(R()-0.5)*90, phase=R()*6.283, curl=0.55+R()*0.5;
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const u=i/(n-1);                       // 0 = head … 1 = tail
+    const x=260+u*(LW-60-260);
+    const w=Math.sin(u*Math.PI*2*freq1+phase+tSec*1.1)*amp1
+           + Math.sin(u*Math.PI*2*freq2+phase*1.7-tSec*0.7)*amp2;
+    const coil=Math.sin(u*Math.PI)*curl;   // body bows into an S near the head
+    const y=yBase - w*(1-0.35*u) - coil*120 + u*drift;
+    pts.push({x,y});
+  }
+  return pts;
+}
+
+// radius along the body: thick neck, slim waist, whip tail
+function radiusAt(u){ return 30*(1-u)*(1-u)*(1-0.55*u*u) + 5; }
+
+function tangents(pts){
+  const t=[];
+  for(let i=0;i<pts.length;i++){
+    const a=pts[Math.max(0,i-1)], b=pts[Math.min(pts.length-1,i+1)];
+    const dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1;
+    t.push({tx:dx/L, ty:dy/L, nx:-dy/L, ny:dx/L});
+  }
+  return t;
+}
+
+function dragonPalette(theme, R){
+  const hues=[[2,.62,.55],[14,.7,.5],[150,.55,.42],[45,.75,.5],[330,.6,.5]];
+  const h=hues[Math.floor(R()*hues.length)];
+  const mane=`hsl(${(h[0]+38)%360} 72% ${theme==='dark'?58:48}%)`;
+  if(theme!=='dark'){
+    return {mane, body:`hsl(${h[0]} ${h[1]*55}% 46%)`, hi:`hsl(${h[0]} ${h[1]*70}% 60%)`,
+      belly:'#f6e2b4', scale:`hsl(${h[0]} ${h[1]*60}% 38%)`, edge:'rgba(40,30,10,.45)'};
+  }
+  return {mane, body:`hsl(${h[0]} ${h[1]*60}% ${26+h[2]*10}%)`, hi:`hsl(${h[0]} ${h[1]*80}% ${48+h[2]*8}%)`,
+    belly:'#ffd98a', scale:`hsl(${h[0]} ${h[1]*70}% ${38+h[2]*6}%)`, edge:'rgba(0,0,0,.5)'};
+}
+
+function drawDragon(ctx, state){
+  const {seed, time, theme} = state;
+  const R = mulberry32((seed^0x9E3779B9)>>>0);
+  const n=140, pts=spinePoints(seed, time, n);
+  pts.tg=tangents(pts);
+  const pal=dragonPalette(theme, R);
+  const whiskLong=90+R()*70;
+  const legU=[0.14,0.3,0.58,0.74].map(v=>v+R()*0.03);
+  let scalesDrawn=0;
+
+  // ---- clouds ----
+  ctx.save();
+  const cloudSeed=mulberry32((seed*7919)>>>0);
+  for(let c=0;c<8;c++){
+    const cx=cloudSeed()*LW, cy=120+cloudSeed()*520, r=40+cloudSeed()*80;
+    const g=ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r);
+    const a=theme==='dark'?0.10:0.12;
+    g.addColorStop(0,theme==='dark'?`rgba(150,180,255,${a})`:`rgba(90,110,150,${a})`);
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,6.284); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---- tail whip: last part drawn slightly thinner with tuft ----
+  // ---- body: spine-aligned tube via quads ----
+  ctx.save();
+  ctx.lineJoin='round';
+  // shadow under body
+  ctx.translate(0,10); ctx.globalAlpha=theme==='dark'?0.25:0.18; ctx.fillStyle='#000';
+  fillTube(ctx,pts,pal.body); ctx.restore();
+
+  // main body fill
+  fillTube(ctx,pts,pal.body);
+
+  // dorsal ridge highlight
+  ctx.save();
+  ctx.strokeStyle=pal.hi; ctx.lineWidth=6; ctx.globalAlpha=.9;
+  strokeEdge(ctx,pts,0.82);
+  ctx.restore();
+
+  // belly gold line
+  ctx.save();
+  ctx.strokeStyle=pal.belly; ctx.lineWidth=4; ctx.globalAlpha=.85;
+  strokeEdge(ctx,pts,-0.82);
+  ctx.restore();
+
+  // scales: overlapping arcs across the tube
+  ctx.save();
+  for(let i=6;i<n-16;i+=4){
+    const u=i/(n-1), r=radiusAt(u), tg=pts.tg[i], p=pts[i];
+    ctx.strokeStyle=pal.scale; ctx.lineWidth=Math.max(1,r*0.09);
+    ctx.globalAlpha=theme==='dark'?0.5:0.55;
+    for(let s=-1;s<=1;s++){
+      const off=r*s*0.62;
+      const ox=p.x+tg.nx*off, oy=p.y+tg.ny*off;
+      const a0=Math.atan2(tg.ty,tg.tx)-Math.PI/2;
+      ctx.beginPath(); ctx.arc(ox,oy,Math.max(2.2,r*0.3),a0-1.25,a0+1.25); ctx.stroke();
+    }
+    scalesDrawn++;
+  }
+  ctx.restore();
+
+  // mane: flame-like spikes along the back
+  ctx.save();
+  ctx.fillStyle=pal.mane;
+  ctx.globalAlpha=.92;
+  for(let i=4;i<n-20;i+=3){
+    const u=i/(n-1), r=radiusAt(u), tg=pts.tg[i], p=pts[i];
+    const len=r*(0.8+0.5*Math.abs(Math.sin(time*3+i)));
+    const x1=p.x+tg.nx*r*0.9, y1=p.y+tg.ny*r*0.9;
+    const x2=p.x+tg.nx*(r+len)-tg.tx*len*0.7, y2=p.y+tg.ny*(r+len)-tg.ty*len*0.7;
+    const x3=p.x+tg.nx*r*0.9-tg.tx*r*0.8, y3=p.y+tg.ny*r*0.9-tg.ty*r*0.8;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo(x2,y2,x3,y3); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---- legs with claws ----
+  for(const lu of legU){
+    const i=Math.floor(lu*(n-1)), p=pts[i], tg=pts.tg[i], r=radiusAt(i/(n-1));
+    const swing=Math.sin(time*2.4+lu*22)*16;
+    const hx=p.x+tg.nx*r*0.6+tg.tx*10, hy=p.y+tg.ny*r*0.6+tg.ty*10;
+    const kx=hx - tg.ny*(58+swing), ky=hy + Math.abs(tg.nx)*(58) - 14 + swing*0.4; // knee
+    const fx=kx + 26 + swing*0.5, fy=Math.min(ky+34, LH-24);                       // foot
+    ctx.save();
+    ctx.strokeStyle=pal.body; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.lineWidth=r*0.9; ctx.beginPath(); ctx.moveTo(hx,hy); ctx.quadraticCurveTo(kx,ky,fx,fy); ctx.stroke();
+    ctx.lineWidth=Math.max(3,r*0.42); ctx.beginPath(); ctx.moveTo(kx,ky); ctx.lineTo(fx,fy); ctx.stroke();
+    ctx.strokeStyle=theme==='dark'?'#ffe9b0':'#8a6b2a'; ctx.lineWidth=3;
+    for(let cl=0;cl<3;cl++){
+      const dx=10+cl*9, dy=4+cl*3;
+      ctx.beginPath(); ctx.moveTo(fx+cl*3-3,fy); ctx.quadraticCurveTo(fx+dx,fy+dy-6,fx+dx+4,fy+dy+5); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---- head at the start of the spine ----
+  // pts[0] is the head; the tangent there runs along the body toward the tail,
+  // so the snout faces the OPPOSITE direction. Local frame after rotation: +x = forward.
+  const h0=pts[0], ht=pts.tg[3];
+  const cx=h0.x-ht.tx*16, cy=h0.y-ht.ty*16; // head pushed slightly past the spine start
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(Math.atan2(-ht.ty,-ht.tx));
+  // skull
+  ctx.fillStyle=pal.body; ctx.strokeStyle=pal.edge; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(28,0,44,30,0,0,6.284); ctx.fill(); ctx.stroke();      // skull
+  ctx.beginPath(); ctx.ellipse(62,4,32,14,0.12,0,6.284); ctx.fill(); ctx.stroke();   // upper snout
+  ctx.beginPath(); ctx.ellipse(64,16,26,10,0.05,0,6.284); ctx.fill();                // lower jaw
+  ctx.strokeStyle=pal.edge; ctx.beginPath(); ctx.moveTo(88,8); ctx.lineTo(40,10); ctx.stroke(); // mouth line
+  // teeth
+  ctx.fillStyle='#fff';
+  for(let txr=0;txr<5;txr++){
+    const xx=86-txr*9.5;
+    ctx.beginPath(); ctx.moveTo(xx,8); ctx.lineTo(xx-4,15); ctx.lineTo(xx-8,8); ctx.closePath(); ctx.fill();
+  }
+  // eye
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(22,-12,10,7.5,0.15,0,6.284); ctx.fill();
+  ctx.fillStyle=theme==='dark'?'#ffd27a':'#3a2c12'; ctx.beginPath(); ctx.arc(23,-12,4.6,0,6.284); ctx.fill();
+  ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(23.5,-12,1.6,3.6,0,0,6.284); ctx.fill();
+  ctx.strokeStyle=pal.hi; ctx.lineWidth=2.6; ctx.beginPath(); ctx.moveTo(8,-20); ctx.quadraticCurveTo(24,-27,38,-20); ctx.stroke(); // brow
+  // horns (deer-like), swept back
+  ctx.strokeStyle=theme==='dark'?'#e8d9b0':'#6d5a2f'; ctx.lineCap='round'; ctx.lineWidth=6;
+  ctx.beginPath(); ctx.moveTo(30,-24); ctx.quadraticCurveTo(0,-58,-30,-40); ctx.stroke();
+  ctx.lineWidth=3.4; ctx.beginPath(); ctx.moveTo(-4,-50); ctx.lineTo(-14,-66); ctx.moveTo(-18,-47); ctx.lineTo(-34,-57); ctx.stroke();
+  ctx.lineWidth=5; ctx.strokeStyle=theme==='dark'?'#d9c690':'#7d6a3a';
+  ctx.beginPath(); ctx.moveTo(20,-26); ctx.quadraticCurveTo(-6,-46,-24,-30); ctx.stroke();
+  // ear
+  ctx.fillStyle=pal.hi; ctx.beginPath(); ctx.moveTo(12,-22); ctx.quadraticCurveTo(-4,-34,-10,-16); ctx.quadraticCurveTo(2,-16,12,-22); ctx.fill();
+  // whiskers / antennae flowing forward
+  ctx.strokeStyle=theme==='dark'?'#cfe0ff':'#40506e'; ctx.lineWidth=2.6;
+  ctx.beginPath(); ctx.moveTo(76,2); ctx.quadraticCurveTo(76+whiskLong*0.5,-30-Math.sin(time*2)*12,76+whiskLong,-58); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(76,8); ctx.quadraticCurveTo(72+whiskLong*0.55,26+Math.cos(time*2)*10,76+whiskLong*0.85,64); ctx.stroke();
+  // beard tuft
+  ctx.strokeStyle=pal.belly; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(56,22); ctx.quadraticCurveTo(48,44,62,60); ctx.moveTo(50,22); ctx.quadraticCurveTo(40,42,48,58); ctx.stroke();
+  // fire pearl in front of snout
+  const pr=10+Math.sin(time*3)*1.6;
+  const pg=ctx.createRadialGradient(112,-2,2,112,-2,pr*2.2);
+  pg.addColorStop(0,'#fff7d0'); pg.addColorStop(.5,'#ffb347'); pg.addColorStop(1,'rgba(255,120,40,0)');
+  ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(112,-2,pr*2.2,0,6.284); ctx.fill();
+  ctx.restore();
+
+  // ---- outline pass for crispness ----
+  ctx.save(); ctx.strokeStyle=pal.edge; ctx.lineWidth=2.4; ctx.globalAlpha=.7;
+  strokeEdge(ctx,pts,0.98); strokeEdge(ctx,pts,-0.98); ctx.restore();
+
+  return {scales:scalesDrawn};
+}
+
+function fillTube(ctx,pts,fill){
+  ctx.fillStyle=fill;
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    const u=i/(pts.length-1), r=radiusAt(u), t=pts.tg[i];
+    i?ctx.lineTo(pts[i].x+t.nx*r,pts[i].y+t.ny*r):ctx.moveTo(pts[i].x+t.nx*r,pts[i].y+t.ny*r);
+  }
+  const tip=pts[pts.length-1], tt=pts.tg[pts.length-1], tr=radiusAt(1);
+  ctx.quadraticCurveTo(tip.x+tt.tx*tr*2.4, tip.y+tt.ty*tr*2.4, tip.x-tt.nx*tr, tip.y-tt.ny*tr);
+  for(let i=pts.length-1;i>=0;i--){
+    const u=i/(pts.length-1), r=radiusAt(u), t=pts.tg[i];
+    ctx.lineTo(pts[i].x-t.nx*r,pts[i].y-t.ny*r);
+  }
+  const h=pts[0], htg=pts.tg[0], hr=radiusAt(0);
+  ctx.quadraticCurveTo(h.x-htg.tx*hr*1.4, h.y-htg.ty*hr*1.4, h.x+htg.nx*hr, h.y+htg.ny*hr);
+  ctx.closePath(); ctx.fill();
+}
+
+function strokeEdge(ctx,pts,k){
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){
+    const u=i/(pts.length-1), r=radiusAt(u)*k, t=pts.tg[i];
+    i?ctx.lineTo(pts[i].x+t.nx*r,pts[i].y+t.ny*r):ctx.moveTo(pts[i].x+t.nx*r,pts[i].y+t.ny*r);
+  }
+  ctx.stroke();
+}
+
+function drawBackground(ctx, theme, time){
+  if(theme==='dark'){
+    const g=ctx.createLinearGradient(0,0,0,LH);
+    g.addColorStop(0,'#0d1530'); g.addColorStop(1,'#070b18');
+    ctx.fillStyle=g; ctx.fillRect(0,0,LW,LH);
+    ctx.fillStyle='rgba(255,255,255,.7)';
+    const R=mulberry32(42);
+    for(let i=0;i<70;i++){const x=R()*LW,y=R()*LH*0.8,r=R()*1.4+0.2;
+      ctx.globalAlpha=0.25+0.5*Math.abs(Math.sin(time+i));ctx.beginPath();ctx.arc(x,y,r,0,6.284);ctx.fill();}
+    ctx.globalAlpha=1;
+  } else {
+    ctx.fillStyle='#f7f3e8'; ctx.fillRect(0,0,LW,LH);
+    ctx.strokeStyle='rgba(80,90,110,.12)'; ctx.lineWidth=1;
+    for(let i=0;i<7;i++){const x=60+i*180; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+40,LH); ctx.stroke();}
+    ctx.strokeStyle='rgba(120,90,40,.35)'; ctx.lineWidth=3;
+    ctx.strokeRect(18,18,LW-36,LH-36);
+  }
+}
+/* ================= CORE_END ================= */
+
+/* ================= UI_START ================= */
+const qs=new URLSearchParams(location.search);
+const canvas=document.getElementById('scene');
+const ctx=canvas.getContext('2d');
+const state={
+  seed:(()=>{const s=qs.get('seed');return s!==null?(parseInt(s,10)||1):(Math.floor(Math.random()*1e9)+1);})(),
+  time:0, theme:qs.get('theme')==='light'?'light':'dark',
+  playing:qs.get('auto')!=='0', speed:parseFloat(qs.get('speed')??'1'),
+  frames:0, fps:0, _last:performance.now(), _acc:0, _fc:0
+};
+const selftest=qs.get('selftest')==='1';
+if(qs.has('freeze')) { state.playing=false; state.time=parseFloat(qs.get('freeze'))||0; }
+
+const els={
+  play:document.getElementById('btnPlay'), redraw:document.getElementById('btnRedraw'),
+  export:document.getElementById('btnExport'), speed:document.getElementById('speed'),
+  tDark:document.getElementById('tDark'), tLight:document.getElementById('tLight'),
+  chipSeed:document.getElementById('chipSeed'), chipPose:document.getElementById('chipPose'),
+  gScales:document.getElementById('gScales'), gFrame:document.getElementById('gFrame'), gFps:document.getElementById('gFps')
+};
+function syncTheme(){
+  document.body.dataset.theme=state.theme;
+  els.tDark.classList.toggle('on',state.theme==='dark');
+  els.tLight.classList.toggle('on',state.theme==='light');
+}
+els.tDark.onclick=()=>{state.theme='dark';syncTheme();};
+els.tLight.onclick=()=>{state.theme='light';syncTheme();};
+els.play.onclick=()=>{state.playing=!state.playing;els.play.textContent=state.playing?'暂停':'继续';};
+els.redraw.onclick=()=>{state.seed=Math.floor(Math.random()*1e9)+1;els.speed.value=state.speed;};
+els.speed.oninput=()=>{state.speed=parseFloat(els.speed.value);};
+window.addEventListener('keydown',e=>{
+  if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  const k=e.key.toLowerCase();
+  if(k===' '){e.preventDefault();els.play.click();}
+  else if(k==='r'){els.redraw.click();}
+  else if(k==='t'){(state.theme==='dark'?els.tLight:els.tDark).click();}
+  else if(k==='e'){els.export.click();}
+});
+els.export.onclick=()=>{
+  const a=document.createElement('a');
+  a.download='dragon-'+state.seed+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+};
+function render(){
+  drawBackground(ctx,state.theme,state.time);
+  const info=drawDragon(ctx,state);
+  els.chipSeed.textContent='seed '+state.seed;
+  els.chipPose.textContent='t '+state.time.toFixed(1)+'s';
+  els.gScales.textContent=info.scales;
+  els.gFrame.textContent=state.frames;
+  els.gFps.textContent=state.fps;
+}
+let rafId=0;
+function loop(now){
+  const dt=Math.min(0.05,(now-state._last)/1000); state._last=now;
+  if(state.playing){ state.time+=dt*state.speed; }
+  state.frames++; state._acc+=dt; state._fc++;
+  if(state._acc>=0.5){ state.fps=Math.round(state._fc/state._acc); state._acc=0; state._fc=0; }
+  render();
+  rafId=requestAnimationFrame(loop);
+}
+syncTheme();
+window.book={
+  state,
+  go(){els.play.click();},
+  seed(s){state.seed=s|0;},
+  pose(t){state.time=t;},
+  step(){state.playing=false;state._last=performance.now();loop(performance.now());cancelAnimationFrame(rafId);render();},
+  stats(){return {frames:state.frames,fps:state.fps,seed:state.seed,time:+state.time.toFixed(2),theme:state.theme};}
+};
+if(selftest){
+  els.speed.value=state.speed;
+  const box=document.getElementById('selftest'); box.style.display='block';
+  const lines=[]; const ok=(n,c)=>lines.push((c?'PASS':'FAIL')+' · '+n);
+  try{
+    // deterministic: same seed+pose renders equal pixel checksums
+    const shot=()=>{state.playing=false;render();const d=ctx.getImageData(0,0,LW,LH).data;let s=0;for(let i=0;i<d.length;i+=997)s=(s+d[i])%1e9+7;return s;};
+    state.seed=7; state.time=3.4; const a=shot(); const b=shot();
+    ok('deterministic checksum',a===b&&a>0);
+    state.seed=8; const c=shot(); ok('seed changes drawing',c!==a);
+    ok('canvas non-blank',(()=>{state.seed=7;state.time=3.4;render();const d=ctx.getImageData(0,0,LW,LH).data;let colored=0;for(let i=0;i<d.length;i+=4000)if(d[i]+d[i+1]+d[i+2]>60)colored++;return colored>100;})());
+    ok('api surface',!!(window.book.state&&window.book.stats&&els.play&&els.redraw&&els.export));
+    ok('HUD wired',els.gScales.textContent!=='0');
+    state.playing=qs.get('auto')!=='0'; rafId=requestAnimationFrame(loop);
+  }catch(e){ ok('exception: '+e.message,false); }
+  box.textContent='selftest @ seed='+state.seed+'\n'+lines.join('\n');
+  document.title=(lines.some(l=>l.startsWith('FAIL'))?'[SELFTEST FAIL] ':'[SELFTEST PASS] ')+document.title;
+} else {
+  rafId=requestAnimationFrame(loop);
+}
+els.play.textContent=state.playing?'暂停':'继续';
+/* ================= UI_END ================= */
+</script>
+</body>
+</html>
