@@ -1,3 +1,5 @@
+﻿.verify/
+
 shots/
 # 测试脚本从 index.html 抽出的临时产物
 tools/out/
