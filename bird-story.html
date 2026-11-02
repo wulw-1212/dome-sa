@@ -9,11 +9,13 @@
   --ink:#233240; --paper:#f6f9fc; --card:#ffffff; --accent:#2f7fc4; --accent-ink:#ffffff;
   --muted:#6b7d8e; --line:rgba(110,135,160,.30); --sky1:#bfe3f7; --sky2:#eef8fd;
   --char:#e2734a; --pin:#3f8f6f; --shadow:rgba(20,45,70,.14);
+  --sun:#e8a33d; --sun-ink:#b06a15;
 }
 [data-theme="dark"]{
   --ink:#e6eef5; --paper:#0e1520; --card:#182432; --accent:#63b4ea; --accent-ink:#08131e;
   --muted:#9db0c1; --line:rgba(150,180,205,.26); --sky1:#122b3d; --sky2:#0b1a27;
   --char:#ffa07a; --pin:#7fd6ab; --shadow:rgba(0,0,0,.45);
+  --sun:#f5c25e; --sun-ink:#f0cf8e;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -72,7 +74,20 @@ label.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:va
 #report{display:none}
 #report ol{margin:8px 0 0;padding-left:22px;font-size:13px;line-height:1.7}
 #report li.fail{color:#d1493b}
-@media (max-width:560px){ .read{min-height:150px} .chip{font-size:12px;padding:4px 9px} }
+/* 日出小诗：只出现在第一页，四行中英对照 + 一行拼音 */
+.poem{display:none;margin-top:14px;padding:12px 14px 12px 16px;border-radius:12px;
+  border:1px solid var(--line);border-left:4px solid var(--sun);
+  background:linear-gradient(90deg,rgba(255,216,130,.16),transparent 62%);}
+.poem h2{margin:0 0 8px;font-size:15px;letter-spacing:.06em;color:var(--sun-ink)}
+.poem h2 small{font-weight:400;font-size:12.5px;color:var(--muted);letter-spacing:0;margin-left:6px}
+.poem ul{margin:0;padding:0;list-style:none}
+.poem li{font-size:15.5px;line-height:1.7}
+#poemEn{margin-top:7px}
+.poem li.poem-en{font-size:14px;line-height:1.6;color:var(--muted)}
+.poem .pin{margin:8px 0 0;font-size:12.5px;color:var(--pin)}
+[data-theme="dark"] .poem{background:linear-gradient(90deg,rgba(255,196,92,.13),transparent 62%)}
+@media (max-width:560px){ .read{min-height:150px} .chip{font-size:12px;padding:4px 9px}
+  .poem li{font-size:14.5px} }
 </style>
 </head>
 <body>
@@ -102,6 +117,13 @@ label.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:va
       <span class="hanzi" id="hanzi">鸟</span>
       <span class="say" id="say"></span>
     </div>
+  </div>
+
+  <div class="poem" id="poemCard" aria-labelledby="poemTitle">
+    <h2 id="poemTitle">☀ 日出小诗 <small>A Sunrise Poem</small></h2>
+    <ul id="poemZh"></ul>
+    <ul id="poemEn"></ul>
+    <p class="pin" lang="zh-Latn-pinyin" id="poemPin"></p>
   </div>
 
   <div class="card">
@@ -141,6 +163,24 @@ label.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:va
 'use strict';
 /* __CORE_START__ ======================================================= */
 /* 绘本内核：文本、状态机、汉字学习点。只用标准数学、不访问 DOM，可整段抽出单测。 */
+
+/* 日出小诗：只在第一页（日出页）显示，中英四行对照 + 一行拼音 */
+const SUNRISE_POEM = {
+  title: { zh: '日出小诗', en: 'A Sunrise Poem' },
+  zh: [
+    '天边先泛出一层淡淡的粉，',
+    '接着漫开橘子一样的光，',
+    '太阳慢慢露出半边脸，',
+    '小鸟张开翅膀，接住第一缕暖。'
+  ],
+  en: [
+    'First a pale pink blush on the horizon,',
+    'then a warm orange glow opens wide,',
+    'the sun peeps up, showing half its face,',
+    'and the little bird catches the first warm ray on open wings.'
+  ],
+  pin: 'Tiānbiān xiān fànchū yì cénɡ dàndàn de fěn, jiēzhe mànkāi júzi yíyànɡ de ɡuānɡ, tàiyánɡ mànmàn lùchū bànbiān liǎn, xiǎoniǎo zhānɡkāi chìbǎnɡ, jiē zhù dì yī lǚ nuǎn.'
+};
 
 const BOOK = {
   title: { zh: '小鸟飞上天', en: 'Little Bird Flies Up' },
@@ -729,6 +769,25 @@ function buildDots(){
     dotsEl.appendChild(d);
   }
 }
+/* 日出小诗只出现在第一页（日出页）；双语时中英并排，单语时只留对应语言 */
+function paintPoem(pageIdx, lang){
+  const card = $('poemCard'), zhBox = $('poemZh'), enBox = $('poemEn'), pinBox = $('poemPin');
+  const onDawnPage = BOOK.pages[pageIdx].id === 'nest';
+  card.style.display = onDawnPage ? 'block' : 'none';
+  if (!onDawnPage) return;
+  const showZh = lang === 'both' || lang === 'zh';
+  const showEn = lang === 'both' || lang === 'en';
+  if (!zhBox.children.length){
+    for (const line of SUNRISE_POEM.zh){ const li = document.createElement('li');
+      li.textContent = line; zhBox.appendChild(li); }
+    for (const line of SUNRISE_POEM.en){ const li = document.createElement('li');
+      li.className = 'poem-en'; li.textContent = line; enBox.appendChild(li); }
+    pinBox.textContent = SUNRISE_POEM.pin;
+  }
+  zhBox.style.display = showZh ? '' : 'none';
+  enBox.style.display = showEn ? '' : 'none';
+  pinBox.style.display = showZh ? '' : 'none';
+}
 function paint(){
   const p = G.current();
   zhEl.textContent = p.zh; enEl.textContent = p.en; pinEl.textContent = p.pin;
@@ -744,6 +803,7 @@ function paint(){
   $('next').disabled = G.S.page === G.count() - 1;
   [].forEach.call(dotsEl.children, (d, i) => d.classList.toggle('on', i === G.S.page));
   $('flip').textContent = G.S.auto ? '⏸ 暂停翻页' : '▶ 自动翻页';
+  paintPoem(G.S.page, G.S.lang);
 }
 function render(){
   const p = G.current(), meta = SCENE_META[p.scene] || { dark: false };
@@ -816,6 +876,7 @@ window.book = {
   setLang: l => { G.setLang(l); [].forEach.call(document.querySelectorAll('#langSeg button'),
     x => x.classList.toggle('on', x.dataset.lang === G.S.lang)); paint(); },
   theme: v => setTheme(v), freeze: v => { frozen = !!v; },
+  poem: () => ({ ...SUNRISE_POEM, visible: $('poemCard').style.display !== 'none' }),
   pose: t => { G.S.elapsed = +t || 0; frozen = true; render(); }
 };
 
@@ -858,6 +919,16 @@ if (Q.get('selftest') === '1'){
   ok('小鸟外观跨页一致（同一绘制函数）', (() => {
     const src = drawBird.toString(); return /BIRD\.wing/.test(src) && /BIRD\.beak/.test(src); })());
   ok('阅读时长合理', (() => { const s = G.readTime(); return s > 20 && s < 120; })());
+  ok('日出小诗中英四行齐备', SUNRISE_POEM.zh.length === 4 && SUNRISE_POEM.en.length === 4
+    && SUNRISE_POEM.zh.every(l => l && l.trim()) && SUNRISE_POEM.en.every(l => l && l.trim()));
+  ok('日出小诗拼音带声调', /[àáâãāəěèéêēìíîīòóôōùúūǜü]/.test(SUNRISE_POEM.pin));
+  ok('日出小诗只出现在第一页', (() => {
+    const card = $('poemCard');
+    paintPoem(0, 'both'); const a = card.style.display !== 'none';
+    paintPoem(1, 'both'); const b = card.style.display === 'none';
+    paintPoem(4, 'both'); const c = card.style.display === 'none';
+    paintPoem(0, 'both'); return a && b && c;
+  })());
   ok('无横向溢出', document.documentElement.scrollWidth <= (window.innerWidth || 1e9) + 2);
   const box = $('report'), list = $('reportList'), title = $('reportTitle');
   const fails = out.filter(r => !r.pass).length;

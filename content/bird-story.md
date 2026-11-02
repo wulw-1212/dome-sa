@@ -41,6 +41,22 @@ A little bird with sky-blue wings lives in a nest in a big tree. At daybreak it 
 
 ---
 
+🌅 **日出小诗 / A Sunrise Poem**（只排在第一页，四行中英对照）
+
+天边先泛出一层淡淡的粉，
+接着漫开橘子一样的光，
+太阳慢慢露出半边脸，
+小鸟张开翅膀，接住第一缕暖。
+
+First a pale pink blush on the horizon,
+then a warm orange glow opens wide,
+the sun peeps up, showing half its face,
+and the little bird catches the first warm ray on open wings.
+
+拼音 / Pinyin: Tiānbiān xiān fànchū yì cénɡ dàndàn de fěn, jiēzhe mànkāi júzi yíyànɡ de ɡuānɡ, tàiyánɡ mànmàn lùchū bànbiān liǎn, xiǎoniǎo zhānɡkāi chìbǎnɡ, jiē zhù dì yī lǚ nuǎn.
+
+---
+
 🔤 **拼音 / Pinyin:**
 Dà shù de wō li zhù zhe yì zhī lán chìbǎng xiǎoniǎo. Tiān gāng liàng, tā tàn chū tóu, kànjiàn hǎo lán hǎo lán de tiān.
 
@@ -207,4 +223,4 @@ A little blue-winged bird peeks out of its nest at dawn and really looks at the 
 - **Model**: qfmodel (DeepSeek Harness worker, ticket `bird-story-ce1936d1581d`)
 - **Timestamp**: 2026-11-02T19:20+08:00
 - **Configuration**: watercolor / meadow→pond→rice-paddy→stars / little blue songbird / 5 pages / age 6 / theme:courage+discovery / pacing:building / color:warm-bright
-- **Companion page**: `bird-story.html`（同一份文本、拼音与汉字学习点，配 Canvas 水彩风动画；`?selftest=1` 有 17 项页内自检）
+- **Companion page**: `bird-story.html`（同一份文本、拼音与汉字学习点，配 Canvas 水彩风动画；`?selftest=1` 有 20 项页内自检）
