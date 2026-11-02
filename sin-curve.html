@@ -1048,9 +1048,9 @@ function runSelfTest() {
     for (const t of [0, 1.5, 40, 9999]) { const x = probeXAt(t, v); if (x < v.x0 - 1e-9 || x > v.x1 + 1e-9) return false; }
     return true;
   })());
-  add('绘制无异常', (() => {
-    try { resizeAll(); render(); return true; } catch (e) { return 'catch'; }
-  })());
+  let drawErr = '';
+  try { resizeAll(); render(); } catch (e) { drawErr = String((e && e.message) || e); }
+  add('绘制无异常', drawErr === '', drawErr);
   add('窄屏不溢出', document.documentElement.scrollWidth <= window.innerWidth + 1,
     document.documentElement.scrollWidth + ' vs ' + window.innerWidth);
   add('控件与状态同步', (() => {
