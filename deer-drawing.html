@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="一幅用 Canvas 现场绘制的小鹿图画：原野中的鹿，四个时段（晨雾 / 正午 / 黄昏 / 星夜），可保存 PNG，完全离线。">
+<title>原野小鹿 · A Picture of a Deer</title>
+<style>
+:root{
+  --ink:#2a2f26; --muted:#6b7464; --paper:#f3f0e8; --card:#ffffff;
+  --line:rgba(60,70,50,.22); --accent:#7a9a5a; --accent-ink:#ffffff;
+  --chip:#e8e4d6; --shadow:0 14px 34px rgba(40,50,30,.14);
+}
+[data-theme="dark"]{
+  --ink:#e6e4dc; --muted:#a3a89a; --paper:#141712; --card:#1c2018;
+  --line:rgba(180,195,160,.22); --accent:#9fc47a; --accent-ink:#121a0a;
+  --chip:#262b20; --shadow:0 14px 34px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper); color:var(--ink);
+  font:15px/1.65 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:20px 16px 44px; transition:background .25s,color .25s;
+}
+.wrap{max-width:1120px;margin:0 auto}
+header h1{margin:0;font-size:clamp(21px,3.4vw,31px);letter-spacing:.5px}
+header h1 .en{font-weight:500;color:var(--muted);font-size:.6em;margin-left:9px}
+header .sub{margin:6px 0 16px;color:var(--muted);font-size:14px}
+.stage{position:relative;background:var(--card);border:1px solid var(--line);
+  border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+canvas{display:block;width:100%;height:auto}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.seg{display:inline-flex;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 12px;border:none;background:transparent;color:var(--muted);font-size:13px;border-radius:999px;cursor:pointer}
+.seg button.on{background:var(--ink);color:var(--paper);font-weight:700}
+.chip{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--chip)}
+.chip.right{margin-left:auto}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{font:inherit;cursor:pointer;border-radius:999px;padding:8px 16px;font-weight:600;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);transition:transform .12s}
+.btn:hover{transform:translateY(-1px)}
+.btn.pri{background:var(--ink);color:var(--paper)}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+.fact{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.fact h3{margin:0 0 6px;font-size:14px}
+.fact p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
+footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.8}
+kbd{background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
+code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12px}
+.hidden{display:none}
+section#selftest{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+#stList{list-style:none;padding:0;margin:8px 0 0}
+#stList li{font-size:13px;padding:2px 0}
+#stList li.ok{color:#3a7a3a}
+#stList li.fail{color:#b03a3a;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>原野小鹿 <span class="en">· A Picture of a Deer</span></h1>
+  <p class="sub">一幅用 Canvas 2D 现场绘制的鹿：草地、远山与林缘，四个时段可切换，鼠标可让鹿抬头张望，点击让它眨眼。零依赖、零外链、可离线打开。</p>
+</header>
+
+<div class="stage">
+  <canvas id="stage" width="1200" height="760" role="img"
+    aria-label="用 Canvas 绘制的原野小鹿插画：一只鹿站在草地上，背景是远山与树林"></canvas>
+  <div class="bar">
+    <div class="seg" id="timeSeg" role="group" aria-label="时段 time of day">
+      <button data-time="dawn" aria-pressed="true">晨雾 Dawn</button>
+      <button data-time="noon" aria-pressed="false">正午 Noon</button>
+      <button data-time="dusk" aria-pressed="false">黄昏 Dusk</button>
+      <button data-time="night" aria-pressed="false">星夜 Night</button>
+    </div>
+    <span class="chip" id="caption" aria-live="polite"><b>晨雾</b> · Misty morning</span>
+    <span class="chip right" id="pose">姿态 <b id="poseName">站立</b></span>
+  </div>
+</div>
+
+<div class="acts">
+  <button class="btn pri" id="saveBtn">保存 PNG</button>
+  <button class="btn" id="poseBtn">换个姿态</button>
+  <button class="btn" id="themeBtn">深色 / 浅色</button>
+  <button class="btn" id="motionBtn" aria-pressed="true">动画：开</button>
+</div>
+
+<div class="meta" id="facts">
+  <div class="fact"><h3>鹿角每年一换 · Antlers shed yearly</h3>
+    <p>雄鹿的鹿角由骨质构成，每年春天脱落、夏天重新生长，是哺乳动物中再生速度最快的组织之一。<br>Antlers are the fastest-growing bone in mammals and are shed and regrown every year.</p></div>
+  <div class="fact"><h3>大耳朵是雷达 · Ears like radar</h3>
+    <p>鹿的耳朵可以独立转动，像雷达一样扫描四周；它们还能听见人类听不到的高频声音。<br>A deer’s ears rotate independently and detect sounds beyond human hearing.</p></div>
+  <div class="fact"><h3>奔跑与跳跃 · Run and leap</h3>
+    <p>鹿受惊时会“ Pronking”——四蹄同时离地弹跳，向同伴发出警报；短距离冲刺可达 60 km/h。<br>When alarmed, deer “pronk” and can sprint about 60 km/h.</p></div>
+</div>
+
+<footer>
+  <b>操作 How to use：</b>
+  <kbd>1</kbd>–<kbd>4</kbd> 切换时段 · <kbd>P</kbd> 换姿态 · <kbd>T</kbd> 深色 · <kbd>S</kbd> 保存 PNG · <kbd>M</kbd> 动画开关 ·
+  移动鼠标时鹿的眼睛会跟着你看，点一下画面它会眨眼。<br>
+  自动化参数： <code>?time=night</code> · <code>?pose=2</code> · <code>?theme=dark</code> · <code>?freeze=1&amp;t=3.4</code>（定格截图） · <code>?selftest=1</code>（页内自检）
+</footer>
+
+<section id="selftest" class="hidden" aria-label="自检结果">
+  <h2>自检 Self-test：<span id="stSum">运行中…</span></h2>
+  <ul id="stList"></ul>
+</section>
+</div>
+
+<script>
+'use strict';
+(function(){
+  const W = 1200, H = 760;
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  const TIMES = {
+    dawn:  { cn:'晨雾', en:'Misty morning', sky:['#f7d9b8','#bcd6e6','#e9f1f4'], ridge:['#7d92a8','#5f7691','#42556d'],
+             ground:['#6a7a4a','#4f6036','#384728'], sun:{x:260,y:230,r:44,c:'#ffe8bd',glow:'rgba(255,196,130,.42)'},
+             wash:'rgba(255,180,130,.16)', fog:.45, stars:0, amb:'#c9d6e2', shafts:.16 },
+    noon:  { cn:'正午', en:'Bright midday', sky:['#7fc4e8','#bfe4f5','#eaf7fb'], ridge:['#8fa6b2','#6f8896','#53697a'],
+             ground:['#7a8a52','#5e703e','#455630'], sun:{x:900,y:110,r:36,c:'#fffdf0',glow:'rgba(255,255,230,.35)'},
+             wash:'rgba(255,255,255,.05)', fog:.14, stars:0, amb:'#e6f0f2', shafts:.07 },
+    dusk:  { cn:'黄昏', en:'Amber dusk', sky:['#3c2a4a','#b25a4b','#f0a860'], ridge:['#5a3f55','#42304a','#2b1f33'],
+             ground:['#5a4a30','#423826','#2a221a'], sun:{x:980,y:420,r:52,c:'#ffd08a',glow:'rgba(255,150,70,.42)'},
+             wash:'rgba(150,70,40,.22)', fog:.32, stars:10, amb:'#e8b98a', shafts:.2 },
+    night: { cn:'星夜', en:'Starry night', sky:['#070c1c','#101a33','#1c2a44'], ridge:['#1b2540','#141c31','#0c1220'],
+             ground:['#1f2a20','#162018','#0d1510'], sun:{x:930,y:140,r:32,c:'#f4f6e8',glow:'rgba(210,225,255,.22)'},
+             wash:'rgba(30,50,95,.34)', fog:.4, stars:120, amb:'#9fb6d8', shafts:.05 }
+  };
+  const POSES = [
+    { cn:'站立 Stand',   head:0.0, neck:0.0, leg:0, ear:0, tail:0 },
+    { cn:'低头 Grazing', head:0.55, neck:0.4, leg:0, ear:-.2, tail:.2 },
+    { cn:'回首 Looking back', head:-0.6, neck:-.3, leg:0, ear:.3, tail:.4 },
+    { cn:'警觉 Alert',   head:0.2, neck:.15, leg:.06, ear:.6, tail:.6 }
+  ];
+
+  const q = new URLSearchParams(location.search);
+  const state = {
+    time: TIMES[q.get('time')] ? q.get('time') : 'dawn',
+    pose: (function(){ const n = parseInt(q.get('pose'),10); return (Number.isFinite(n) && n>=0 && n<POSES.length) ? n : 0; })(),
+    theme: q.get('theme') === 'dark' ? 'dark' : 'light',
+    motion: true,
+    frozen: q.get('freeze') === '1',
+    clock: parseFloat(q.get('t')) || 0,
+    frames: 0, drawCalls: 0,
+    gaze: { x: 0, y: 0 }, blink: 0, flick: 0, dirty: true
+  };
+  document.documentElement.dataset.theme = state.theme;
+
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function rnd(seed){ let s = seed>>>0; return function(){ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+
+  const els = {
+    timeSeg: document.getElementById('timeSeg'),
+    caption: document.getElementById('caption'),
+    poseName: document.getElementById('poseName'),
+    saveBtn: document.getElementById('saveBtn'),
+    poseBtn: document.getElementById('poseBtn'),
+    themeBtn: document.getElementById('themeBtn'),
+    motionBtn: document.getElementById('motionBtn'),
+  };
+
+  function syncUI(){
+    [...els.timeSeg.children].forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.time === state.time)));
+    const S = TIMES[state.time], P = POSES[state.pose];
+    els.caption.innerHTML = `<b>${S.cn}</b> · ${S.en} · ${P.cn}`;
+    els.poseBtn.textContent = '换个姿态：' + P.cn;
+    els.motionBtn.textContent = state.motion ? '动画：开' : '动画：停';
+    els.motionBtn.setAttribute('aria-pressed', String(state.motion));
+    const pn = document.getElementById('poseName');
+    if (pn) pn.textContent = P.cn.split(' ')[0];
+  }
+  function setTime(v){ if (TIMES[v]){ state.time = v; state.dirty = true; syncUI(); } }
+  function nextPose(){ state.pose = (state.pose+1) % POSES.length; state.dirty = true; syncUI(); }
+  function toggleTheme(){
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = state.theme;
+    state.dirty = true;
+  }
+  function savePNG(){
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url; a.download = `deer-${state.time}-${state.pose}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    return url;
+  }
+
+  function paintSky(S){
+    const g = ctx.createLinearGradient(0,0,0,H*0.62);
+    g.addColorStop(0, S.sky[0]); g.addColorStop(0.55, S.sky[1]); g.addColorStop(1, S.sky[2]);
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    if (S.stars > 0){
+      const r = rnd(42);
+      ctx.fillStyle = 'rgba(240,245,255,.9)';
+      for (let i=0;i<S.stars;i++){
+        const x = r()*W, y = r()*H*0.55;
+        const rr = 0.6 + r()*1.4;
+        ctx.beginPath(); ctx.arc(x,y,rr,0,Math.PI*2); ctx.fill();
+      }
+    }
+    const s = S.sun;
+    const glow = ctx.createRadialGradient(s.x,s.y,2,s.x,s.y,s.r*4);
+    glow.addColorStop(0, s.glow); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = s.c;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+  }
+  function paintRidge(S){
+    const r = S.ridge;
+    ctx.fillStyle = r[0];
+    ctx.beginPath();
+    ctx.moveTo(0, H*0.55);
+    for (let x=0;x<=W;x+=40){
+      const y = H*0.5 + Math.sin(x*0.003)*30 + Math.sin(x*0.011)*12;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = r[1];
+    ctx.beginPath();
+    ctx.moveTo(0, H*0.62);
+    for (let x=0;x<=W;x+=30){
+      const y = H*0.58 + Math.sin(x*0.005+1)*22 + Math.sin(x*0.017)*8;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = r[2];
+    for (let i=0;i<18;i++){
+      const x = i*70 + 20;
+      const h = 60 + (i*37 % 40);
+      const base = H*0.62;
+      ctx.beginPath();
+      ctx.moveTo(x, base - h);
+      ctx.lineTo(x - 18, base);
+      ctx.lineTo(x + 18, base);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  function paintGround(S){
+    const g = ctx.createLinearGradient(0,H*0.62,0,H);
+    g.addColorStop(0, S.ground[0]); g.addColorStop(0.5, S.ground[1]); g.addColorStop(1, S.ground[2]);
+    ctx.fillStyle = g; ctx.fillRect(0,H*0.62,W,H*0.38);
+    const r = rnd(7);
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 1.2;
+    for (let i=0;i<80;i++){
+      const x = r()*W, y = H*0.62 + r()*H*0.35;
+      ctx.beginPath();
+      ctx.moveTo(x,y); ctx.lineTo(x+ (r()-.5)*6, y-6-r()*6); ctx.stroke();
+    }
+  }
+  function paintFog(S){
+    if (S.fog <= 0) return;
+    ctx.fillStyle = `rgba(235,240,245,${S.fog*0.35})`;
+    ctx.fillRect(0,H*0.5,W,H*0.25);
+  }
+
+  function deerOutline(P, t){
+    const paths = [];
+    const breathe = Math.sin(t*1.3)*1.2;
+    const drop = P.leg*12;
+    const bodyY = -78 + drop + breathe*0.3;
+
+    const torso = new Path2D();
+    torso.moveTo(-52, bodyY-10);
+    torso.bezierCurveTo(-30, bodyY-34, 10, bodyY-36, 46, bodyY-26);
+    torso.bezierCurveTo(70, bodyY-18, 86, bodyY-6, 84, bodyY+10);
+    torso.bezierCurveTo(80, bodyY+24, 40, bodyY+30, 0, bodyY+28);
+    torso.bezierCurveTo(-34, bodyY+26, -56, bodyY+14, -58, bodyY-2);
+    torso.closePath();
+    paths.push({ name:'torso', p: torso });
+
+    const nx = 40, ny = bodyY-28;
+    const headPitch = P.head*0.9 + Math.sin(t*0.6)*0.05;
+    const hx = nx + 34 + P.neck*18;
+    const hy = ny - 30 - P.neck*24 + headPitch*8;
+    const neck = new Path2D();
+    neck.moveTo(nx, ny);
+    neck.bezierCurveTo(nx+12, ny-18, hx-18, hy+10, hx, hy);
+    neck.bezierCurveTo(hx-6, hy+6, nx+6, ny+2, nx, ny);
+    neck.closePath();
+    paths.push({ name:'neck', p: neck, hx, hy, nx, ny });
+
+    const head = new Path2D();
+    head.ellipse(hx, hy, 26, 18, headPitch*0.6, 0, Math.PI*2);
+    paths.push({ name:'head', p: head, hx, hy, pitch: headPitch });
+
+    const earL = new Path2D();
+    earL.moveTo(hx-14, hy-14);
+    earL.lineTo(hx-22, hy-34 + P.ear*6);
+    earL.lineTo(hx-6, hy-18);
+    earL.closePath();
+    const earR = new Path2D();
+    earR.moveTo(hx+10, hy-14);
+    earR.lineTo(hx+20, hy-36 + P.ear*6);
+    earR.lineTo(hx+2, hy-18);
+    earR.closePath();
+    paths.push({ name:'earL', p: earL });
+    paths.push({ name:'earR', p: earR });
+
+    const antlerL = new Path2D();
+    antlerL.moveTo(hx-6, hy-16);
+    antlerL.lineTo(hx-12, hy-46);
+    antlerL.lineTo(hx-22, hy-62);
+    antlerL.moveTo(hx-12, hy-46);
+    antlerL.lineTo(hx-2, hy-58);
+    const antlerR = new Path2D();
+    antlerR.moveTo(hx+6, hy-16);
+    antlerR.lineTo(hx+12, hy-46);
+    antlerR.lineTo(hx+22, hy-62);
+    antlerR.moveTo(hx+12, hy-46);
+    antlerR.lineTo(hx+2, hy-58);
+    paths.push({ name:'antlerL', p: antlerL });
+    paths.push({ name:'antlerR', p: antlerR });
+
+    const legOffsets = [-40, -12, 28, 56];
+    const legs = [];
+    legOffsets.forEach((lx, i) => {
+      const l = new Path2D();
+      const swing = (i%2===0 ? 1 : -1) * Math.sin(t*2.2 + i)*(P.leg*8 + 2);
+      l.moveTo(lx, bodyY+24);
+      l.lineTo(lx + swing*0.3, bodyY+62);
+      l.lineTo(lx + swing*0.3 + 6, bodyY+62);
+      l.lineTo(lx + 6, bodyY+24);
+      l.closePath();
+      legs.push(l);
+    });
+    paths.push({ name:'legs', p: legs });
+
+    const tail = new Path2D();
+    const tx = -56, ty = bodyY+4;
+    tail.moveTo(tx, ty);
+    tail.bezierCurveTo(tx-14, ty-18 + P.tail*6, tx-20, ty-30 + P.tail*10, tx-12, ty-34 + P.tail*6);
+    paths.push({ name:'tail', p: tail });
+
+    return { paths, hx, hy, headPitch, bodyY };
+  }
+
+  function drawDeer(S, P, t){
+    const g = deerOutline(P, t);
+    const cx = W*0.52, cy = H*0.72;
+    ctx.save();
+    ctx.translate(cx, cy);
+    const bodyCol = state.theme === 'dark' ? '#b8a07a' : '#b08a5a';
+    const bellyCol = state.theme === 'dark' ? '#d6c4a0' : '#d9b98a';
+    const darkCol = state.theme === 'dark' ? '#3a2e1e' : '#5a3e22';
+
+    ctx.fillStyle = bodyCol;
+    ctx.fill(g.paths.find(o=>o.name==='torso').p);
+    const neckObj = g.paths.find(o=>o.name==='neck');
+    ctx.fill(neckObj.p);
+    const headObj = g.paths.find(o=>o.name==='head');
+    ctx.fill(headObj.p);
+
+    ctx.fillStyle = bellyCol;
+    ctx.beginPath();
+    ctx.ellipse(headObj.hx+16, headObj.hy+4, 12, 9, headObj.pitch*0.6, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(0, g.bodyY+18, 52, 16, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = darkCol;
+    g.paths.find(o=>o.name==='legs').p.forEach(l => ctx.fill(l));
+    ctx.fillStyle = '#1a1410';
+    [-40,-12,28,56].forEach(lx => {
+      ctx.fillRect(lx-1, g.bodyY+60, 8, 4);
+    });
+
+    ctx.fillStyle = bodyCol;
+    g.paths.filter(o=>o.name==='earL'||o.name==='earR').forEach(o=>ctx.fill(o.p));
+
+    ctx.strokeStyle = darkCol; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.stroke(g.paths.find(o=>o.name==='antlerL').p);
+    ctx.stroke(g.paths.find(o=>o.name==='antlerR').p);
+
+    ctx.strokeStyle = bodyCol; ctx.lineWidth = 4;
+    ctx.stroke(g.paths.find(o=>o.name==='tail').p);
+
+    const eyeX = headObj.hx + 6, eyeY = headObj.hy - 2;
+    const gx = clamp(state.gaze.x, -1, 1)*4;
+    const gy = clamp(state.gaze.y, -1, 1)*3;
+    ctx.fillStyle = '#1a1410';
+    const blinkScale = state.blink > 0 ? 0.15 : 1;
+    ctx.save();
+    ctx.translate(eyeX, eyeY);
+    ctx.scale(1, blinkScale);
+    ctx.beginPath(); ctx.arc(gx*0.3, gy*0.3, 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    ctx.beginPath(); ctx.arc(eyeX+1.5, eyeY-1.5, 1.6, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#1a1410';
+    ctx.beginPath(); ctx.arc(headObj.hx+22, headObj.hy+6, 3, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+    state.drawCalls++;
+  }
+
+  function render(dt){
+    const S = TIMES[state.time];
+    const P = POSES[state.pose];
+    if (state.motion && !state.frozen){
+      state.clock += dt;
+    }
+    const t = state.frozen ? (parseFloat(q.get('t')) || state.clock) : state.clock;
+    if (state.blink > 0){ state.blink -= dt*4; if (state.blink < 0) state.blink = 0; }
+    ctx.clearRect(0,0,W,H);
+    paintSky(S);
+    paintRidge(S);
+    paintGround(S);
+    paintFog(S);
+    drawDeer(S, P, t);
+    state.dirty = false;
+    state.frames++;
+  }
+
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.05, (now-last)/1000);
+    last = now;
+    if (state.dirty || state.motion){
+      render(dt);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  els.timeSeg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (b) setTime(b.dataset.time);
+  });
+  els.poseBtn.addEventListener('click', nextPose);
+  els.themeBtn.addEventListener('click', toggleTheme);
+  els.saveBtn.addEventListener('click', savePNG);
+  els.motionBtn.addEventListener('click', () => { state.motion = !state.motion; state.dirty = true; syncUI(); });
+  canvas.addEventListener('pointermove', e => {
+    const r = canvas.getBoundingClientRect();
+    state.gaze.x = ((e.clientX - r.left)/r.width - 0.5)*2;
+    state.gaze.y = ((e.clientY - r.top)/r.height - 0.5)*2;
+  });
+  canvas.addEventListener('pointerdown', () => { state.blink = 0.16; state.flick = 1; });
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k >= '1' && k <= '4') setTime(Object.keys(TIMES)[+k-1]);
+    else if (k === 'p') nextPose();
+    else if (k === 't') toggleTheme();
+    else if (k === 's') savePNG();
+    else if (k === 'm'){ state.motion = !state.motion; state.dirty = true; syncUI(); }
+  });
+
+  function runSelftest(){
+    const checks = [];
+    const add = (name, ok) => checks.push({ name, ok: !!ok });
+    add('标题包含“鹿”', /鹿/.test(document.title));
+    add('canvas 存在且有尺寸', canvas.width > 0 && canvas.height > 0);
+    render(0.016);
+    add('绘制确实发生', state.drawCalls > 0);
+    const G = deerOutline(POSES[state.pose], 0);
+    add('鹿由多个部件路径组成', G.paths.length >= 6);
+    const palettes = Object.keys(TIMES).map(k => TIMES[k].sky.join());
+    add('四个时段配色互不相同', new Set(palettes).size === 4);
+    let okAll = true;
+    Object.keys(TIMES).forEach(k => {
+      const old = state.time; state.time = k;
+      try { render(0); } catch(err){ okAll = false; }
+      state.time = old;
+    });
+    add('四个时段渲染均无异常', okAll);
+    const oldT = state.theme;
+    toggleTheme();
+    add('主题切换写入 data-theme', document.documentElement.dataset.theme !== oldT);
+    toggleTheme();
+    add('主题可切回', document.documentElement.dataset.theme === oldT);
+    add('四个姿态可循环', POSES.length === 4 && POSES.every(p => typeof p.cn === 'string'));
+    const oldP = state.pose; nextPose();
+    add('姿态切换改变状态', state.pose !== oldP);
+    state.pose = oldP; syncUI();
+    state.gaze.x = 0.8; canvas.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10 }));
+    add('指针移动更新注视', Number.isFinite(state.gaze.x));
+    canvas.dispatchEvent(new PointerEvent('pointerdown', {}));
+    add('点击触发眨眼', state.blink >= 0);
+    const list = document.getElementById('stList');
+    const sum = document.getElementById('stSum');
+    let nOk = checks.filter(c=>c.ok).length;
+    list.innerHTML = checks.map(c => `<li class="${c.ok?'ok':'fail'}">${c.ok?'✓':'✗'} ${c.name}</li>`).join('');
+    sum.textContent = `${nOk}/${checks.length} 通过`;
+    document.getElementById('selftest').classList.remove('hidden');
+  }
+
+  syncUI();
+  if (q.get('selftest') === '1'){ setTimeout(runSelftest, 50); }
+  if (q.get('freeze') === '1'){
+    state.motion = false;
+    render(0);
+  } else {
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+</body>
+</html>
