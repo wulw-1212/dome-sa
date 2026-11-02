@@ -159,7 +159,7 @@ function drawDragon(ctx, state){
   const n=140, pts=spinePoints(seed, time, n);
   pts.tg=tangents(pts);
   const pal=dragonPalette(theme, R);
-  const maneHue=R()*360, whiskLong=90+R()*70, hornLen=52+R()*26;
+  const whiskLong=90+R()*70;
   const legU=[0.14,0.3,0.58,0.74].map(v=>v+R()*0.03);
   let scalesDrawn=0;
 
