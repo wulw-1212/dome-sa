@@ -122,19 +122,22 @@
   <div class="panel" id="menuPanel">
     <div class="card">
       <h1>猎人与鸟</h1>
-      <p>两套玩法，一边当猎人、一边当小鸟。全部代码现场绘制，离线可玩。</p>
+      <p>三种玩法：当猎人、当小鸟，或者用一颗子弹打一个英语单词。全部代码现场绘制，离线可玩。</p>
       <div class="modes">
         <button class="modebtn" id="hunterBtn"><b>🎯 猎人模式</b><span>限时打飞鸟，连击加分。蓝色「护」标是保护鸟类，打中要重罚。</span></button>
         <button class="modebtn" id="birdBtn"><b>🐦 小鸟模式</b><span>你当小鸟，躲开猎人的弹丸，采集浆果，三根羽毛用完即止。</span></button>
+        <button class="modebtn" id="wordBtn"><b>📚 单词模式 Grade 1 · 2</b><span>一次显示一个英语单词，带图片、会读出声；听懂后开枪打中背图片的小鸟，才能拿到下一颗子弹。</span></button>
       </div>
       <div class="keys">
         <b>鼠标移动</b><span>瞄准 / 操控飞行</span>
-        <b>左键 / 空格</b><span>猎人模式开火</span>
+        <b>左键 / 空格</b><span>猎人模式 · 单词模式开火</span>
         <b>← → ↑ ↓ / WASD</b><span>小鸟模式飞行</span>
+        <b>S</b><span>单词模式：再听一遍发音</span>
+        <b>G</b><span>单词模式：切换 Grade 1 / 2</span>
         <b>R</b><span>换弹（弹匣 6 发）</span>
         <b>P / Esc</b><span>暂停</span>
         <b>Enter</b><span>开始 / 再来一局</span>
-        <b>H / B</b><span>切换模式</span>
+        <b>H / B / W</b><span>切换模式</span>
         <b>M · T</b><span>静音 · 深色 / 浅色</span>
       </div>
       <div class="legend"><i>护</i><span>保护鸟类：打中扣 200 分并清空连击</span></div>
@@ -172,7 +175,8 @@
   const TAU = Math.PI * 2;
 
   const q = new URLSearchParams(location.search);
-  const MODE = q.get("mode") === "bird" ? "bird" : "hunter";
+  const MODE = ["bird", "word"].includes(q.get("mode")) ? q.get("mode") : "hunter";
+  const WORD_GRADE = q.get("grade") === "2" ? 2 : 1;        // starting word grade
   const SELFTEST = q.get("selftest") === "1";
   const AUTOSTART = q.has("autostart");
   const AUTO = q.get("auto") === "1";                        // AI plays for screenshots/demos
@@ -243,7 +247,9 @@
   function maxBirds(wave) { return Math.min(10, 3 + wave); }
   function comboMult(streak) { return Math.min(5, 1 + Math.floor(streak / 3) * 0.5); }
   function grade(score, mode) {
-    const t = mode === "bird" ? [1800, 1300, 900, 600, 300] : [3400, 2600, 1800, 1100, 500];
+    const t = mode === "bird" ? [1800, 1300, 900, 600, 300]
+            : mode === "word" ? [1800, 1400, 1000, 700, 400]
+            : [3400, 2600, 1800, 1100, 500];
     return score >= t[0] ? "S" : score >= t[1] ? "A" : score >= t[2] ? "B"
          : score >= t[3] ? "C" : score >= t[4] ? "D" : "E";
   }
@@ -287,6 +293,213 @@
              mtn: ["#1c2740", "#121b2e"], tree: "#0e1626", ground: ["#1c2a26", "#0c1412"], grass: "#24382f", cloud: "rgba(150,170,205,.22)", haze: "rgba(120,150,220,.10)" },
   };
   const pal = PALETTES[TIMEKEY];
+
+  // -------------------------------------------------------------------- words
+  // Word mode: one English word per bullet. Every word carries a small
+  // procedural picture that is drawn both on the word card and on the bird the
+  // player has to shoot, so the picture explains the word.
+  function poly(c, pts, fill, stroke) {
+    c.beginPath();
+    pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]));
+    c.closePath();
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    if (stroke) { c.strokeStyle = stroke; c.lineWidth = 2; c.stroke(); }
+  }
+  // Icons draw in a local space centred on (0,0) and fit inside roughly ±50.
+  const ICONS = {
+    sun(c) {
+      c.fillStyle = "#ffcc33";
+      for (let i = 0; i < 12; i++) { c.save(); c.rotate(i / 12 * TAU); c.fillRect(30, -4, 14, 8); c.restore(); }
+      c.beginPath(); c.arc(0, 0, 28, 0, TAU); c.fill();
+    },
+    cat(c) {
+      poly(c, [[-27, -16], [-14, -46], [-2, -24]], "#d8a05a");
+      poly(c, [[27, -16], [14, -46], [2, -24]], "#d8a05a");
+      c.fillStyle = "#e0b070"; c.beginPath(); c.arc(0, 0, 30, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b";
+      c.beginPath(); c.arc(-11, -4, 4, 0, TAU); c.arc(11, -4, 4, 0, TAU); c.fill();
+      poly(c, [[-5, 8], [5, 8], [0, 15]], "#e07a9a");
+      c.strokeStyle = "#f5ead6"; c.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) {
+        c.beginPath();
+        c.moveTo(-9, 14 + i * 5); c.lineTo(-36, 9 + i * 9);
+        c.moveTo(9, 14 + i * 5); c.lineTo(36, 9 + i * 9);
+        c.stroke();
+      }
+    },
+    fish(c) {
+      c.fillStyle = "#4f9be0"; c.beginPath(); c.ellipse(2, 0, 32, 20, 0, 0, TAU); c.fill();
+      poly(c, [[-26, 0], [-52, -20], [-52, 20]], "#3d86c8");
+      c.fillStyle = "#3d86c8"; c.beginPath(); c.ellipse(0, -14, 13, 7, -0.4, 0, TAU); c.fill();
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(16, -4, 5.5, 0, TAU); c.fill();
+      c.fillStyle = "#111"; c.beginPath(); c.arc(17, -4, 2.6, 0, TAU); c.fill();
+    },
+    tree(c) {
+      c.fillStyle = "#7a4a24"; c.fillRect(-7, 2, 14, 42);
+      poly(c, [[0, -52], [-34, -6], [34, -6]], "#3f8a3a");
+      poly(c, [[0, -28], [-40, 20], [40, 20]], "#4f9c46");
+    },
+    star(c) {
+      const p = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 18 : 46, a = -Math.PI / 2 + i * Math.PI / 5;
+        p.push([Math.cos(a) * r, Math.sin(a) * r]);
+      }
+      poly(c, p, "#ffd35c", "#e8a92c");
+    },
+    egg(c) {
+      c.fillStyle = "#fdf6e6"; c.beginPath(); c.ellipse(0, 0, 26, 34, 0, 0, TAU); c.fill();
+      c.strokeStyle = "#e2d5b8"; c.lineWidth = 2; c.stroke();
+    },
+    hat(c) {
+      c.fillStyle = "#3f6b9e"; c.beginPath(); c.ellipse(0, 20, 42, 10, 0, 0, TAU); c.fill();
+      c.fillRect(-22, -18, 44, 38);
+      c.fillStyle = "#2f5580"; c.fillRect(-22, 8, 44, 10);
+    },
+    cup(c) {
+      poly(c, [[-20, -18], [20, -18], [14, 26], [-14, 26]], "#f4f4f4", "#c8c8c8");
+      c.strokeStyle = "#c8c8c8"; c.lineWidth = 5;
+      c.beginPath(); c.arc(26, 2, 12, -1.1, 1.1); c.stroke();
+      c.strokeStyle = "#cfd8e6"; c.lineWidth = 3;
+      for (let i = -1; i <= 1; i++) {
+        c.beginPath(); c.moveTo(i * 11 - 2, -26); c.quadraticCurveTo(i * 11 + 5, -36, i * 11 - 2, -46); c.stroke();
+      }
+    },
+    bird(c) {
+      c.fillStyle = "#5b9be0"; c.beginPath(); c.ellipse(0, 6, 30, 18, 0, 0, TAU); c.fill();
+      c.fillStyle = "#ecf3fb"; c.beginPath(); c.ellipse(2, 12, 20, 10, 0, 0, TAU); c.fill();
+      c.fillStyle = "#3b7fd0"; c.beginPath(); c.ellipse(-6, -2, 16, 9, -0.5, 0, TAU); c.fill();
+      c.beginPath(); c.arc(22, -10, 11, 0, TAU); c.fill();
+      poly(c, [[31, -12], [46, -8], [31, -4]], "#f2b23c");
+      c.fillStyle = "#111"; c.beginPath(); c.arc(25, -12, 2.6, 0, TAU); c.fill();
+    },
+    cow(c) {
+      c.fillStyle = "#f7f7f7"; c.beginPath(); c.ellipse(-4, 0, 34, 22, 0, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b";
+      c.beginPath(); c.ellipse(-16, -6, 10, 8, 0, 0, TAU); c.ellipse(10, 6, 8, 7, 0, 0, TAU); c.fill();
+      c.fillStyle = "#f7f7f7"; c.beginPath(); c.arc(30, -12, 13, 0, TAU); c.fill();
+      c.fillStyle = "#e8b0a0"; c.beginPath(); c.arc(35, -8, 9, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(27, -15, 2.4, 0, TAU); c.arc(34, -15, 2.4, 0, TAU); c.fill();
+      c.strokeStyle = "#e8dcc0"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(24, -24); c.lineTo(19, -34); c.moveTo(37, -24); c.lineTo(42, -34); c.stroke();
+    },
+    apple(c) {
+      c.fillStyle = "#e0453f";
+      c.beginPath(); c.arc(-10, 4, 20, 0, TAU); c.arc(12, 4, 20, 0, TAU); c.fill();
+      c.fillStyle = "#7a4a24"; c.fillRect(-2, -30, 5, 12);
+      poly(c, [[3, -26], [23, -35], [8, -15]], "#4f9c46");
+    },
+    rabbit(c) {
+      c.fillStyle = "#e8e8ee";
+      c.beginPath(); c.ellipse(-12, -38, 8, 22, 0.15, 0, TAU); c.ellipse(12, -38, 8, 22, -0.15, 0, TAU); c.fill();
+      c.beginPath(); c.arc(0, 2, 28, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(-10, -2, 4, 0, TAU); c.arc(10, -2, 4, 0, TAU); c.fill();
+      c.fillStyle = "#e07a9a"; c.beginPath(); c.arc(0, 10, 5, 0, TAU); c.fill();
+    },
+    flower(c) {
+      c.strokeStyle = "#4f9c46"; c.lineWidth = 5;
+      c.beginPath(); c.moveTo(0, 8); c.lineTo(0, 46); c.stroke();
+      c.fillStyle = "#4f9c46"; c.beginPath(); c.ellipse(-14, 28, 12, 6, -0.4, 0, TAU); c.fill();
+      c.fillStyle = "#e86a9a";
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * TAU;
+        c.beginPath();
+        c.ellipse(Math.cos(a) * 20, Math.sin(a) * 20 - 6, 13, 9, a, 0, TAU);
+        c.fill();
+      }
+      c.fillStyle = "#ffd35c"; c.beginPath(); c.arc(0, -6, 11, 0, TAU); c.fill();
+    },
+    rocket(c) {
+      c.fillStyle = "#d8dde6";
+      c.beginPath(); c.moveTo(0, -48); c.quadraticCurveTo(18, -10, 16, 26); c.lineTo(-16, 26); c.quadraticCurveTo(-18, -10, 0, -48); c.fill();
+      c.fillStyle = "#e0453f";
+      c.beginPath(); c.moveTo(0, -48); c.quadraticCurveTo(10, -26, 9, -8); c.lineTo(-9, -8); c.quadraticCurveTo(-10, -26, 0, -48); c.fill();
+      c.fillStyle = "#3f6b9e"; c.beginPath(); c.arc(0, 6, 8, 0, TAU); c.fill();
+      poly(c, [[-16, 10], [-34, 34], [-16, 26]], "#e0453f");
+      poly(c, [[16, 10], [34, 34], [16, 26]], "#e0453f");
+      poly(c, [[-10, 28], [10, 28], [0, 50]], "#ffb347");
+    },
+    panda(c) {
+      c.fillStyle = "#2b2b2b";
+      c.beginPath(); c.arc(-22, -22, 11, 0, TAU); c.arc(22, -22, 11, 0, TAU); c.fill();
+      c.fillStyle = "#f7f7f7"; c.beginPath(); c.arc(0, 0, 30, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b";
+      c.beginPath(); c.ellipse(-12, -4, 9, 11, 0.4, 0, TAU); c.ellipse(12, -4, 9, 11, -0.4, 0, TAU); c.fill();
+      c.beginPath(); c.arc(0, 14, 5, 0, TAU); c.fill();
+    },
+    pencil(c) {
+      c.save(); c.rotate(-0.62);
+      c.fillStyle = "#ffcf5c"; c.fillRect(-10, -40, 20, 66);
+      c.fillStyle = "#e8b03c"; c.fillRect(-10, 10, 20, 8);
+      poly(c, [[-10, -40], [10, -40], [0, -58]], "#f0d0a0");
+      poly(c, [[-2.5, -55], [2.5, -55], [0, -60]], "#3b3b3b");
+      c.fillStyle = "#e07a9a"; c.fillRect(-10, 18, 20, 12);
+      c.restore();
+    },
+    banana(c) {
+      c.fillStyle = "#ffd35c";
+      c.beginPath();
+      c.moveTo(-34, 16); c.quadraticCurveTo(-6, 46, 34, 10);
+      c.quadraticCurveTo(20, 34, -14, 30); c.quadraticCurveTo(-30, 24, -34, 16);
+      c.fill();
+      c.strokeStyle = "#c9a134"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-34, 16); c.quadraticCurveTo(-6, 46, 34, 10); c.stroke();
+    },
+    tiger(c) {
+      c.fillStyle = "#e08a3c";
+      c.beginPath(); c.arc(-24, -24, 10, 0, TAU); c.arc(24, -24, 10, 0, TAU); c.fill();
+      c.beginPath(); c.arc(0, 0, 30, 0, TAU); c.fill();
+      c.fillStyle = "#f7f7f7"; c.beginPath(); c.ellipse(0, 12, 16, 12, 0, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b";
+      c.fillRect(-12, -26, 4, 10); c.fillRect(8, -26, 4, 10);
+      c.fillRect(-24, -12, 4, 12); c.fillRect(20, -12, 4, 12);
+      c.beginPath(); c.arc(-11, -2, 4, 0, TAU); c.arc(11, -2, 4, 0, TAU); c.fill();
+      poly(c, [[-5, 9], [5, 9], [0, 15]], "#c25b3a");
+    },
+    cloud(c) {
+      c.fillStyle = "#f4f8fd";
+      c.strokeStyle = "#b9c8da"; c.lineWidth = 2.5;
+      c.beginPath(); c.arc(-22, 8, 18, 0, TAU); c.arc(2, -6, 24, 0, TAU); c.arc(28, 10, 16, 0, TAU); c.fill(); c.stroke();
+      c.fillRect(-22, 8, 50, 18);
+      c.strokeRect(-22, 8, 50, 18);
+    },
+    house(c) {
+      c.fillStyle = "#f0e0c8"; c.fillRect(-30, -6, 60, 44);
+      poly(c, [[-38, -6], [0, -42], [38, -6]], "#c0563c");
+      c.fillStyle = "#7a4a24"; c.fillRect(-8, 12, 18, 26);
+      c.fillStyle = "#8fc4e8"; c.fillRect(6, -2, 16, 14);
+      c.strokeStyle = "#f0e0c8"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(14, -2); c.lineTo(14, 12); c.moveTo(6, 5); c.lineTo(22, 5); c.stroke();
+    },
+  };
+
+  // Grade 1 / Grade 2 vocabulary. Grade 2 unlocks after grade 1 is cleared.
+  const WORDS = {
+    1: [
+      { en: "sun", zh: "太阳", icon: "sun" },
+      { en: "cat", zh: "猫", icon: "cat" },
+      { en: "fish", zh: "鱼", icon: "fish" },
+      { en: "tree", zh: "树", icon: "tree" },
+      { en: "star", zh: "星星", icon: "star" },
+      { en: "egg", zh: "鸡蛋", icon: "egg" },
+      { en: "hat", zh: "帽子", icon: "hat" },
+      { en: "cup", zh: "杯子", icon: "cup" },
+      { en: "bird", zh: "小鸟", icon: "bird" },
+      { en: "cow", zh: "奶牛", icon: "cow" },
+    ],
+    2: [
+      { en: "apple", zh: "苹果", icon: "apple" },
+      { en: "rabbit", zh: "兔子", icon: "rabbit" },
+      { en: "flower", zh: "花", icon: "flower" },
+      { en: "rocket", zh: "火箭", icon: "rocket" },
+      { en: "panda", zh: "熊猫", icon: "panda" },
+      { en: "pencil", zh: "铅笔", icon: "pencil" },
+      { en: "banana", zh: "香蕉", icon: "banana" },
+      { en: "tiger", zh: "老虎", icon: "tiger" },
+      { en: "cloud", zh: "云", icon: "cloud" },
+      { en: "house", zh: "房子", icon: "house" },
+    ],
+  };
 
   // Clouds & stars are seeded once so every frame is stable.
   const sceneRng = createRng(SEED ^ 0x9e3779b9);
@@ -348,7 +561,25 @@
     collect() { sfx.tone(1046, 0.09, "triangle", 0.22, 320); sfx.tone(1568, 0.08, "sine", 0.14, 200); },
     hurt() { sfx.tone(320, 0.22, "sawtooth", 0.24, -180); sfx.burst(0.18, 900, 0.2); },
     over() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => sfx.tone(f, 0.24, "triangle", 0.2), i * 130)); },
+    // A spoken word needs a fallback: this chime always plays, and the word
+    // itself is spoken through the Web Speech API when the browser has it.
+    word() { sfx.tone(660, 0.12, "triangle", 0.18, 120); setTimeout(() => sfx.tone(990, 0.16, "triangle", 0.15, 140), 140); },
   };
+
+  /** Speak an English word (silent no-op when the browser has no speech API). */
+  function speak(text, rate) {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth || typeof window.SpeechSynthesisUtterance !== "function") return false;
+      const u = new window.SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      u.rate = rate || 0.8;
+      u.pitch = 1.05;
+      synth.cancel();
+      synth.speak(u);
+      return true;
+    } catch (e) { return false; }
+  }
 
   // -------------------------------------------------------------------- state
   function makeState(mode) {
@@ -363,6 +594,7 @@
       bird: { x: 300, y: 340, vx: 0, vy: 0, flap: 0, hp: 3, inv: 0, dir: 1 },
       hunter: { x: W / 2, aimT: 0, aimAt: null, cool: 2.3, shots: 0 },
       berryIn: 0.4, collected: 0, golden: 0, dodged: 0,
+      word: { grade: WORD_GRADE, order: [], idx: -1, current: null, lock: 0, retry: 0, advance: 0, learned: 0 },
       rng: createRng(SEED),
     };
   }
@@ -375,6 +607,7 @@
     s.birds = [];
     birdSeq = 0;
     dom.menu.hidden = true; dom.over.hidden = true; dom.pause.hidden = true;
+    if (mode === "word") startWordRun(s, s.word.grade);
     renderHud(s);
   }
   let runCount = 0;
@@ -501,6 +734,155 @@
     sound.shot();
   }
 
+  // ----------------------------------------------------------- word-mode logic
+  // Loop: show one graded English word with its picture -> speak it -> the
+  // player gets exactly one bullet -> hit the bird carrying that picture to
+  // move on to the next word. Miss, and the same word comes back for a retry.
+  function shuffled(n, rng) {
+    const a = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function spawnWordBird(s) {
+    const w = s.word.current;
+    const side = s.rng() < 0.5 ? -1 : 1;
+    const baseY = 300 + s.rng() * 140;
+    s.birds.push({
+      sp: SPECIES.mallard, word: w, state: "fly",
+      // Word birds appear just inside the frame: the picture has to be visible
+      // while the word is being spoken, and it should stay shootable for a while.
+      x: side === -1 ? 150 : W - 150, y: baseY, baseY,
+      dir: side === -1 ? 1 : -1,
+      vx: 80 + s.rng() * 35,
+      amp: 14, phase: s.rng() * TAU, flapRate: 5,
+      scared: 0, dead: false,
+    });
+  }
+  function startWordRun(s, grade) {
+    const w = s.word;
+    w.grade = grade === 2 ? 2 : 1;
+    w.order = shuffled(WORDS[w.grade].length, s.rng);
+    w.idx = -1; w.learned = 0; w.lock = 0; w.retry = 0; w.advance = 0;
+    s.birds = [];
+    nextWord(s);
+  }
+  function nextWord(s) {
+    const w = s.word;
+    if (w.idx + 1 >= WORDS[w.grade].length) {
+      if (w.grade === 1) {                       // grade 1 cleared: unlock grade 2
+        w.grade = 2;
+        w.order = shuffled(WORDS[2].length, s.rng);
+        w.idx = -1;
+        s.flash = 0.22; s.shake = 9;
+        addFloat(s, W / 2, 150, "Grade 2 开始! Grade 2 unlocked", "#ffd76a");
+        sound.over();
+      } else { endRun(s); return; }               // grade 2 cleared: results
+    }
+    w.idx++;
+    w.current = WORDS[w.grade][w.order[w.idx]];
+    w.lock = Math.max(1.0, 0.45 + w.current.en.length * 0.11);   // hear the word first
+    w.retry = 0; w.advance = 0;
+    s.ammo = 1; s.reloading = 0; s.emptyT = 0;   // one bullet per word
+    s.birds = [];
+    spawnWordBird(s);
+    speak(w.current.en);
+    sound.word();
+    renderHud(s);
+  }
+  function fireWord(s, px, py) {
+    if (s.phase !== "playing") return false;
+    if (s.word.lock > 0) {                        // "listen, then you may fire"
+      sound.dry();
+      addFloat(s, s.aimX, Math.max(90, s.aimY - 24), "先听发音 Listen first", "#ffd76a");
+      return false;
+    }
+    if (s.ammo <= 0) { sound.dry(); return false; }
+    s.ammo--; s.shots++;
+    s.flash = 0.06; s.shake = Math.min(10, s.shake + 6);
+    sound.shot();
+    const b = hitTest(s.birds, px, py);
+    scatter(s.birds, px, py, 300);
+    if (!b) {
+      sound.miss();
+      addFloat(s, px, py, "MISS", "#9fb3c8");
+      s.word.retry = 1.1;                         // chamber the next round for the same word
+      renderHud(s);
+      return false;
+    }
+    s.score += 100; s.hits++; s.combo++;
+    s.bestStreak = Math.max(s.bestStreak, s.combo);
+    s.word.learned++;
+    b.state = "fall"; b.vy = -130; b.rot = 0;
+    sound.hit(s.combo);
+    addFloat(s, b.x, b.y - 22, "+100 " + b.word.en, "#a8e6a0");
+    feathers(s, b.x, b.y, 14, "#9fd0ff");
+    s.word.advance = 0.8;                         // beat, then the next word
+    renderHud(s);
+    return true;
+  }
+  function updateWord(s, dt) {
+    s.elapsed += dt; s.time -= dt;
+    if (s.shake > 0) s.shake = Math.max(0, s.shake - dt * 26);
+    if (s.flash > 0) s.flash = Math.max(0, s.flash - dt);
+    const w = s.word;
+
+    if (w.lock > 0) w.lock = Math.max(0, w.lock - dt);
+    if (w.advance > 0) {
+      w.advance -= dt;
+      if (w.advance <= 0) { w.advance = 0; nextWord(s); return; }
+    }
+
+    for (const b of s.birds) {
+      if (b.state === "fly") {
+        b.x += b.dir * b.vx * dt * (b.scared > 0 ? 1.9 : 1);
+        if (b.scared > 0) b.scared = Math.max(0, b.scared - dt);
+        b.phase += dt * b.flapRate;
+        b.y = b.baseY + Math.sin(b.phase) * b.amp;
+        if (b.x < -160 || b.x > W + 160) b.dead = true;
+      } else if (b.state === "fall") {
+        b.vy += 980 * dt;
+        b.y += b.vy * dt;
+        b.x += b.dir * b.vx * 0.25 * dt;
+        b.rot += dt * 3.4;
+        if (b.y > GROUND - 4) { b.dead = true; feathers(s, b.x, GROUND - 10, 6, "#9fd0ff"); }
+      }
+    }
+    s.birds = s.birds.filter(b => !b.dead);
+
+    // One bullet per word: after firing, the hunter chambers the next round for
+    // the *same* word, and a bird that got away brings the picture back.
+    const live = s.birds.some(b => b.state === "fly");
+    if (w.advance <= 0) {
+      if (s.ammo <= 0) {
+        w.retry -= dt;
+        if (w.retry <= 0) { w.retry = 1.1; s.ammo = 1; if (!live) spawnWordBird(s); renderHud(s); }
+      } else if (!live) {
+        w.retry -= dt;
+        if (w.retry <= 0) { w.retry = 0.8; spawnWordBird(s); renderHud(s); }
+      } else {
+        w.retry = Math.max(w.retry, 0.9);
+      }
+    }
+
+    if (!AUTO) { s.aimX = input.aimX; s.aimY = clamp(input.aimY, 60, GROUND - 40); }
+    s.hunterX += clamp(s.aimX - s.hunterX, -620 * dt, 620 * dt);
+
+    if (AUTO) {
+      const t = s.birds.find(b => b.state === "fly");
+      if (t && w.lock <= 0 && w.advance <= 0) {
+        s.aimX = clamp(t.x + t.dir * t.vx * 0.04, 40, W - 40);
+        s.aimY = clamp(t.y, 60, GROUND - 40);
+        s.aiCool -= dt;
+        if (s.aiCool <= 0 && s.ammo > 0) { s.aiCool = 0.4; fireWord(s, s.aimX, s.aimY); }
+      }
+    }
+
+    if (s.time <= 0) { s.time = 0; endRun(s); }
+  }
+
   function endRun(s) {
     if (s.phase === "over") return;
     s.phase = "over";
@@ -510,15 +892,21 @@
     dom.grade.textContent = g;
     dom.overTitle.textContent = s.mode === "bird"
       ? (s.bird.hp <= 0 ? "羽毛用完了" : "飞行结束")
-      : "时间到";
+      : s.mode === "word"
+        ? (s.word.grade === 2 && s.word.idx + 1 >= WORDS[2].length ? "单词全部学完 All words done!" : "时间到")
+        : "时间到";
     const acc = s.shots ? Math.round(s.hits / s.shots * 100) : 0;
     const rows = s.mode === "bird"
       ? [["得分 Score", s.score], ["采集浆果 Berries", s.collected + (s.golden ? "（金 " + s.golden + "）" : "")],
          ["躲过弹丸 Dodged", s.dodged], ["剩余羽毛 Feathers", Math.max(0, s.bird.hp)],
          ["存活 Survived", s.elapsed.toFixed(1) + "s"], ["被击中 Hits taken", Math.max(0, 3 - s.bird.hp)]]
-      : [["得分 Score", s.score], ["命中 Hits", s.hits + " / " + s.shots],
-         ["命中率 Accuracy", acc + "%"], ["最高连击 Best combo", s.bestStreak],
-         ["误伤保护鸟 Penalties", s.penalties], ["到达波次 Wave", s.wave]];
+      : s.mode === "word"
+        ? [["得分 Score", s.score], ["学会单词 Words learnt", s.word.learned],
+           ["命中率 Accuracy", acc + "%"], ["到达等级 Grade", "Grade " + s.word.grade],
+           ["射失 Missed", Math.max(0, s.shots - s.hits)], ["剩余时间 Time left", Math.max(0, s.time).toFixed(1) + "s"]]
+        : [["得分 Score", s.score], ["命中 Hits", s.hits + " / " + s.shots],
+           ["命中率 Accuracy", acc + "%"], ["最高连击 Best combo", s.bestStreak],
+           ["误伤保护鸟 Penalties", s.penalties], ["到达波次 Wave", s.wave]];
     dom.resultRows.innerHTML = rows.map(r => `<div><span>${r[0]}</span><strong>${r[1]}</strong></div>`).join("");
     const best = bestScore(s.mode);
     dom.overNote.textContent = (s.score >= best ? "🎉 新纪录！ New best!" : "历史最佳 Best " + best + " 分");
@@ -694,6 +1082,7 @@
   function update(s, dt) {
     if (s.phase !== "playing") return;
     if (s.mode === "hunter") updateHunter(s, dt);
+    else if (s.mode === "word") updateWord(s, dt);
     else updateBird(s, dt);
 
     for (const f of s.feathers) {
@@ -912,6 +1301,20 @@
       ctx.fillText("护", 0, 1);
       ctx.restore();
     }
+
+    if (b.word) {                       // word mode: the bird carries the picture
+      ctx.save();
+      ctx.translate(b.x, b.y + r + 54);
+      // Pale blue, not white: the cloud and egg pictures are near-white too.
+      ctx.fillStyle = "#d9e6f5";
+      ctx.strokeStyle = "rgba(20,32,48,.35)"; ctx.lineWidth = 2;
+      roundRect(ctx, -54, -50, 108, 108, 12);
+      ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.scale(0.84, 0.84);
+      (ICONS[b.word.icon] || (() => {}))(ctx);
+      ctx.restore();
+      ctx.restore();
+    }
   }
 
   function drawPlayerBird(b) {
@@ -1029,6 +1432,7 @@
       ctx.strokeStyle = "rgba(255,193,89,.6)";
       ctx.beginPath(); ctx.arc(s.aimX, s.aimY, 3, 0, TAU); ctx.stroke();
       ctx.restore();
+      if (s.mode === "word") drawWordCard(s);
     }
 
     for (const f of s.feathers) {
@@ -1056,8 +1460,65 @@
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
   }
 
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  /** The word card: picture + English word + meaning + "listen then shoot". */
+  function drawWordCard(s) {
+    const w = s.word;
+    if (!w.current) return;
+    const cw = 660, ch = 156, cx = W / 2 - cw / 2, cy = 30;
+    const armed = w.lock <= 0;
+    ctx.save();
+    ctx.fillStyle = "rgba(8,14,24,.86)";
+    ctx.strokeStyle = armed ? "rgba(143,227,164,.8)" : "rgba(255,193,89,.75)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, cx, cy, cw, ch, 16);
+    ctx.fill(); ctx.stroke();
+
+    ctx.save();                                    // picture panel
+    ctx.translate(cx + 84, cy + ch / 2);
+    ctx.fillStyle = "rgba(255,255,255,.08)";
+    roundRect(ctx, -66, -62, 132, 124, 12); ctx.fill();
+    ctx.save(); ctx.scale(1.05, 1.05);
+    (ICONS[w.current.icon] || (() => {}))(ctx);
+    ctx.restore();
+    ctx.restore();
+
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#f2f7fd";
+    ctx.font = "bold 54px system-ui, 'Segoe UI', sans-serif";
+    ctx.fillText(w.current.en, cx + 172, cy + 78);
+    ctx.fillStyle = "#9fb3c8";
+    ctx.font = "24px 'Microsoft YaHei', system-ui, sans-serif";
+    ctx.fillText(w.current.zh, cx + 174, cy + 112);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ffc159";
+    ctx.font = "bold 18px system-ui, sans-serif";
+    ctx.fillText("Grade " + w.grade + " · " + (w.idx + 1) + "/" + WORDS[w.grade].length, cx + cw - 18, cy + 30);
+    ctx.fillStyle = w.advance > 0 ? "#8fe3a4" : armed ? "#8fe3a4" : "#ffd76a";
+    ctx.font = "bold 20px 'Microsoft YaHei', system-ui, sans-serif";
+    ctx.fillText(w.advance > 0 ? "✅ 打中了! Next word…" : armed ? "✅ 可以开枪 Shoot!" : "🔊 听发音 Listening…", cx + cw - 18, cy + ch - 18);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#9fb3c8";
+    ctx.font = "16px 'Microsoft YaHei', system-ui, sans-serif";
+    ctx.fillText("按 S 再听一遍 Replay", cx + 174, cy + ch - 16);
+    ctx.restore();
+  }
+
   function renderHud(s) {
-    dom.modeChip.textContent = s.mode === "bird" ? "小鸟模式 · Bird" : "猎人模式 · Hunter";
+    dom.modeChip.textContent = s.mode === "bird" ? "小鸟模式 · Bird"
+      : s.mode === "word" ? "单词模式 · Word"
+      : "猎人模式 · Hunter";
     dom.score.textContent = Math.round(s.score);
     const mult = comboMult(s.combo);
     dom.combo.textContent = s.mode === "hunter" && s.combo >= 2 ? `连击 ${s.combo}  ×${mult}` : "";
@@ -1066,9 +1527,18 @@
     dom.timeBar.style.width = (clamp(s.time / DURATION, 0, 1) * 100).toFixed(1) + "%";
     dom.wave.textContent = s.mode === "bird"
       ? "第 " + (1 + Math.floor(s.elapsed / 22)) + " 轮"
-      : "第 " + s.wave + " 波";
+      : s.mode === "word"
+        ? "Grade " + s.word.grade + " · " + (s.word.idx + 1) + "/" + WORDS[s.word.grade].length
+        : "第 " + s.wave + " 波";
 
-    if (s.mode === "hunter") {
+    if (s.mode === "word") {
+      dom.stats.textContent = `学会 ${s.word.learned} 个词 · 发音 ${s.word.lock > 0 ? "播放中" : "已播完"}`;
+      dom.reloadHint.textContent = s.word.lock > 0
+        ? "🔊 先听完发音 Listen first"
+        : s.ammo > 0 ? "" : "装填下一发… Chambering";
+      dom.mag.innerHTML = `<i class="${s.ammo > 0 ? "" : "empty"}"></i><span class="magtext">${s.ammo}/1</span>`;
+      dom.hint.textContent = "一个单词一颗子弹 · S 再听一遍 · G 换 Grade";
+    } else if (s.mode === "hunter") {
       const acc = s.shots ? Math.round(s.hits / s.shots * 100) : 0;
       dom.stats.textContent = `命中率 ${acc}% · 最高连击 ${s.bestStreak}`;
       dom.reloadHint.textContent = s.reloading > 0 ? "换弹中…" : s.ammo === 0 ? "按 R 换弹" : "";
@@ -1105,16 +1575,19 @@
     if (G.phase === "menu") { newRun(G); return; }
     if (G.phase === "over") { newRun(G); return; }
     if (G.phase === "playing" && G.mode === "hunter") fire(G, input.aimX, input.aimY);
+    if (G.phase === "playing" && G.mode === "word") fireWord(G, input.aimX, input.aimY);
   });
   window.addEventListener("contextmenu", e => e.preventDefault());
 
   el("hunterBtn").addEventListener("click", () => { G.mode = "hunter"; sfx.init(); newRun(G); });
   el("birdBtn").addEventListener("click", () => { G.mode = "bird"; sfx.init(); newRun(G); });
+  el("wordBtn").addEventListener("click", () => { G.mode = "word"; sfx.init(); newRun(G); });
   el("againBtn").addEventListener("click", () => newRun(G));
   el("menuBtn").addEventListener("click", () => {
     G.phase = "menu";
     dom.menu.hidden = false; dom.over.hidden = true; dom.pause.hidden = true;
-    dom.bestNote.textContent = "猎人最佳 " + bestScore("hunter") + " 分 · 小鸟最佳 " + bestScore("bird") + " 分";
+    dom.bestNote.textContent = "猎人最佳 " + bestScore("hunter") + " 分 · 小鸟最佳 " + bestScore("bird")
+      + " 分 · 单词最佳 " + bestScore("word") + " 分";
   });
 
   window.addEventListener("keydown", e => {
@@ -1127,13 +1600,25 @@
       if (G.phase === "playing") { G.phase = "paused"; dom.pause.hidden = false; }
       else if (G.phase === "paused") { G.phase = "playing"; dom.pause.hidden = true; }
     }
-    else if (k === " ") { if (G.phase === "playing" && G.mode === "hunter") fire(G, input.aimX, clamp(input.aimY, 60, GROUND - 40)); }
+    else if (k === " ") {
+      if (G.phase === "playing" && G.mode === "hunter") fire(G, input.aimX, clamp(input.aimY, 60, GROUND - 40));
+      else if (G.phase === "playing" && G.mode === "word") fireWord(G, input.aimX, clamp(input.aimY, 60, GROUND - 40));
+    }
+    else if (k === "s" && G.mode === "word") {          // replay the pronunciation
+      if (G.word.current) { speak(G.word.current.en); sound.word(); renderHud(G); }
+    }
+    else if (k === "g" && G.mode === "word") {          // switch word grade
+      const next = G.word.grade === 1 ? 2 : 1;
+      startWordRun(G, next);
+      addFloat(G, W / 2, 190, "Grade " + next, "#ffd76a");
+    }
     else if (k === "m") { sfx.muted = !sfx.muted; }
     else if (k === "t") {
       document.documentElement.dataset.theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     }
     else if (k === "h" && G.phase === "menu") { G.mode = "hunter"; dom.modeChip.textContent = "猎人模式 · Hunter"; }
     else if (k === "b" && G.phase === "menu") { G.mode = "bird"; dom.modeChip.textContent = "小鸟模式 · Bird"; }
+    else if (k === "w" && G.phase === "menu") { G.mode = "word"; dom.modeChip.textContent = "单词模式 · Word"; }
   });
   window.addEventListener("keyup", e => input.keys.delete(e.key.toLowerCase()));
   document.addEventListener("visibilitychange", () => {
@@ -1144,6 +1629,7 @@
   const core = {
     createRng, pickSpecies, speciesWeight, makeBird, spawnInterval, maxBirds,
     comboMult, grade, hitTest, scatter, leadPoint, SPECIES, SPECIES_LIST,
+    WORDS, ICONS, shuffled, speak, startWordRun, nextWord, fireWord,
   };
 
   // --------------------------------------------------------------- self test
@@ -1320,6 +1806,64 @@
     // 17. public API surface
     ok("dev API is exposed", typeof window.hunterBird === "object" && typeof window.hunterBird.step === "function");
 
+    // 18. word mode: two populated grades, each word with a picture
+    ok("both word grades are populated", WORDS[1].length >= 10 && WORDS[2].length >= 10);
+    ok("every word has text, meaning and icon", [1, 2].every(g =>
+      WORDS[g].every(x => x.en && /^[a-z]+$/.test(x.en) && x.zh && typeof ICONS[x.icon] === "function")));
+    ok("word ids are unique inside a grade", [1, 2].every(g => new Set(WORDS[g].map(x => x.en)).size === WORDS[g].length));
+    const iconCtx = document.createElement("canvas").getContext("2d");
+    let iconsOk = true;
+    for (const g of [1, 2]) for (const x of WORDS[g]) {
+      try { iconCtx.save(); ICONS[x.icon](iconCtx); iconCtx.restore(); } catch (e) { iconsOk = false; }
+    }
+    ok("every picture draws without throwing", iconsOk);
+    ok("words are ordered by grade length", WORDS[2].every(w => w.en.length >= 4) && WORDS[1].every(w => w.en.length <= 4));
+    ok("speaking a word never throws", speak("apple") === true || speak("apple") === false);
+    ok("grade curve exists for word mode", grade(1900, "word") === "S" && grade(0, "word") === "E");
+
+    // 19. word mode: listen first, then one bullet, then the next word
+    const ws = makeState("word");
+    ws.rng = createRng(21); ws.phase = "playing";
+    startWordRun(ws, 1);
+    ok("a word run starts on the first word", !!ws.word.current && ws.word.idx === 0 && ws.birds.length === 1 && ws.ammo === 1);
+    ok("only one bullet per word", ws.ammo === 1);
+    const firstBird = ws.birds[0];
+    ok("the trigger is locked while the word is spoken",
+      fireWord(ws, firstBird.x, firstBird.y) === false && ws.shots === 0 && ws.ammo === 1);
+    for (let i = 0; i < 200; i++) update(ws, 1 / 60);
+    ok("the trigger unlocks after the announcement", ws.word.lock === 0);
+    const firstEn = ws.word.current.en;
+    const liveWordBird = ws.birds.find(b => b.state === "fly");
+    ok("the bird carries the word picture", !!liveWordBird && !!liveWordBird.word && liveWordBird.word.en === firstEn);
+    ok("shooting the pictured bird scores the word",
+      fireWord(ws, liveWordBird.x, liveWordBird.y) === true && ws.score >= 100 && ws.word.learned === 1);
+    for (let i = 0; i < 120; i++) update(ws, 1 / 60);
+    ok("a hit advances to the next word with a fresh bullet",
+      ws.word.current.en !== firstEn && ws.ammo === 1 && ws.birds.some(b => b.state === "fly"));
+
+    // 20. word mode: a miss brings the same word back
+    const ms = makeState("word");
+    ms.rng = createRng(23); ms.phase = "playing";
+    startWordRun(ms, 1);
+    ms.word.lock = 0;
+    const missWord = ms.word.current.en;
+    fireWord(ms, 5, 5);
+    for (let i = 0; i < 240; i++) update(ms, 1 / 60);
+    ok("a miss repeats the same word", ms.word.current.en === missWord && ms.ammo === 1 && ms.birds.some(b => b.state === "fly"));
+
+    // 21. word mode: clearing grade 1 unlocks grade 2
+    const gs = makeState("word");
+    gs.rng = createRng(22); gs.phase = "playing";
+    startWordRun(gs, 1);
+    for (let i = 0; i < WORDS[1].length; i++) {
+      gs.word.lock = 0;
+      const b = gs.birds.find(v => v.state === "fly");
+      if (b) fireWord(gs, b.x, b.y);
+      for (let k = 0; k < 90; k++) update(gs, 1 / 60);
+    }
+    ok("clearing grade 1 moves on to grade 2", gs.word.grade === 2 && gs.phase === "playing" && gs.score >= 900);
+    ok("word-mode grade starts where asked", makeState("word").word.grade === WORD_GRADE);
+
     const fails = out.filter(x => !x[1]).length;
     // The checks above ran on scratch states (and one of them drove a run to
     // its ending), so put the visible game back into a clean starting state and
@@ -1345,7 +1889,8 @@
   // --------------------------------------------------------------------- boot
   document.documentElement.dataset.theme = SHELL_LIGHT ? "light" : "dark";
   resize();
-  dom.bestNote.textContent = "猎人最佳 " + bestScore("hunter") + " 分 · 小鸟最佳 " + bestScore("bird") + " 分";
+  dom.bestNote.textContent = "猎人最佳 " + bestScore("hunter") + " 分 · 小鸟最佳 " + bestScore("bird")
+    + " 分 · 单词最佳 " + bestScore("word") + " 分";
   G.time = DURATION;
   renderHud(G);
   if (AUTOSTART || AUTO) newRun(G);
@@ -1355,7 +1900,8 @@
     step: dt => update(G, dt || 1 / 60),
     stepState: (s, dt) => update(s, dt || 1 / 60),
     render: s => renderSceneForTest(s || G),
-    fire, reload, dims: { W, H, GROUND, SKY },
+    fire, reload, fireWord, startWordRun, nextWord, speakWord: speak,
+    dims: { W, H, GROUND, SKY },
   };
 
   let prev = 0;
