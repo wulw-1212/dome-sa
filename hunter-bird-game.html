@@ -126,14 +126,14 @@
       <div class="modes">
         <button class="modebtn" id="hunterBtn"><b>🎯 猎人模式</b><span>限时打飞鸟，连击加分。蓝色「护」标是保护鸟类，打中要重罚。</span></button>
         <button class="modebtn" id="birdBtn"><b>🐦 小鸟模式</b><span>你当小鸟，躲开猎人的弹丸，采集浆果，三根羽毛用完即止。</span></button>
-        <button class="modebtn" id="wordBtn"><b>📚 单词模式 Grade 1 · 2</b><span>一次显示一个英语单词，带图片、会读出声；听懂后开枪打中背图片的小鸟，才能拿到下一颗子弹。</span></button>
+        <button class="modebtn" id="wordBtn"><b>📚 单词模式 Grade 1 – 4</b><span>一次显示一个英语单词，带图片、会读出声；听懂后开枪打中背图片的小鸟，才能拿到下一颗子弹。四个等级依次解锁。</span></button>
       </div>
       <div class="keys">
         <b>鼠标移动</b><span>瞄准 / 操控飞行</span>
         <b>左键 / 空格</b><span>猎人模式 · 单词模式开火</span>
         <b>← → ↑ ↓ / WASD</b><span>小鸟模式飞行</span>
         <b>S</b><span>单词模式：再听一遍发音</span>
-        <b>G</b><span>单词模式：切换 Grade 1 / 2</span>
+        <b>G</b><span>单词模式：切换 Grade 1 / 2 / 3 / 4</span>
         <b>R</b><span>换弹（弹匣 6 发）</span>
         <b>P / Esc</b><span>暂停</span>
         <b>Enter</b><span>开始 / 再来一局</span>
@@ -176,7 +176,7 @@
 
   const q = new URLSearchParams(location.search);
   const MODE = ["bird", "word"].includes(q.get("mode")) ? q.get("mode") : "hunter";
-  const WORD_GRADE = q.get("grade") === "2" ? 2 : 1;        // starting word grade
+  const WORD_GRADE = [1, 2, 3, 4].includes(Number(q.get("grade"))) ? Number(q.get("grade")) : 1;
   const SELFTEST = q.get("selftest") === "1";
   const AUTOSTART = q.has("autostart");
   const AUTO = q.get("auto") === "1";                        // AI plays for screenshots/demos
@@ -471,9 +471,215 @@
       c.strokeStyle = "#f0e0c8"; c.lineWidth = 2;
       c.beginPath(); c.moveTo(14, -2); c.lineTo(14, 12); c.moveTo(6, 5); c.lineTo(22, 5); c.stroke();
     },
+    // ---- grade 3 and 4 pictures ----
+    butterfly(c) {
+      c.fillStyle = "#7a5fd0";
+      c.beginPath(); c.ellipse(-18, -10, 20, 24, -0.5, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(18, -10, 20, 24, 0.5, 0, TAU); c.fill();
+      c.fillStyle = "#c48fe8";
+      c.beginPath(); c.ellipse(-14, 16, 14, 17, 0.4, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(14, 16, 14, 17, -0.4, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(0, -22, 5, 0, TAU); c.fill();
+      c.strokeStyle = "#2b2b2b"; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-2, -26); c.lineTo(-14, -44); c.moveTo(2, -26); c.lineTo(14, -44); c.stroke();
+    },
+    clock(c) {
+      c.fillStyle = "#f4f6fa"; c.beginPath(); c.arc(0, 0, 34, 0, TAU); c.fill();
+      c.strokeStyle = "#3f6b9e"; c.lineWidth = 5; c.stroke();
+      c.strokeStyle = "#2b2b2b"; c.lineWidth = 3; c.lineCap = "round";
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -20); c.moveTo(0, 0); c.lineTo(15, 6); c.stroke();
+      c.fillStyle = "#c0563c"; c.beginPath(); c.arc(0, 0, 4, 0, TAU); c.fill();
+    },
+    umbrella(c) {
+      c.fillStyle = "#4f9be0";
+      c.beginPath(); c.arc(0, 0, 38, Math.PI, 0); c.fill();
+      c.strokeStyle = "#f4f6fa"; c.lineWidth = 3;
+      for (let i = -2; i <= 2; i++) {
+        c.beginPath(); c.moveTo(i * 19, 0); c.quadraticCurveTo(i * 19, 14, i * 19 + 9, 14); c.stroke();
+      }
+      c.strokeStyle = "#7a4a24"; c.lineWidth = 4; c.lineCap = "round";
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, 40); c.quadraticCurveTo(0, 52, 12, 48); c.stroke();
+    },
+    dragonfly(c) {
+      c.fillStyle = "rgba(120,190,240,.55)";
+      c.beginPath(); c.ellipse(-16, -14, 26, 8, -0.5, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(16, -14, 26, 8, 0.5, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(-16, 14, 26, 8, 0.5, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(16, 14, 26, 8, -0.5, 0, TAU); c.fill();
+      c.fillStyle = "#3f8a6a"; c.beginPath(); c.ellipse(0, 4, 8, 30, 0, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(0, -28, 9, 0, TAU); c.fill();
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(-3, -30, 2.6, 0, TAU); c.arc(3, -30, 2.6, 0, TAU); c.fill();
+    },
+    volcano(c) {
+      poly(c, [[-44, 40], [-16, -26], [16, -26], [44, 40]], "#7a6a5a");
+      poly(c, [[-16, -26], [16, -26], [8, -34], [-8, -34]], "#4a3f36");
+      c.fillStyle = "#e0453f";
+      c.beginPath(); c.moveTo(-8, -34); c.quadraticCurveTo(0, -52, 8, -34); c.fill();
+      c.fillStyle = "rgba(255,180,71,.75)";
+      c.beginPath(); c.arc(0, -42, 7, 0, TAU); c.fill();
+      c.fillStyle = "#e08a3c"; c.beginPath(); c.ellipse(0, 40, 46, 10, 0, 0, TAU); c.fill();
+    },
+    ladder(c) {
+      c.strokeStyle = "#b07a3c"; c.lineWidth = 7; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-16, -42); c.lineTo(-24, 42); c.moveTo(16, -42); c.lineTo(24, 42); c.stroke();
+      c.lineWidth = 5;
+      for (let i = 0; i < 5; i++) {
+        const y = -34 + i * 17, x = -16 - i * 1.6, x2 = 16 + i * 1.6;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x2, y); c.stroke();
+      }
+    },
+    rain(c) {
+      c.fillStyle = "#b9c8da";
+      c.beginPath(); c.arc(-18, -10, 17, 0, TAU); c.arc(4, -20, 22, 0, TAU); c.arc(24, -6, 15, 0, TAU); c.fill();
+      c.fillRect(-18, -10, 42, 14);
+      c.strokeStyle = "#4f9be0"; c.lineWidth = 4; c.lineCap = "round";
+      for (let i = 0; i < 4; i++) {
+        const x = -26 + i * 16;
+        c.beginPath(); c.moveTo(x, 12); c.lineTo(x - 7, 34); c.stroke();
+      }
+    },
+    book(c) {
+      c.fillStyle = "#c0563c";
+      c.beginPath(); c.moveTo(0, -34); c.quadraticCurveTo(-30, -44, -44, -34); c.lineTo(-44, 30);
+      c.quadraticCurveTo(-30, 22, 0, 32); c.quadraticCurveTo(30, 22, 44, 30); c.lineTo(44, -34);
+      c.quadraticCurveTo(30, -44, 0, -34); c.fill();
+      c.fillStyle = "#f6f1e4";
+      c.beginPath(); c.moveTo(0, -28); c.quadraticCurveTo(-26, -36, -38, -28); c.lineTo(-38, 24);
+      c.quadraticCurveTo(-26, 18, 0, 26); c.lineTo(0, -28); c.fill();
+      c.beginPath(); c.moveTo(0, -28); c.quadraticCurveTo(26, -36, 38, -28); c.lineTo(38, 24);
+      c.quadraticCurveTo(26, 18, 0, 26); c.fill();
+      c.strokeStyle = "#c9bda3"; c.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        c.beginPath(); c.moveTo(-32, -12 + i * 10); c.lineTo(-8, -8 + i * 10); c.stroke();
+      }
+    },
+    snake(c) {
+      c.strokeStyle = "#4f9c46"; c.lineWidth = 14; c.lineCap = "round"; c.lineJoin = "round";
+      c.beginPath();
+      c.moveTo(-40, 30); c.quadraticCurveTo(-24, -12, 0, 12);
+      c.quadraticCurveTo(24, 36, 30, 4); c.stroke();
+      c.fillStyle = "#4f9c46"; c.beginPath(); c.arc(30, 2, 11, 0, TAU); c.fill();
+      c.fillStyle = "#ffd35c"; c.beginPath(); c.arc(33, -1, 2.6, 0, TAU); c.fill();
+      c.strokeStyle = "#c0563c"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(40, -2); c.lineTo(48, -10); c.stroke();
+    },
+    turtle(c) {
+      c.fillStyle = "#5b8f4a"; c.beginPath(); c.ellipse(0, 4, 32, 22, 0, 0, TAU); c.fill();
+      c.strokeStyle = "#3f6b32"; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-16, -6); c.lineTo(16, 14); c.moveTo(16, -6); c.lineTo(-16, 14);
+      c.moveTo(0, -17); c.lineTo(0, 25); c.stroke();
+      c.fillStyle = "#7fae62"; c.beginPath(); c.arc(38, 0, 12, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(41, -3, 2.4, 0, TAU); c.fill();
+      c.fillStyle = "#5b8f4a";
+      c.beginPath(); c.ellipse(-36, 10, 10, 5, -0.4, 0, TAU); c.fill();
+    },
+    kite(c) {
+      poly(c, [[0, -46], [30, -6], [0, 30], [-30, -6]], "#e0453f");
+      poly(c, [[0, -46], [0, 30], [-30, -6]], "#c0563c");
+      c.strokeStyle = "#2b2b2b"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -46); c.lineTo(0, 30); c.moveTo(-30, -6); c.lineTo(30, -6); c.stroke();
+      c.strokeStyle = "#d8c8a0"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, 30); c.quadraticCurveTo(14, 40, 4, 52); c.stroke();
+      poly(c, [[0, 30], [12, 38], [0, 46]], "#ffd35c");
+    },
+    candle(c) {
+      c.fillStyle = "#f4efe2"; c.fillRect(-12, -6, 24, 44);
+      c.fillStyle = "#e8dcc0"; c.fillRect(-12, 28, 24, 10);
+      c.strokeStyle = "#2b2b2b"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(0, -8); c.lineTo(0, -20); c.stroke();
+      c.fillStyle = "#ffb347"; c.beginPath(); c.ellipse(0, -28, 6, 12, 0, 0, TAU); c.fill();
+      c.fillStyle = "#fff3c2"; c.beginPath(); c.ellipse(0, -26, 3, 6, 0, 0, TAU); c.fill();
+    },
+    magnet(c) {
+      c.strokeStyle = "#e0453f"; c.lineWidth = 16; c.lineCap = "butt";
+      c.beginPath(); c.arc(0, 6, 24, Math.PI, 0); c.stroke();
+      c.beginPath(); c.moveTo(-24, 6); c.lineTo(-24, 30); c.moveTo(24, 6); c.lineTo(24, 30); c.stroke();
+      c.fillStyle = "#cfd8e4"; c.fillRect(-32, 26, 16, 10); c.fillRect(16, 26, 16, 10);
+    },
+    bell(c) {
+      c.fillStyle = "#e8b03c";
+      c.beginPath(); c.moveTo(-28, 22); c.quadraticCurveTo(-24, -30, 0, -34);
+      c.quadraticCurveTo(24, -30, 28, 22); c.closePath(); c.fill();
+      c.fillStyle = "#c9922c"; c.fillRect(-32, 20, 64, 8);
+      c.fillStyle = "#8f6a1e"; c.beginPath(); c.arc(0, 34, 8, 0, TAU); c.fill();
+      c.fillStyle = "#c0563c"; c.beginPath(); c.arc(0, -36, 6, 0, TAU); c.fill();
+      c.strokeStyle = "#8f6a1e"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(-30, 0); c.quadraticCurveTo(0, 12, 30, 0); c.stroke();
+    },
+    dragon(c) {
+      c.fillStyle = "#4f9c46";
+      c.beginPath(); c.moveTo(-40, 26); c.quadraticCurveTo(-20, -18, 10, -20);
+      c.quadraticCurveTo(34, -22, 34, -40); c.lineTo(44, -34); c.quadraticCurveTo(44, -14, 22, -8);
+      c.quadraticCurveTo(-4, -2, -24, 30); c.closePath(); c.fill();
+      c.fillStyle = "#ffd35c";
+      poly(c, [[-4, -22], [4, -46], [12, -22]], "#ffd35c");
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(28, -32, 3.4, 0, TAU); c.fill();
+      c.strokeStyle = "#3f8a6a"; c.lineWidth = 4; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-38, 22); c.lineTo(-50, 34); c.stroke();
+      c.fillStyle = "#e0453f";
+      c.beginPath(); c.arc(-14, -6, 5, 0, TAU); c.arc(0, -2, 5, 0, TAU); c.arc(10, -8, 5, 0, TAU); c.fill();
+    },
+    island(c) {
+      c.fillStyle = "#e8d7a8"; c.beginPath(); c.ellipse(0, 26, 40, 12, 0, 0, TAU); c.fill();
+      c.fillStyle = "#3fa8c8"; c.beginPath(); c.ellipse(0, 38, 46, 12, 0, 0, TAU); c.fill();
+      c.strokeStyle = "#7fd4e8"; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-40, 36); c.quadraticCurveTo(-20, 32, 0, 36); c.quadraticCurveTo(20, 40, 40, 36); c.stroke();
+      c.fillStyle = "#7a4a24"; c.fillRect(-3, -6, 6, 32);
+      c.fillStyle = "#4f9c46";
+      c.beginPath(); c.moveTo(0, -6); c.quadraticCurveTo(-30, -18, -30, -30);
+      c.quadraticCurveTo(-6, -26, 0, -6); c.fill();
+      c.beginPath(); c.moveTo(0, -8); c.quadraticCurveTo(30, -20, 30, -32);
+      c.quadraticCurveTo(8, -28, 0, -8); c.fill();
+    },
+    castle(c) {
+      c.fillStyle = "#b9b2a4"; c.fillRect(-36, -14, 72, 52);
+      for (let i = 0; i < 4; i++) c.fillRect(-36 + i * 18, -26, 12, 12);
+      c.fillStyle = "#8a8478"; c.fillRect(-46, -22, 16, 60); c.fillRect(30, -22, 16, 60);
+      c.fillStyle = "#9a9488"; c.fillRect(-46, -34, 16, 12); c.fillRect(30, -34, 16, 12);
+      c.fillStyle = "#6a4a2c"; c.beginPath(); c.arc(0, 24, 13, Math.PI, 0); c.fill();
+      c.fillRect(-13, 24, 26, 14);
+      c.fillStyle = "#3f6b9e"; c.fillRect(-24, 2, 10, 12); c.fillRect(14, 2, 10, 12);
+    },
+    planet(c) {
+      c.fillStyle = "#4f8ad0"; c.beginPath(); c.arc(0, 0, 26, 0, TAU); c.fill();
+      c.fillStyle = "#6f9fe0";
+      c.beginPath(); c.ellipse(-8, -8, 9, 6, 0.4, 0, TAU); c.ellipse(10, 8, 7, 5, -0.3, 0, TAU); c.fill();
+      c.strokeStyle = "#e8c46a"; c.lineWidth = 6;
+      c.beginPath(); c.ellipse(0, 0, 44, 15, -0.32, 0, TAU); c.stroke();
+    },
+    compass(c) {
+      c.fillStyle = "#cfd8e4"; c.beginPath(); c.arc(0, 0, 30, 0, TAU); c.fill();
+      c.strokeStyle = "#3f6b9e"; c.lineWidth = 5; c.stroke();
+      c.strokeStyle = "#9fb3c8"; c.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * TAU;
+        c.beginPath();
+        c.moveTo(Math.cos(a) * 24, Math.sin(a) * 24);
+        c.lineTo(Math.cos(a) * 28, Math.sin(a) * 28);
+        c.stroke();
+      }
+      poly(c, [[0, -24], [7, 0], [0, 24], [-7, 0]], "#e0453f");
+      poly(c, [[0, -24], [7, 0], [0, 0]], "#b03a35");
+      c.fillStyle = "#2b2b2b"; c.beginPath(); c.arc(0, 0, 4, 0, TAU); c.fill();
+      c.fillStyle = "#2b2b2b"; c.font = "bold 13px system-ui, sans-serif";
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      c.fillText("N", 0, -34);
+    },
+    fountain(c) {
+      c.fillStyle = "#b9c8da"; c.beginPath(); c.ellipse(0, 34, 34, 11, 0, 0, TAU); c.fill();
+      c.fillStyle = "#7fa8d8"; c.beginPath(); c.ellipse(0, 32, 27, 8, 0, 0, TAU); c.fill();
+      c.fillStyle = "#9fb3c8"; c.fillRect(-6, 10, 12, 24);
+      c.beginPath(); c.ellipse(0, 10, 19, 6, 0, 0, TAU); c.fill();
+      c.strokeStyle = "#8fc4e8"; c.lineWidth = 4; c.lineCap = "round";
+      for (let i = -2; i <= 2; i++) {
+        c.beginPath(); c.moveTo(0, 6); c.quadraticCurveTo(i * 11, -12, i * 16, -32); c.stroke();
+      }
+      c.fillStyle = "#c9e9ff"; c.beginPath(); c.arc(0, -34, 5, 0, TAU); c.fill();
+    },
   };
 
-  // Grade 1 / Grade 2 vocabulary. Grade 2 unlocks after grade 1 is cleared.
+  // Vocabulary for grades 1 to 4. Each grade holds ten words and every word
+  // carries its own code-drawn picture. Grade N+1 unlocks when grade N is done.
   const WORDS = {
     1: [
       { en: "sun", zh: "太阳", icon: "sun" },
@@ -499,7 +705,32 @@
       { en: "cloud", zh: "云", icon: "cloud" },
       { en: "house", zh: "房子", icon: "house" },
     ],
+    3: [
+      { en: "butterfly", zh: "蝴蝶", icon: "butterfly" },
+      { en: "clock", zh: "时钟", icon: "clock" },
+      { en: "umbrella", zh: "雨伞", icon: "umbrella" },
+      { en: "dragonfly", zh: "蜻蜓", icon: "dragonfly" },
+      { en: "volcano", zh: "火山", icon: "volcano" },
+      { en: "ladder", zh: "梯子", icon: "ladder" },
+      { en: "rain", zh: "雨", icon: "rain" },
+      { en: "book", zh: "书", icon: "book" },
+      { en: "snake", zh: "蛇", icon: "snake" },
+      { en: "turtle", zh: "乌龟", icon: "turtle" },
+    ],
+    4: [
+      { en: "kite", zh: "风筝", icon: "kite" },
+      { en: "candle", zh: "蜡烛", icon: "candle" },
+      { en: "magnet", zh: "磁铁", icon: "magnet" },
+      { en: "bell", zh: "铃铛", icon: "bell" },
+      { en: "compass", zh: "指南针", icon: "compass" },
+      { en: "fountain", zh: "喷泉", icon: "fountain" },
+      { en: "dragon", zh: "龙", icon: "dragon" },
+      { en: "island", zh: "岛", icon: "island" },
+      { en: "castle", zh: "城堡", icon: "castle" },
+      { en: "planet", zh: "行星", icon: "planet" },
+    ],
   };
+  const MAX_GRADE = 4;
 
   // Clouds & stars are seeded once so every frame is stable.
   const sceneRng = createRng(SEED ^ 0x9e3779b9);
@@ -763,7 +994,7 @@
   }
   function startWordRun(s, grade) {
     const w = s.word;
-    w.grade = grade === 2 ? 2 : 1;
+    w.grade = [1, 2, 3, 4].includes(Number(grade)) ? Number(grade) : 1;
     w.order = shuffled(WORDS[w.grade].length, s.rng);
     w.idx = -1; w.learned = 0; w.lock = 0; w.retry = 0; w.advance = 0;
     s.birds = [];
@@ -772,14 +1003,15 @@
   function nextWord(s) {
     const w = s.word;
     if (w.idx + 1 >= WORDS[w.grade].length) {
-      if (w.grade === 1) {                       // grade 1 cleared: unlock grade 2
-        w.grade = 2;
-        w.order = shuffled(WORDS[2].length, s.rng);
+      if (w.grade < MAX_GRADE) {              // this grade is done: unlock the next one
+        const done = w.grade;
+        w.grade = done + 1;
+        w.order = shuffled(WORDS[w.grade].length, s.rng);
         w.idx = -1;
         s.flash = 0.22; s.shake = 9;
-        addFloat(s, W / 2, 150, "Grade 2 开始! Grade 2 unlocked", "#ffd76a");
+        addFloat(s, W / 2, 150, "Grade " + w.grade + " 开始! Grade " + w.grade + " unlocked", "#ffd76a");
         sound.over();
-      } else { endRun(s); return; }               // grade 2 cleared: results
+      } else { endRun(s); return; }           // grade 4 cleared: results
     }
     w.idx++;
     w.current = WORDS[w.grade][w.order[w.idx]];
@@ -893,7 +1125,7 @@
     dom.overTitle.textContent = s.mode === "bird"
       ? (s.bird.hp <= 0 ? "羽毛用完了" : "飞行结束")
       : s.mode === "word"
-        ? (s.word.grade === 2 && s.word.idx + 1 >= WORDS[2].length ? "单词全部学完 All words done!" : "时间到")
+        ? (s.word.grade === MAX_GRADE && s.word.idx + 1 >= WORDS[MAX_GRADE].length ? "单词全部学完 All words done!" : "时间到")
         : "时间到";
     const acc = s.shots ? Math.round(s.hits / s.shots * 100) : 0;
     const rows = s.mode === "bird"
@@ -1608,7 +1840,7 @@
       if (G.word.current) { speak(G.word.current.en); sound.word(); renderHud(G); }
     }
     else if (k === "g" && G.mode === "word") {          // switch word grade
-      const next = G.word.grade === 1 ? 2 : 1;
+      const next = G.word.grade >= MAX_GRADE ? 1 : G.word.grade + 1;
       startWordRun(G, next);
       addFloat(G, W / 2, 190, "Grade " + next, "#ffd76a");
     }
@@ -1806,20 +2038,45 @@
     // 17. public API surface
     ok("dev API is exposed", typeof window.hunterBird === "object" && typeof window.hunterBird.step === "function");
 
-    // 18. word mode: two populated grades, each word with a picture
-    ok("both word grades are populated", WORDS[1].length >= 10 && WORDS[2].length >= 10);
-    ok("every word has text, meaning and icon", [1, 2].every(g =>
+    // 18. word mode: four populated grades, each word with a picture
+    const ALL_GRADES = [1, 2, 3, 4];
+    ok("all four word grades are populated", ALL_GRADES.every(g => WORDS[g] && WORDS[g].length >= 10));
+    ok("every word has text, meaning and icon", ALL_GRADES.every(g =>
       WORDS[g].every(x => x.en && /^[a-z]+$/.test(x.en) && x.zh && typeof ICONS[x.icon] === "function")));
-    ok("word ids are unique inside a grade", [1, 2].every(g => new Set(WORDS[g].map(x => x.en)).size === WORDS[g].length));
+    ok("word ids are unique inside a grade", ALL_GRADES.every(g => new Set(WORDS[g].map(x => x.en)).size === WORDS[g].length));
+    ok("no word is repeated across grades", new Set(ALL_GRADES.flatMap(g => WORDS[g].map(x => x.en))).size
+      === ALL_GRADES.reduce((n, g) => n + WORDS[g].length, 0));
     const iconCtx = document.createElement("canvas").getContext("2d");
     let iconsOk = true;
-    for (const g of [1, 2]) for (const x of WORDS[g]) {
+    for (const g of ALL_GRADES) for (const x of WORDS[g]) {
       try { iconCtx.save(); ICONS[x.icon](iconCtx); iconCtx.restore(); } catch (e) { iconsOk = false; }
     }
     ok("every picture draws without throwing", iconsOk);
-    ok("words are ordered by grade length", WORDS[2].every(w => w.en.length >= 4) && WORDS[1].every(w => w.en.length <= 4));
+    // A picture that throws is not the same as a picture that is visible:
+    // render each one on its own canvas and count the painted pixels.
+    const probe = document.createElement("canvas");
+    probe.width = 140; probe.height = 140;
+    const pctx = probe.getContext("2d", { willReadFrequently: true });
+    let blankPics = [];
+    for (const g of ALL_GRADES) for (const x of WORDS[g]) {
+      pctx.clearRect(0, 0, 140, 140);
+      pctx.save();
+      pctx.translate(70, 70);
+      pctx.scale(1.1, 1.1);
+      try { ICONS[x.icon](pctx); } catch (e) { blankPics.push(x.icon + " (threw)"); }
+      pctx.restore();
+      const data = pctx.getImageData(0, 0, 140, 140).data;
+      let painted = 0;
+      for (let i = 3; i < data.length; i += 4) if (data[i] > 8) painted++;
+      if (painted < 120) blankPics.push(x.icon + " (" + painted + "px)");
+    }
+    ok("every picture paints visible pixels", blankPics.length === 0, blankPics.join(", "));
+    ok("words get longer as the grade rises",
+      WORDS[1].every(w => w.en.length <= 4) && WORDS[2].every(w => w.en.length >= 4)
+      && WORDS[3].every(w => w.en.length >= 4) && WORDS[4].every(w => w.en.length >= 4));
     ok("speaking a word never throws", speak("apple") === true || speak("apple") === false);
     ok("grade curve exists for word mode", grade(1900, "word") === "S" && grade(0, "word") === "E");
+    ok("the highest grade is four", MAX_GRADE === 4);
 
     // 19. word mode: listen first, then one bullet, then the next word
     const ws = makeState("word");
@@ -1851,7 +2108,7 @@
     for (let i = 0; i < 240; i++) update(ms, 1 / 60);
     ok("a miss repeats the same word", ms.word.current.en === missWord && ms.ammo === 1 && ms.birds.some(b => b.state === "fly"));
 
-    // 21. word mode: clearing grade 1 unlocks grade 2
+    // 21. word mode: clearing a grade unlocks the next one, up to grade 4
     const gs = makeState("word");
     gs.rng = createRng(22); gs.phase = "playing";
     startWordRun(gs, 1);
@@ -1862,7 +2119,37 @@
       for (let k = 0; k < 90; k++) update(gs, 1 / 60);
     }
     ok("clearing grade 1 moves on to grade 2", gs.word.grade === 2 && gs.phase === "playing" && gs.score >= 900);
+
+    // 22. word mode: the full ladder 1 -> 2 -> 3 -> 4, then the results screen
+    const ls = makeState("word");
+    ls.rng = createRng(24); ls.phase = "playing";
+    ls.time = 1e6;
+    startWordRun(ls, 1);
+    const gradesSeen = [ls.word.grade];
+    for (let i = 0; i < 60 && ls.phase === "playing"; i++) {
+      ls.word.lock = 0;
+      const b = ls.birds.find(v => v.state === "fly");
+      if (b) fireWord(ls, b.x, b.y);
+      for (let k = 0; k < 120; k++) update(ls, 1 / 60);
+      if (gradesSeen[gradesSeen.length - 1] !== ls.word.grade) gradesSeen.push(ls.word.grade);
+    }
+    ok("grades advance one by one from 1 to 4", gradesSeen.join(",") === "1,2,3,4", gradesSeen.join(" -> "));
+    ok("clearing grade 4 ends the run with the results", ls.phase === "over" && ls.score >= 3800);
+    ok("every grade was actually played", ls.word.learned >= 40, ls.word.learned + " words");
+
+    // 23. word mode: the grade can be chosen directly, and any grade starts clean
+    for (const g of [1, 2, 3, 4]) {
+      const cs = makeState("word");
+      cs.rng = createRng(30 + g); cs.phase = "playing";
+      startWordRun(cs, g);
+      if (cs.word.grade !== g || !cs.word.current || cs.birds.length !== 1 || cs.ammo !== 1) {
+        ok("grade " + g + " starts cleanly", false);
+        break;
+      }
+      if (g === 4) { ok("every grade starts cleanly", true); break; }
+    }
     ok("word-mode grade starts where asked", makeState("word").word.grade === WORD_GRADE);
+    ok("the ?grade parameter accepts one to four", [1, 2, 3, 4].includes(Number(new URLSearchParams("grade=3").get("grade"))));
 
     const fails = out.filter(x => !x[1]).length;
     // The checks above ran on scratch states (and one of them drove a run to

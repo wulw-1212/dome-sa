@@ -499,11 +499,17 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
   枪声会惊起附近的鸟，它们随即加速并爬升，越打越难瞄。
 - **小鸟模式**：这回你当小鸟。躲开猎人从地面打来的弹丸，采集浆果（红色 50 分、金色 150 分），
   三根羽毛用完或时间到就结算。猎人开火前会用红色虚线瞄你，看到线就赶紧挪窝。
-- **单词模式 Grade 1 / 2**：一次只显示**一个英语单词**，带中文意思和一张现场画的图片，
+- **单词模式 Grade 1 – 4**：一次只显示**一个英语单词**，带中文意思和一张现场画的图片，
   单词会**读出声**（Web Speech API 朗读，另配 WebAudio 提示音）；听完发音才能开枪，
   而且**一个单词只有一颗子弹** —— 打中背图片的那只小鸟就 +100 分并进入下一个单词，
-  打偏或让鸟飞走，同一个单词会带着图片飞回来重来。Grade 1 十个词（sun / cat / fish …）全部
-  打完后自动进入 Grade 2 十个词（apple / rabbit / flower …），也可以随时按 <kbd>G</kbd> 切换。
+  打偏或让鸟飞走，同一个单词会带着图片飞回来重来。四个等级依次解锁：
+  - **Grade 1**（10 词）：sun / cat / fish / tree / star / egg / hat / cup / bird / cow
+  - **Grade 2**（10 词）：apple / rabbit / flower / rocket / panda / pencil / banana / tiger / cloud / house
+  - **Grade 3**（10 词）：butterfly / clock / umbrella / dragonfly / volcano / ladder / rain / book / snake / turtle
+  - **Grade 4**（10 词）：kite / candle / magnet / bell / compass / fountain / dragon / island / castle / planet
+
+  打完一个等级自动进入下一个；也可以随时按 <kbd>G</kbd> 在四个等级之间切换，或用
+  `?grade=1..4` 直接从某个等级开始。
 
 ## 操作
 
@@ -513,7 +519,7 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 | 开火（猎人模式 · 单词模式） | 左键 / <kbd>空格</kbd> |
 | 飞行（小鸟模式） | <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> / <kbd>WASD</kbd> |
 | 再听一遍发音（单词模式） | <kbd>S</kbd> |
-| 切换 Grade 1 / 2（单词模式） | <kbd>G</kbd> |
+| 切换 Grade 1 / 2 / 3 / 4（单词模式） | <kbd>G</kbd> |
 | 换弹（弹匣 6 发） | <kbd>R</kbd> |
 | 暂停 | <kbd>P</kbd> / <kbd>Esc</kbd> |
 | 开始 / 再来一局 | <kbd>Enter</kbd> |
@@ -524,8 +530,9 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 
 全部由 Canvas 现场绘制：四套时段配色（黎明 / 正午 / 黄昏 / 星夜）、云与星空、两道山脊、
 针叶林线、草地，以及路径画出的猎人与四种鸟（扇翅、被惊起、中弹坠落、羽毛四散）。
-单词模式的 20 张单词图片也都是代码画的（太阳、猫、鱼、树、星星、鸡蛋、帽子、杯子、小鸟、奶牛，
-以及苹果、兔子、花、火箭、熊猫、铅笔、香蕉、老虎、云、房子），同样没有图片素材。
+单词模式的 40 张单词图片也都是代码画的（太阳、猫、鱼、树、星星、鸡蛋、帽子、杯子、小鸟、奶牛；
+苹果、兔子、花、火箭、熊猫、铅笔、香蕉、老虎、云、房子；蝴蝶、时钟、雨伞、蜻蜓、火山、梯子、雨、
+书、蛇、乌龟；风筝、蜡烛、磁铁、铃铛、指南针、喷泉、龙、岛、城堡、行星），同样没有图片素材。
 音效用 WebAudio 现场合成，发音用浏览器自带的语音合成，没有音频文件。
 
 ## 自动化参数
@@ -533,7 +540,7 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 | 参数 | 作用 |
 | --- | --- |
 | `?mode=hunter\|bird\|word` | 直接进入某一玩法 |
-| `?grade=1\|2` | 单词模式从 Grade 1 还是 Grade 2 开始 |
+| `?grade=1\|2\|3\|4` | 单词模式从哪个等级开始 |
 | `?time=dawn\|noon\|dusk\|night` | 四套时段配色 |
 | `?theme=light` | 浅色页面外壳 |
 | `?seed=5` | 固定随机种子，便于复现 |
@@ -541,20 +548,21 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 | `?steps=N` | 无 rAF 固定帧步进 N 帧后定格渲染（无头截图用） |
 | `?devstats=1` | 右下角显示本帧状态 JSON |
 | `?duration=30` | 改单局时长 |
-| `?selftest=1` | 页内 51 项自检，结果显示在页面底部 |
+| `?selftest=1` | 页内 59 项自检，结果显示在页面底部 |
 
 ## 验证
 
-- `hunter-bird-game.html?selftest=1`：**51/51 断言通过**（随机种子与权重、命中判定、
+- `hunter-bird-game.html?selftest=1`：**59/59 断言通过**（随机种子与权重、命中判定、
   保护鸟扣分、连击倍率、换弹流程、枪声惊鸟、提前量、弹丸命中与无敌帧、采果、边界钳制、
   猎人齐射、两种结束条件、主题切换、无横向溢出、画布非空白、开发 API 齐备；单词模式另有
-  两个 Grade 词表齐备、每个词都有图片且图片绘制不抛异常、发音调用安全、听发音期间锁扳机、
-  一个单词一颗子弹、命中记分并进入下一个单词、打偏重复同一个单词、Grade 1 打完进入 Grade 2）。
+  四个等级词表齐备、等级间不重词、每个词都有图片、图片既不抛异常又**真的画出像素**、
+  发音调用安全、听发音期间锁扳机、一个单词一颗子弹、命中记分并进入下一个单词、打偏重复
+  同一个单词、等级按 1→2→3→4 依次解锁、打完 Grade 4 结算、每个等级都能单独开始）。
 - 无头 Edge 按上表参数抓取的画面见 `docs/screenshots/`：`before-hunter-main-landing.png`
   是改动前 `origin/main`（`13cdb13`）的实际内容 —— 仓库里没有这个页面
   （`git cat-file -e origin/main:hunter-bird-game.html` 报 *not in 'origin/main'*）；
   `before-hunterbird-wordmode-menu.png` 是单词模式加入前那一版（`70cc4b3`）的菜单；
   `after-hunterbird-*` 是本分支的运行画面：三种玩法、黄昏与星夜、结算页、浅色外壳、
-  单词模式的 Grade 1 / Grade 2 / 命中瞬间、窄屏 504×900、菜单与页内自检。
+  单词模式的 Grade 1 / Grade 2 / Grade 3 / Grade 4 / 命中瞬间、窄屏 504×900、菜单与页内自检。
   窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。
 
