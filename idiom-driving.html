@@ -172,11 +172,15 @@ const IDIOMS = [
 ];
 
 const LANES = 4;
-const SPAWN_Z = 13;      // 字牌出现的最远距离
+const SPAWN_Z = 30;      // 字牌出现的最远距离：路很长，每块牌要开很久才到
 const HIT_Z = 0.8;       // 判定接住的车头距离
 const DEAD_Z = -0.9;     // 放跑判定
-const BASE_SPEED = 5.5;  // 初始来牌速度（格/秒）
-const MAX_SPEED = 13;
+const BASE_SPEED = 12.7; // 初始来牌速度（格/秒）
+const MAX_SPEED = 30;    // 速度上限
+const SHIFT_SPEED = 3.4; // 变道速度（车道/秒）：车是「移送」过去的，不是瞬移
+const METERS_PER_CELL = 8;  // 一格路 = 8 米
+const METER_PER_LANE = 4.2; // 横向移送一整条车道 ≈ 4.2 米
+const METERS_PER_SIGN = 90; // 一块字牌从出现到车头要开过的距离（里程刻度用）
 
 function createGame(cfg){
   cfg = cfg || {};
@@ -238,7 +242,11 @@ function createGame(cfg){
   const S = {
     seed, phase: 'menu', paused: false, t: 0, elapsed: 0,
     score: 0, combo: 0, bestCombo: 0, lives: 3,
-    speed: BASE_SPEED, carLane: 1,
+    speed: BASE_SPEED,
+    carLane: 1,          // 目标车道（整数）
+    carX: 1,             // 车当前所在的连续车道坐标，移送过程中在两个整数之间
+    shiftFrom: 1, shiftTo: 1, shiftT: 1,   // 移送进度
+    meters: 0,           // 里程表：已开过的米数
     question: null, nextAt: 0.6,
     stats: {correct: 0, wrong: 0, miss: 0, questions: 0},
     events: [], demo: cfg.mode === 'demo', rng,
@@ -265,7 +273,21 @@ function createGame(cfg){
     if (S.lives <= 0){ S.phase = 'over'; S.events.push({t: 'over', score: S.score}); }
   }
 
-  /* 演示模式的车：默认开在正解车道；偶尔犹豫一下偏到别的车道，制造真实的失误节奏。 */
+  /* 横向移送：车不是瞬移到隔壁车道，而是用一段时间滑过去。
+   * carX 是连续坐标（1.0 = 正中在 1 号道，1.35 = 正移送向 2 号道）。
+   * carLane 是车最终要停下的车道。 */
+  function moveCar(dt){
+    const diff = S.carLane - S.carX;
+    const step = SHIFT_SPEED * dt;
+    if (Math.abs(diff) <= step){ S.carX = S.carLane; }
+    else S.carX += Math.sign(diff) * step;
+    // 移送本身也算里程：横向移送一整条道约 4.2 米
+    const before = S.carX;
+    S.meters += Math.abs(S.carX - (S._lastCarX == null ? S.carX : S._lastCarX)) * METER_PER_LANE;
+    S._lastCarX = before;
+  }
+
+  /* 演示模式的车：默认开向正解车道；偶尔犹豫一下偏到别的车道，制造真实的失误节奏。 */
   function demoDrive(q, dt){
     if (S.demoMistake > 0){
       S.demoMistake -= dt;
@@ -292,26 +314,29 @@ function createGame(cfg){
     if (S.paused || S.phase !== 'play') return;
     S.t += dt; S.elapsed += dt;
     S.speed = Math.min(MAX_SPEED, BASE_SPEED + S.score / 600);
+    S.meters += S.speed * dt * METERS_PER_CELL;   // 里程表：往前开过的米数
     if (!S.question){
       if (S.t >= S.nextAt){
         S.question = makeQuestion(); S.stats.questions++;
         if (S.demo) demoDrive(S.question, dt);   // 新题一出现就选好车道
       }
+      moveCar(dt);
       return;
     }
     const q = S.question;
     if (S.demo && !q.resolved) demoDrive(q, dt);
+    moveCar(dt);
     for (const tk of q.tokens) if (!tk.done) tk.z -= S.speed * dt;
     if (!q.resolved){
-      // 车头同车道，字牌进入判定区：接到什么算什么
+      // 车头进入某条车道（横向位置足够靠近），字牌也到了判定区：接到什么算什么
       let hit = null;
       for (const tk of q.tokens){
-        if (tk.done || tk.lane !== S.carLane) continue;
+        if (tk.done || Math.abs(S.carX - tk.lane) > 0.35) continue;
         if (tk.z <= HIT_Z && tk.z > DEAD_Z){ hit = tk; break; }
       }
       if (hit){ hit.done = true; resolve(q, hit, hit.ch === q.answer ? 'correct' : 'wrong'); }
       else {
-        // 车停在空车道（或还没对上）：正解从车头开过去了 —— 判「放跑」
+        // 车不在正解车道（或还没开过去）：正解从车头开过去了 —— 判「放跑」
         const ans = q.tokens.filter(t => t.isAnswer)[0];
         if (ans && !ans.done && ans.z <= DEAD_Z){ ans.done = true; resolve(q, ans, 'miss'); }
       }
@@ -329,14 +354,16 @@ function createGame(cfg){
       if (o.mode) S.demo = o.mode === 'demo';
       S.phase = 'play'; S.paused = false;
       S.t = 0; S.elapsed = 0; S.score = 0; S.combo = 0; S.bestCombo = 0;
-      S.lives = o.lives || 3; S.speed = BASE_SPEED; S.carLane = 1;
+      S.lives = o.lives || 3; S.speed = BASE_SPEED;
+      S.carLane = 1; S.carX = 1; S._lastCarX = 1; S.meters = 0;
       S.question = null; S.nextAt = 0.6;
       S.demoMistake = 0; S.demoNextT = 0;
       S.stats = {correct: 0, wrong: 0, miss: 0, questions: 0};
       S.events.length = 0;
     },
     reset(){ S.phase = 'menu'; S.paused = false; S.t = 0; S.elapsed = 0; S.score = 0; S.combo = 0;
-      S.lives = 3; S.question = null; S.events.length = 0; S.stats = {correct: 0, wrong: 0, miss: 0, questions: 0}; },
+      S.lives = 3; S.question = null; S.events.length = 0; S.meters = 0;
+      S.stats = {correct: 0, wrong: 0, miss: 0, questions: 0}; },
     step
   };
 }
@@ -454,7 +481,7 @@ function createGame(cfg){
     const k = 1 - Math.max(-0.5, Math.min(SPAWN_Z, z)) / SPAWN_Z;
     return k;
   }
-  function depth(k){ return 0.12 + 0.88 * Math.pow(k, 2.4); }
+  function depth(k){ return 0.18 + 0.82 * Math.pow(k, 2.0); }
   function laneX(lane, k){
     const d = depth(k);
     const L = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d);
@@ -505,23 +532,49 @@ function createGame(cfg){
     const scroll = (game.S.t * game.S.speed) % 1.6;
     ctx.strokeStyle = c.dash; ctx.lineCap = 'butt';
     for (let li = 1; li < LANES; li++){
-      for (let seg = 0; seg < 12; seg++){
+      for (let seg = 0; seg < 22; seg++){
         const z0 = SPAWN_Z - (seg * 1.6 + scroll), z1 = z0 - .8;
         if (z1 > SPAWN_Z) continue;
         if (z0 < -1) break;
         const k0 = persp(Math.min(z0, SPAWN_Z)), k1 = persp(Math.max(z1, -0.5));
-        const x0 = laneX(li - .5, k0) + (laneX(li + .5, k0) - laneX(li - .5, k0)) / 2;
-        const x1 = laneX(li - .5, k1) + (laneX(li + .5, k1) - laneX(li - .5, k1)) / 2;
-        // 更精确：车道边界在 lane 索引 li 的左边界
+        // 车道边界在 lane 索引 li 的左边界
         const bx0 = interpLane(li, k0), bx1 = interpLane(li, k1);
         ctx.lineWidth = Math.max(1.4, 7 * depth(k0));
         ctx.beginPath(); ctx.moveTo(bx0, roadY(k0)); ctx.lineTo(bx1, roadY(k1)); ctx.stroke();
       }
     }
+    // 路边里程桩：每 8 格一个，往后掠过去，看得出车开了多远
+    const postGap = 8;
+    const postPhase = (game.S.t * game.S.speed) % postGap;
+    for (let p = 0; p * postGap - postPhase < SPAWN_Z + postGap; p++){
+      const z = SPAWN_Z - (p * postGap - postPhase);
+      if (z < -1) continue;
+      const k = persp(Math.min(z, SPAWN_Z)), d = depth(k);
+      const y = roadY(k);
+      const L = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d);
+      const R = ROAD_R1 + (ROAD_R0 - ROAD_R1) * (1 - d);
+      // 每 8 格 = 64 米
+      const mark = Math.max(1, Math.round((SPAWN_Z - z) * METERS_PER_CELL));
+      for (const side of [-1, 1]){
+        const x = side < 0 ? L - 16 * d - 6 : R + 16 * d + 6;
+        ctx.strokeStyle = c.pole;
+        ctx.lineWidth = Math.max(1.2, 4 * d);
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 34 * d); ctx.stroke();
+        if (d > 0.25){
+          ctx.fillStyle = c.hud;
+          ctx.fillRect(x - 9 * d, y - 34 * d, 18 * d, 11 * d);
+          ctx.fillStyle = c.ink;
+          ctx.font = '700 ' + Math.max(6, Math.round(8 * d)) + 'px system-ui,sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(mark), x, y - 28 * d);
+          ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        }
+      }
+    }
     // 电线杆
     ctx.strokeStyle = c.pole;
-    for (let p = 0; p < 6; p++){
-      const z = SPAWN_Z - ((p * 2.4 + (game.S.t * game.S.speed * .8) % 2.4));
+    for (let p = 0; p < 10; p++){
+      const z = SPAWN_Z - ((p * 3.2 + (game.S.t * game.S.speed * .8) % 3.2));
       if (z < 0) continue;
       const k = persp(z), d = depth(k);
       const y = roadY(k), x = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d) - 18 * (1 - d) - 4;
@@ -571,10 +624,14 @@ function createGame(cfg){
   function drawCar(){
     const c = th();
     const S = game.S;
-    const x = laneX(S.carLane, 1), y = CAR_Y;
+    // 车画在连续坐标 carX 上：移送过程中会真的从一条道滑到另一条道
+    const x = laneX(S.carX, 1), y = CAR_Y;
     const w = 96, h = 62;
+    // 移送时车身略微侧倾，像在打方向
+    const tilt = (S.carLane - S.carX) * 0.10;
     ctx.save();
     ctx.translate(x, y);
+    ctx.rotate(tilt);
     ctx.fillStyle = 'rgba(0,0,0,.25)';
     ctx.beginPath(); ctx.ellipse(0, h * .52, w * .58, 10, 0, 0, 7); ctx.fill();
     // 车身
@@ -618,7 +675,7 @@ function createGame(cfg){
     const c = th(), S = game.S;
     ctx.save();
     ctx.fillStyle = c.hud;
-    roundRect(14, 12, 300, 46, 12); ctx.fill();
+    roundRect(14, 12, 336, 46, 12); ctx.fill();
     ctx.strokeStyle = c.hudLine; ctx.stroke();
     roundRect(CW - 314, 12, 300, 46, 12); ctx.fill();
     ctx.strokeStyle = c.hudLine; ctx.stroke();
@@ -630,6 +687,11 @@ function createGame(cfg){
     ctx.font = '14px system-ui,sans-serif';
     ctx.fillStyle = c.muted;
     ctx.fillText('⏱ ' + S.elapsed.toFixed(1) + 's · ' + (S.speed).toFixed(1) + ' 格/s', 130, 35);
+    // 里程表：往前开过多少米 + 横向移送多少米
+    const km = S.meters / 1000;
+    ctx.fillStyle = c.plateEdge;
+    ctx.font = '700 15px system-ui,sans-serif';
+    ctx.fillText('🛣 ' + (km >= 1 ? km.toFixed(2) + ' km' : Math.round(S.meters) + ' m'), 262, 35);
     ctx.textAlign = 'right';
     ctx.font = '15px system-ui,sans-serif';
     ctx.fillStyle = c.muted;
@@ -639,6 +701,45 @@ function createGame(cfg){
     for (let i = 0; i < 3; i++) hearts += i < S.lives ? '❤' : '♡';
     ctx.fillStyle = c.danger;
     ctx.fillText(hearts + (S.combo >= 2 ? '  连击 ×' + S.combo : ''), CW - 30, 45);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+
+  /* 画面下缘的移送距离条：显示每块字牌还要开多远才到车头 */
+  function drawDistanceBar(){
+    const c = th(), S = game.S;
+    if (!S.question) return;
+    const barY = CH - 26, barX = 60, barW = CW - 120;
+    ctx.save();
+    ctx.fillStyle = c.hud;
+    roundRect(barX - 10, barY - 15, barW + 20, 26, 8); ctx.fill();
+    ctx.strokeStyle = c.hudLine; ctx.lineWidth = 1; ctx.stroke();
+    // 轨道
+    ctx.strokeStyle = c.hudLine; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(barX, barY - 2); ctx.lineTo(barX + barW, barY - 2); ctx.stroke();
+    // 每块字牌在轨道上的位置：越近车头越靠右
+    for (const tk of S.question.tokens){
+      if (tk.done) continue;
+      const k = Math.max(0, Math.min(1, 1 - tk.z / SPAWN_Z));
+      const x = barX + k * barW;
+      ctx.fillStyle = tk.isAnswer ? c.good : c.ink;
+      ctx.globalAlpha = tk.isAnswer ? 1 : .55;
+      ctx.beginPath(); ctx.arc(x, barY - 2, tk.isAnswer ? 7 : 5, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = c.muted;
+      ctx.font = '11px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(tk.ch, x, barY + 8);
+    }
+    // 车
+    ctx.fillStyle = c.plateEdge;
+    ctx.beginPath();
+    ctx.moveTo(barX + barW, barY - 12); ctx.lineTo(barX + barW - 8, barY - 5); ctx.lineTo(barX + barW - 8, barY + 1);
+    ctx.closePath(); ctx.fill();
+    ctx.textAlign = 'left';
+    ctx.font = '11px system-ui,sans-serif';
+    ctx.fillStyle = c.muted;
+    ctx.fillText('字牌 → 车头', barX - 4, barY + 8);
     ctx.restore();
     ctx.textAlign = 'left';
   }
@@ -705,8 +806,10 @@ function createGame(cfg){
       if (popupTimer <= 0 && els.popup) els.popup.classList.remove('show');
     }
     if (els.foot){
-      els.foot.textContent = '题库 ' + IDIOMS.length + ' 条成语 · 四车道 · 来牌速度 ' + S.speed.toFixed(1) +
-        ' 格/s（每 600 分 +1）· 答对弹出成语并语音朗读 · 题序 #' + S.seed + ' · ' + (mode === 'demo' ? 'AI 演示' : '开车答题');
+      els.foot.textContent = '题库 ' + IDIOMS.length + ' 条成语 · 四车道 · 前方 ' + SPAWN_Z + ' 格取景（' +
+        Math.round(SPAWN_Z * METERS_PER_CELL) + ' 米）· 来牌速度 ' + S.speed.toFixed(1) +
+        ' 格/s（每 600 分 +1）· 移送速度 ' + SHIFT_SPEED + ' 车道/s（每道 ≈' + METER_PER_LANE + ' 米）· ' +
+        '已开 ' + Math.round(S.meters) + ' 米 · 答对弹出成语并语音朗读 · 题序 #' + S.seed + ' · ' + (mode === 'demo' ? 'AI 演示' : '开车答题');
     }
   }
 
@@ -734,6 +837,7 @@ function createGame(cfg){
     drawCar();
     drawQuestionBanner();
     drawHud();
+    drawDistanceBar();
   }
 
   /* ---------- 输入 ---------- */
@@ -826,7 +930,8 @@ function createGame(cfg){
     state(){
       const S = game.S;
       return {phase: S.phase, paused: S.paused, score: S.score, combo: S.combo, lives: S.lives,
-        elapsed: S.elapsed, speed: S.speed, carLane: S.carLane, seed: S.seed, demo: S.demo,
+        elapsed: S.elapsed, speed: S.speed, carLane: S.carLane, carX: Math.round(S.carX * 100) / 100,
+        meters: Math.round(S.meters), seed: S.seed, demo: S.demo,
         stats: JSON.parse(JSON.stringify(S.stats)),
         question: S.question ? {idiom: S.question.item.t, blankIdx: S.question.blankIdx,
           answer: S.question.answer, answerLane: S.question.answerLane,
@@ -866,11 +971,23 @@ function createGame(cfg){
       push('答案恰在一个车道', !!ansTok && ansTok.lane === q.answerLane && q.tokens.filter(t => t.ch === q.answer).length === 1);
       push('有一车道是空的', !!q && q.emptyLane >= 0 && !q.tokens.some(t => t.lane === q.emptyLane));
       push('三字互不重复', q && new Set(q.tokens.map(t => t.ch)).size === 3);
+      push('前方取景距离够长', SPAWN_Z >= 24 && SPAWN_Z * METERS_PER_CELL >= 200, SPAWN_Z + ' 格 ≈ ' + Math.round(SPAWN_Z * METERS_PER_CELL) + ' 米');
+      // 移送：车要真的滑过去，不是瞬移
+      if (q){
+        const gShift = createGame({seed: 7}); gShift.startMatch({});
+        for (let i = 0; i < 400 && !gShift.S.question; i++) gShift.S.question && gShift.step(1/60);
+        gShift.setLane(3);
+        gShift.step(1/60);
+        push('移送是连续的（不是瞬移）', gShift.S.carX > 1 && gShift.S.carX < 3, 'carX=' + gShift.S.carX.toFixed(2));
+        const before = gShift.S.meters;
+        for (let i = 0; i < 60; i++) gShift.step(1/60);
+        push('里程表随行驶增加', gShift.S.meters > before, Math.round(gShift.S.meters) + ' 米');
+      }
       // 接对
       if (q){
         g.setLane(q.answerLane);
         let sawCorrect = false;
-        for (let i = 0; i < 900 && !sawCorrect; i++){ g.step(1/60); while (g.S.events.length){ const ev = g.S.events.shift(); if (ev.t === 'correct') sawCorrect = true; } }
+        for (let i = 0; i < 2400 && !sawCorrect; i++){ g.step(1/60); while (g.S.events.length){ const ev = g.S.events.shift(); if (ev.t === 'correct') sawCorrect = true; } }
         push('接对得分+100', sawCorrect && g.S.score >= 100 && g.S.stats.correct === 1, 'score=' + g.S.score);
         push('弹出数据完整', sawCorrect && g.S.stats.questions >= 1);
       }
@@ -882,7 +999,7 @@ function createGame(cfg){
         const wrongTok = q4.tokens.filter(t => !t.isAnswer)[0];
         g4.setLane(wrongTok.lane);
         let sawWrong = false, lives0 = g4.S.lives;
-        for (let i = 0; i < 900 && !sawWrong; i++){ g4.step(1/60); while (g4.S.events.length){ const ev = g4.S.events.shift(); if (ev.t === 'wrong'){ sawWrong = true; } } }
+        for (let i = 0; i < 2400 && !sawWrong; i++){ g4.step(1/60); while (g4.S.events.length){ const ev = g4.S.events.shift(); if (ev.t === 'wrong'){ sawWrong = true; } } }
         push('接错扣一条命', sawWrong && g4.S.lives === lives0 - 1, 'lives ' + lives0 + '->' + g4.S.lives);
       }
       // 放跑扣命：停在空车道，正解直接开过去
@@ -892,7 +1009,7 @@ function createGame(cfg){
       if (q5){
         g5.setLane(q5.emptyLane);
         let sawMiss = false;
-        for (let i = 0; i < 1800 && !sawMiss; i++){ g5.step(1/60); while (g5.S.events.length){ const ev = g5.S.events.shift(); if (ev.t === 'miss') sawMiss = true; } }
+        for (let i = 0; i < 2400 && !sawMiss; i++){ g5.step(1/60); while (g5.S.events.length){ const ev = g5.S.events.shift(); if (ev.t === 'miss') sawMiss = true; } }
         push('放跑扣一条命', sawMiss, '');
       }
       // 三条命用完即结束

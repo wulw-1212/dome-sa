@@ -68,7 +68,7 @@ function drain(g, onEvent){
   const g2 = createGame({ seed: 900 }); g2.startMatch({});
   const g3 = createGame({ seed: 901 }); g3.startMatch({});
   const seen1 = [], seen2 = [], seen3 = [];
-  for (let i = 0; i < 60 * 120; i++){
+  for (let i = 0; i < 60 * 300; i++){
     g1.step(1 / 60); g2.step(1 / 60); g3.step(1 / 60);
     for (const [g, arr] of [[g1, seen1], [g2, seen2], [g3, seen3]]){
       if (g.S.question && arr.indexOf(g.S.question.item.t) < 0) arr.push(g.S.question.item.t);
@@ -101,7 +101,7 @@ function drain(g, onEvent){
   ok(distract.every(d => others.indexOf(d) < 0), '干扰字不与成语其它字重复', distract.join(''));
 }
 
-/* ---------- 3. 变道 ---------- */
+/* ---------- 3. 变道与移送距离 ---------- */
 {
   const g = createGame({ seed: 7 }); g.startMatch({});
   ok(g.S.carLane === 1, '初始在中间车道', g.S.carLane);
@@ -111,6 +111,53 @@ function drain(g, onEvent){
   g.shift(1); ok(g.S.carLane === 3, '右边界不越界');
   g.setLane(2); ok(g.S.carLane === 2, 'setLane 生效');
   g.setLane(9); ok(g.S.carLane === 2, 'setLane 忽略非法值');
+
+  // 移送是连续的：车真的从一条道滑到另一条道
+  const g2 = createGame({ seed: 7 }); g2.startMatch({});
+  g2.setLane(3);
+  g2.step(1 / 60);
+  ok(g2.S.carX > 1 && g2.S.carX < 3, '移送是连续的（不是瞬移）', 'carX=' + g2.S.carX.toFixed(3));
+  let sawBetween = false;
+  for (let i = 0; i < 120; i++){
+    g2.step(1 / 60);
+    if (g2.S.carX > 1.001 && g2.S.carX < 2.999) sawBetween = true;
+  }
+  ok(sawBetween, '移送途中确实经过中间车道');
+  ok(Math.abs(g2.S.carX - 3) < 1e-9, '移送到位后停在目标车道', 'carX=' + g2.S.carX);
+  // 移送时间 = 距离 / 移送速度
+  const g3 = createGame({ seed: 7 }); g3.startMatch({});
+  g3.setLane(3);
+  let frames = 0;
+  while (g3.S.carX < 3 - 1e-9 && frames < 600){ g3.step(1 / 60); frames++; }
+  const secs = frames / 60;
+  ok(Math.abs(secs - 2 / 3.4) < 0.1, '移送耗时约等于距离/移送速度', secs.toFixed(2) + 's');
+  ok(secs > 0.3, '移送不是一瞬间完成', secs.toFixed(2) + 's');
+
+  // 里程表随行驶增加
+  const g4 = createGame({ seed: 7 }); g4.startMatch({});
+  const m0 = g4.S.meters;
+  for (let i = 0; i < 60; i++) g4.step(1 / 60);
+  ok(g4.S.meters > m0, '里程表随行驶增加', Math.round(g4.S.meters) + ' 米');
+  // 横向移送也算里程
+  const g5 = createGame({ seed: 7 }); g5.startMatch({});
+  g5.setLane(3);
+  for (let i = 0; i < 120; i++) g5.step(1 / 60);
+  ok(g5.S.meters > 0, '总里程为正', Math.round(g5.S.meters) + ' 米');
+}
+
+/* ---------- 4. 取景距离够长 ---------- */
+{
+  const src = new Function(coreSrc + '\nreturn {SPAWN_Z, BASE_SPEED, MAX_SPEED, SHIFT_SPEED, METERS_PER_CELL};')();
+  ok(src.SPAWN_Z >= 24, '前方取景距离够长', src.SPAWN_Z + ' 格');
+  ok(src.SPAWN_Z * src.METERS_PER_CELL >= 200, '取景距离换算成米足够长',
+    Math.round(src.SPAWN_Z * src.METERS_PER_CELL) + ' 米');
+  ok(src.BASE_SPEED >= 10, '来牌速度更快（配合长路段）', src.BASE_SPEED + ' 格/s');
+  ok(src.MAX_SPEED > src.BASE_SPEED, '有速度上限', src.MAX_SPEED + ' 格/s');
+  ok(src.SHIFT_SPEED > 0 && src.SHIFT_SPEED < 6, '移送速度合理', src.SHIFT_SPEED + ' 车道/s');
+  // 一块字牌从出现到车头要开过的距离
+  const g = createGame({ seed: 7 }); g.startMatch({});
+  for (let i = 0; i < 400 && !g.S.question; i++) g.step(1 / 60);
+  ok(g.S.question && g.S.question.tokens.every(t => t.z >= 0), '字牌从远处出现', 'z=' + (g.S.question ? g.S.question.tokens[0].z.toFixed(1) : '?'));
 }
 
 /* ---------- 4. 接对 / 接错 / 放跑 ---------- */
@@ -120,7 +167,7 @@ function drain(g, onEvent){
   const q = firstQuestion(g);
   g.setLane(q.answerLane);
   let correct = null;
-  for (let i = 0; i < 900 && !correct; i++){ g.step(1 / 60); drain(g, ev => { if (ev.t === 'correct') correct = ev; }); }
+  for (let i = 0; i < 2400 && !correct; i++){ g.step(1 / 60); drain(g, ev => { if (ev.t === 'correct') correct = ev; }); }
   ok(!!correct, '接对触发 correct 事件');
   ok(correct && correct.idiom === q.item.t, '事件带完整成语');
   ok(correct && correct.p === q.item.p && correct.m === q.item.m, '事件带拼音与释义');
@@ -136,7 +183,7 @@ function drain(g, onEvent){
     if (!qq) break;
     g2.setLane(qq.answerLane);
     let hit = false;
-    for (let i = 0; i < 900 && !hit; i++){
+    for (let i = 0; i < 2400 && !hit; i++){
       g2.step(1 / 60);
       drain(g2, ev => { if (ev.t === 'correct') hit = true; });
     }
@@ -150,7 +197,7 @@ function drain(g, onEvent){
   const wrongLane = q3.tokens.filter(t => !t.isAnswer)[0].lane;
   g3.setLane(wrongLane);
   let wrong = null; const lives0 = g3.S.lives;
-  for (let i = 0; i < 900 && !wrong; i++){ g3.step(1 / 60); drain(g3, ev => { if (ev.t === 'wrong') wrong = ev; }); }
+  for (let i = 0; i < 2400 && !wrong; i++){ g3.step(1 / 60); drain(g3, ev => { if (ev.t === 'wrong') wrong = ev; }); }
   ok(!!wrong, '接错触发 wrong 事件');
   ok(wrong && wrong.answer === q3.answer, 'wrong 事件带正解');
   ok(wrong && wrong.picked && wrong.picked !== wrong.answer, 'wrong 事件带误接的字');
@@ -162,7 +209,7 @@ function drain(g, onEvent){
   const q4 = firstQuestion(g4);
   g4.setLane(q4.emptyLane);
   let miss = null; const lives1 = g4.S.lives;
-  for (let i = 0; i < 1800 && !miss; i++){ g4.step(1 / 60); drain(g4, ev => { if (ev.t === 'miss') miss = ev; }); }
+  for (let i = 0; i < 2400 && !miss; i++){ g4.step(1 / 60); drain(g4, ev => { if (ev.t === 'miss') miss = ev; }); }
   ok(!!miss, '放跑触发 miss 事件');
   ok(miss && miss.answer === q4.answer, 'miss 事件带正解');
   ok(g4.S.lives === lives1 - 1, '放跑扣一条命', lives1 + '->' + g4.S.lives);
@@ -204,11 +251,11 @@ function drain(g, onEvent){
   g2.S.score = 1200;
   g2.step(1 / 60);
   ok(g2.S.speed > v0, '得分越高来牌越快', v0.toFixed(1) + '->' + g2.S.speed.toFixed(1));
-  ok(g2.S.speed <= 13 + 1e-9, '速度有上限', g2.S.speed.toFixed(1));
+  ok(g2.S.speed <= 30 + 1e-9, '速度有上限', g2.S.speed.toFixed(1));
 
   // AI 演示：自动变道到答案车道，能持续答对，也会有失误
   const g3 = createGame({ seed: 7, mode: 'demo' }); g3.startMatch({ mode: 'demo' });
-  for (let i = 0; i < 60 * 120; i++){ g3.step(1 / 60); drain(g3); }
+  for (let i = 0; i < 60 * 300; i++){ g3.step(1 / 60); drain(g3); }
   ok(g3.S.stats.correct >= 5, 'AI 演示持续答对', 'correct=' + g3.S.stats.correct);
   ok(g3.S.score > 0, 'AI 演示有得分', String(g3.S.score));
   ok(g3.S.stats.wrong + g3.S.stats.miss > 0, 'AI 演示偶有失误', 'wrong=' + g3.S.stats.wrong + ' miss=' + g3.S.stats.miss);
@@ -232,7 +279,7 @@ function drain(g, onEvent){
     const g = createGame({ seed, mode: 'demo' });
     g.startMatch({ mode: 'demo' });
     try{
-      for (let i = 0; i < 60 * 90; i++){ g.step(1 / 60); drain(g); }
+      for (let i = 0; i < 60 * 300; i++){ g.step(1 / 60); drain(g); }
       if (!Number.isFinite(g.S.score + g.S.elapsed + g.S.speed)) nan++;
       if (g.S.phase === 'over') ended++;
       questions += g.S.stats.questions;
