@@ -17,7 +17,7 @@ fs.mkdirSync(path.dirname(out), { recursive: true });
 const body = lines.slice(a + 1, b).join('\n');
 fs.writeFileSync(out, body + '\nmodule.exports = {'
   + 'WORDS,UNITS,LETTERS,MODES,mulberry32,unitWords,shuffle,distractFor,pickOptions,pickMode,'
-  + 'orderWord,newRound,firstLetterHint,scoreFor,starsFor,trainSpeedFor,wordFromIndex,'
+  + 'orderWord,newRound,firstLetterHint,scoreFor,starsFor,trainSpeedFor,forceFirst,'
   + 'makeState,startGame,choose,advance,nextIndex,isDone,stateInfo,maxScore,bestUnit};\n', 'utf8');
 
 const K = require(out);
@@ -97,6 +97,20 @@ ok(K.firstLetterHint('') === '' && K.firstLetterHint(undefined) === '' && K.firs
   }
   const bad = K.startGame(K.makeState({ unit: 'animals', rounds: 3, seed: 3, mode: 'nonsense' }));
   ok(K.MODES.includes(bad.round.mode), '非法 mode 回退随机出题', bad.round.mode);
+}
+{
+  /* ?word= 固定第一题（自动化出题用） */
+  const g = K.startGame(K.makeState({ unit: 'animals', rounds: 6, seed: 3, word: 'lion' }));
+  ok(g.round.word.en === 'lion', 'word=lion 把该词固定为第一题', g.round.word.en);
+  ok(g.list.filter(x => x === 'lion').length === 1, '固定词不会在序列里重复', g.list.join(','));
+  ok(g.list.slice(0, 3).join(',') === K.startGame(K.makeState({ unit: 'animals', rounds: 6, seed: 3, word: 'lion' })).list.slice(0, 3).join(','), '同参数结果可复现');
+  const miss = K.startGame(K.makeState({ unit: 'animals', rounds: 6, seed: 3, word: 'apple' }));
+  const plain = K.startGame(K.makeState({ unit: 'animals', rounds: 6, seed: 3 }));
+  ok(miss.list.join(',') === plain.list.join(','), '词不在本库时不改动序列（apple ∉ animals）');
+  const junk = K.startGame(K.makeState({ unit: 'animals', rounds: 6, seed: 3, word: 'zzz' }));
+  ok(junk.list.join(',') === plain.list.join(','), '未知单词同样不改动序列');
+  const big = K.startGame(K.makeState({ unit: 'animals', rounds: 12, seed: 3, word: 'cat' }));
+  ok(big.round.word.en === 'cat' && big.list.filter(x => x === 'cat').length === 1, '轮数多于词数时仍能固定且不重复', big.list.join(','));
 }
 
 /* ---------- 出题顺序：不连续重复 ---------- */
@@ -198,9 +212,13 @@ ok(K.starsFor(100) === 3 && K.starsFor(90) === 3 && K.starsFor(89) === 2 && K.st
 }
 {
   const arr = K.unitWords('animals');
-  ok(K.wordFromIndex(null, arr, 0).en === arr[0].en, 'wordFromIndex 按下标取词');
-  ok(K.wordFromIndex(null, arr, arr.length + 2).en === arr[2].en, '下标取模循环');
-  ok(K.wordFromIndex(null, arr, -1).en === arr[arr.length - 1].en, '负下标合法');
+  const order = arr.slice();
+  K.forceFirst('animals', order, 'panda');
+  ok(order[0].en === 'panda', 'forceFirst 把目标词放到第一位', order[0].en);
+  ok(order.filter(w => w.en === 'panda').length === 1, 'forceFirst 不留下重复词', order.map(w => w.en).join(','));
+  const untouched = arr.slice();
+  K.forceFirst('animals', untouched, 'apple');
+  ok(untouched.map(w => w.en).join(',') === arr.map(w => w.en).join(','), '词不在本库时序列不变');
 }
 {
   let b = K.bestUnit({}, 'animals', 80);

@@ -341,11 +341,14 @@ function trainSpeedFor(p, dt, streak, done){
   return p + (target - p) * k;
 }
 
-/* 按序号取单词（供混合模式与自动化用），index 循环取模 */
-function wordFromIndex(pool, list, index){
-  const arr = list && list.length ? list : unitWords(pool);
-  const i = ((index | 0) % arr.length + arr.length) % arr.length;
-  return arr[i];
+/* 把指定单词固定为第一题（?word=apple，自动化出题与截图用）。
+ * 该词不在当前词库里时不做任何改动，保持原有随机序列。 */
+function forceFirst(unit, order, en){
+  const list = unitWords(unit);
+  if (!list.some(w => w.en === en)) return order;
+  order[0] = list.find(w => w.en === en);
+  for (let i = 1; i < order.length; i++) if (order[i].en === en) order[i] = list.find(w => w.en !== en);
+  return order;
 }
 
 /* ---------- 可完整序列化的游戏状态 ---------- */
@@ -356,7 +359,9 @@ function makeState(cfg){
   const seed = (cfg.seed === undefined ? 20260101 : cfg.seed | 0) >>> 0;
   const rng = mulberry32(seed);
   const order = orderWord(unit, rng, rounds);
-  return { unit, rounds, seed, mode: MODES.indexOf(cfg.mode) >= 0 ? cfg.mode : null,
+  const forced = String(cfg.word || '').toLowerCase();
+  if (forced) forceFirst(unit, order, forced);
+  return { unit, rounds, seed, word: forced || null, mode: MODES.indexOf(cfg.mode) >= 0 ? cfg.mode : null,
            started: false, over: false, i: 0, score: 0, streak: 0,
            bestStreak: 0, list: order.map(w => w.en), rng: rng, order: order, round: null };
 }
@@ -365,6 +370,7 @@ function startGame(st){
   st.started = true; st.over = false; st.i = 0; st.score = 0; st.streak = 0; st.bestStreak = 0;
   st.rng = mulberry32(st.seed);
   st.order = orderWord(st.unit, st.rng, st.rounds);
+  if (st.word) forceFirst(st.unit, st.order, st.word);
   st.list = st.order.map(w => w.en);
   st.round = newRound(st.order[0], unitWords(st.unit), st.rng, st.mode);
   return st;
@@ -1156,16 +1162,36 @@ function sfx(kind){
 }
 
 /* ---------- 语音朗读 ---------- */
-function speak(text){
+/* 中文用 zh-CN、英文用 en-US，否则英文语音会把中文读成乱码 */
+function speak(text, lang){
   const synth = window.speechSynthesis;
   if (!synth || !text) { sfx('click'); return false; }
+  const s = String(text);
   try {
     synth.cancel();
-    const u = new SpeechSynthesisUtterance(String(text));
-    u.lang = 'en-US'; u.rate = 0.82; u.pitch = 1.15;
+    const u = new SpeechSynthesisUtterance(s);
+    u.lang = lang || (/[\u4e00-\u9fff]/.test(s) ? 'zh-CN' : 'en-US');
+    u.rate = u.lang === 'zh-CN' ? 0.9 : 0.8;
+    u.pitch = 1.15;
     synth.speak(u);
     return true;
   } catch (e){ sfx('click'); return false; }
+}
+
+/* 题面朗读：没答对之前只读「题面」，绝不把答案念出来。
+ * 看图 / 听中文 → 读中文意思；补字母 → 读英文单词（这本身就是听力题）；
+ * 答对之后 → 读单词和例句。 */
+function promptSpeech(){
+  const r = st && st.round;
+  if (!r) return null;
+  if (stateInfo(st).answered) return { text: r.word.en + '. ' + r.word.sentence, lang: 'en-US' };
+  if (r.mode === 'spell') return { text: r.word.en, lang: 'en-US' };
+  return { text: r.word.cn, lang: 'zh-CN' };
+}
+function speakPrompt(){
+  const p = promptSpeech();
+  if (!p) return false;
+  return speak(p.text, p.lang);
 }
 
 /* ---------- DOM ---------- */
@@ -1323,7 +1349,7 @@ function finish(){
 }
 
 function startGameUI(){
-  st = startGame(makeState({ unit: pickUnit, rounds: ROUND_COUNT, seed: seedFor(), mode: qs.get('mode') }));
+  st = startGame(makeState({ unit: pickUnit, rounds: ROUND_COUNT, seed: seedFor(), mode: qs.get('mode'), word: qs.get('word') }));
   els.menu.classList.add('hidden'); els.over.classList.add('hidden');
   speed = 1; scroll = 0; trainPos = 0; trainPosShow = 0; cardFly.length = 0; banner = null;
   render();
@@ -1334,20 +1360,25 @@ function seedFor(){
   return isFinite(s) ? s : Math.floor(Math.random() * 1e6);
 }
 
-/* 无人值守作答：solve=N 连续答对 N 题（miss=M 让前 M 题先答错一次再看对），
- * 用于无头截图与自动化验证，不开口、不响铃，完全按 seed 复现。 */
+/* 无人值守作答：solve=N 连答 N 题（miss=M 让前 M 题先答错一次再看对），
+ * 用于无头截图与自动化验证，不开口、不响铃，完全按 seed 复现。
+ * 答满 N 题后停在最后一题的「已答对」画面上（不自动跳题）；
+ * N ≥ 题数时打完整局并弹出结算。 */
 function silentSolve(n, miss){
   if (!st || !st.started) return st ? stateInfo(st) : null;
   const want = n === undefined ? st.rounds : Math.max(0, n | 0);
   const bad = Math.max(0, miss | 0);
+  const answer = () => {
+    const L = LETTERS[st.round.options.findIndex(o => o.word.en === st.round.word.en)];
+    choose(st, L);
+  };
   for (let i = 0; i < want && !st.over; i++){
     if (i < bad){
       const w = st.round.options.find(o => o.word.en !== st.round.word.en);
       if (w) choose(st, w.letter);
     }
-    const L = LETTERS[st.round.options.findIndex(o => o.word.en === st.round.word.en)];
-    choose(st, L);
-    advance(st);
+    answer();
+    if (i < want - 1 || want >= st.rounds) advance(st);   // 最后一题留在屏幕上等孩子点「下一题」
   }
   if (st.over) finish(); else render();
   trainPos = st ? stateInfo(st).progress : 0; trainPosShow = trainPos;
@@ -1373,12 +1404,8 @@ els.menuBtn.addEventListener('click', () => { els.over.classList.add('hidden'); 
 els.next.addEventListener('click', next);
 els.theme.addEventListener('click', toggleTheme);
 els.sound.addEventListener('click', toggleSound);
-els.speak.addEventListener('click', () => {
-  if (!st || !st.round) return;
-  if (st.round.mode === 'spell' || stateInfo(st).answered) speak(st.round.word.en);
-  else { speak(st.round.word.cn); speak(st.round.word.en); }
-});
-els.speakTop.addEventListener('click', () => { if (st && st.round) speak(st.round.word.en); });
+els.speak.addEventListener('click', speakPrompt);
+els.speakTop.addEventListener('click', speakPrompt);
 
 document.addEventListener('keydown', e => {
   const k = e.key;
@@ -1457,6 +1484,15 @@ function runSelftest(){
     const q = startGame(makeState({ unit:'animals', rounds:4, seed:3, mode:'spell' }));
     return q.round.options.length === 4 && q.round.options[q.round.answer].word.en === q.round.word.en;
   });
+  T('听一听不提前泄露答案（看图 / 听中文）', () => {
+    return ['pic','cn'].every(m => {
+      const keep = st;
+      st = startGame(makeState({ unit:'animals', rounds:4, seed:31, mode:m }));
+      const p = promptSpeech();
+      const leak = !!p && String(p.text).toLowerCase() === st.round.word.en.toLowerCase();
+      st = keep; return !leak;
+    });
+  });
   T('画布非空白（天空已绘制）', () => {
     draw();
     const d = g.getImageData(10, 10, 1, 1).data;
@@ -1485,7 +1521,7 @@ window.ewt = {
   state: () => st ? stateInfo(st) : null,
   raw: () => st,
   api: { makeState, startGame, choose, advance, stateInfo, starsFor, scoreFor, trainSpeedFor,
-         unitWords, pickOptions, distractFor, firstLetterHint, bestUnit, maxScore, nextIndex, wordFromIndex, isDone, LETTERS, WORDS, UNITS },
+         unitWords, pickOptions, distractFor, firstLetterHint, bestUnit, maxScore, nextIndex, forceFirst, isDone, LETTERS, WORDS, UNITS, MODES },
   start: (o) => { pickUnit = (o && o.unit) || pickUnit; st = startGame(makeState(Object.assign({ unit: pickUnit, rounds: ROUND_COUNT, seed: 7 }, o || {})));
                   els.menu.classList.add('hidden'); els.over.classList.add('hidden'); render(); return stateInfo(st); },
   pick: (L) => pick(L),

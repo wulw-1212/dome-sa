@@ -222,6 +222,25 @@ if (E) {
   } catch (e) { errors.push('events: ' + e.stack.split('\n').slice(0, 3).join(' | ')); }
   ok(errors.length === errsBefore, '键盘 / 按钮 / 朗读事件均无异常', errors.slice(errsBefore).join(' ;; '));
   ok(spoken.length > 0, '答题确有朗读调用（语音桩）', 'speak x' + spoken.length);
+  /* 「听一听」在答对之前不能把答案念出来 */
+  spoken.length = 0;
+  E.start({ unit: 'animals', rounds: 6, seed: 31, mode: 'pic' });
+  pump(10);
+  registry.speakBtn.click(); pump(4);
+  const leaked = spoken.some(t => t.toLowerCase() === E.state().word.toLowerCase());
+  ok(spoken.length > 0 && !leaked, '看图题未答对时朗读的是中文意思，不是答案', JSON.stringify(spoken));
+  spoken.length = 0;
+  E.start({ unit: 'animals', rounds: 6, seed: 31, mode: 'cn' });
+  pump(10); registry.speakBtn.click(); pump(4);
+  ok(!spoken.some(t => t.toLowerCase() === E.state().word.toLowerCase()), '听中文题不提前泄露答案', JSON.stringify(spoken));
+  spoken.length = 0;
+  const s31 = E.state();
+  E.pick(E.state().options.find(o => o.en === s31.word).letter); pump(10);
+  ok(spoken.some(t => t.toLowerCase() === s31.word.toLowerCase()), '答对之后朗读单词本身', JSON.stringify(spoken));
+  spoken.length = 0;
+  E.start({ unit: 'animals', rounds: 6, seed: 31, mode: 'spell' });
+  pump(10); registry.speakBtn.click(); pump(4);
+  ok(spoken.some(t => t.toLowerCase() === E.state().word.toLowerCase()), '补字母题朗读英文（听力题本身就需要）', JSON.stringify(spoken));
   ok(doc.documentElement.dataset.theme === 'light' || doc.documentElement.dataset.theme === 'dark', '主题切换回到合法值', doc.documentElement.dataset.theme);
 
   /* ---------- 三种出题模式都跑通 ---------- */

@@ -42,16 +42,16 @@ else { console.log('FAIL  基线目录里出现了游戏页面'); bad++; }
 
 /* ---- 改后：本分支的运行画面 ---- */
 const shots = [
-  ['?auto=1&unit=animals&seed=7&freeze=4.2&sound=off', 'english-after-play.png', 1280, 940],
+  ['?auto=1&unit=animals&word=cat&seed=7&freeze=4.2&sound=off', 'english-after-play.png', 1280, 940],
   ['?freeze=1', 'english-after-menu.png', 1280, 980],
-  ['?auto=1&unit=colors&seed=11&mode=cn&freeze=3.1&sound=off', 'english-after-mode-cn.png', 1280, 940],
-  ['?auto=1&unit=animals&seed=12&mode=spell&freeze=2.4&sound=off', 'english-after-mode-spell.png', 1280, 940],
-  ['?auto=1&unit=food&seed=5&rounds=6&solve=3&freeze=6.5&sound=off', 'english-after-answered.png', 1280, 940],
+  ['?auto=1&unit=colors&word=two&mode=cn&seed=11&freeze=3.1&sound=off', 'english-after-mode-cn.png', 1280, 940],
+  ['?auto=1&unit=food&word=apple&mode=spell&seed=12&freeze=2.4&sound=off', 'english-after-mode-spell.png', 1280, 940],
+  ['?auto=1&unit=animals&word=cat&seed=5&rounds=6&solve=3&freeze=6.5&sound=off', 'english-after-answered.png', 1280, 940],
   ['?auto=1&unit=animals&seed=9&rounds=8&solve=8&freeze=8.2&sound=off', 'english-after-results.png', 1280, 940],
-  ['?auto=1&unit=school&seed=4&theme=dark&freeze=5.0&sound=off', 'english-after-dark.png', 1280, 940],
-  ['?auto=1&unit=animals&seed=2&freeze=3.6&sound=off&selftest=1', 'english-after-selftest.png', 1280, 1500],
-  ['?auto=1&unit=animals&seed=2&freeze=3.6&sound=off&ui=canvas', 'english-after-canvas-only.png', 960, 540],
-  ['?auto=1&unit=colors&seed=8&freeze=4.0&sound=off', 'english-after-narrow-504x900.png', 504, 900]
+  ['?auto=1&unit=school&word=tree&seed=4&theme=dark&freeze=5.0&sound=off', 'english-after-dark.png', 1280, 940],
+  ['?auto=1&unit=animals&seed=2&freeze=3.6&sound=off&selftest=1', 'english-after-selftest.png', 1280, 1520],
+  ['?auto=1&unit=animals&word=cat&seed=2&freeze=3.6&sound=off&ui=canvas', 'english-after-canvas-only.png', 960, 540],
+  ['?auto=1&unit=colors&word=red&seed=8&freeze=4.0&sound=off', 'english-after-narrow-504x900.png', 504, 900]
 ];
 shots.forEach(([q, name, w, h]) => { if (!shot(GAME, q, name, w, h)) bad++; });
 
