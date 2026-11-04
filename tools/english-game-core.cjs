@@ -18,8 +18,9 @@ const body = lines.slice(a + 1, b).join('\n');
 fs.writeFileSync(out, body + '\nmodule.exports = {'
   + 'WORDS,UNITS,GRADES,MODES,MODE_MIX,LETTERS,mulberry32,gradeInfo,unitsFor,unitInfo,gradeWords,'
   + 'unitWords,shuffle,distractFor,pickOptions,pickMode,canPic,orderWord,newRound,firstLetterHint,'
-  + 'scoreFor,starsFor,trainSpeedFor,forceFirst,makeState,startGame,choose,advance,nextIndex,isDone,'
-  + 'stateInfo,maxScore,bestKey,bestUnit};\n', 'utf8');
+  + 'scoreFor,starsFor,cartSpeedFor,forceFirst,makeState,startGame,choose,advance,nextIndex,isDone,'
+  + 'stateInfo,maxScore,bestKey,bestUnit,'
+  + 'TRACK_ENTRY,TRACK_EXIT,TRACK_LOOP,catmullRom,sampleSpline,sampleLoop,buildTrack,trackAt,isLoopRegion};\n', 'utf8');
 
 const K = require(out);
 let fails = 0;
@@ -182,16 +183,116 @@ for (const p of [0, 1, 2, 3, 4, 5, 99, -3]) {
 ok(K.starsFor(100) === 3 && K.starsFor(90) === 3 && K.starsFor(89) === 2 && K.starsFor(72) === 2
    && K.starsFor(60) === 1 && K.starsFor(54) === 0 && K.starsFor(0) === 0, '星级阈值 90/72/55');
 
-/* ---------- 火车速度 ---------- */
+/* ---------- 过山车速度 ---------- */
 {
   let p = 1;
-  for (let i = 0; i < 400; i++) p = K.trainSpeedFor(p, 0.016, 6, false);
+  for (let i = 0; i < 400; i++) p = K.cartSpeedFor(p, 0.016, 6, false);
   ok(p > 2.4 && p <= 2.66, '连对越多越快且封顶', p.toFixed(3));
   let q = 3;
-  for (let i = 0; i < 400; i++) q = K.trainSpeedFor(q, 0.016, 0, true);
-  ok(q < 0.05, '到站后平滑停下', q.toFixed(4));
-  ok(K.trainSpeedFor(1, 0, 3, false) === 1, 'dt=0 不变化');
-  ok(Number.isFinite(K.trainSpeedFor(1, 0.016, undefined, undefined)), '缺参不 NaN');
+  for (let i = 0; i < 400; i++) q = K.cartSpeedFor(q, 0.016, 0, true);
+  ok(q < 0.05, '跑完后平滑停下', q.toFixed(4));
+  ok(K.cartSpeedFor(1, 0, 3, false) === 1, 'dt=0 不变化');
+  ok(Number.isFinite(K.cartSpeedFor(1, 0.016, undefined, undefined)), '缺参不 NaN');
+}
+
+/* ---------- 过山车轨道几何 ---------- */
+{
+  const tk = K.buildTrack({ per: 3 });
+  ok(tk.pts.length > 100, '轨道采样点数量足够', tk.pts.length + ' 点');
+  ok(tk.length > 1500 && tk.length < 3000, '轨道总长度合理（画面 960 宽）', Math.round(tk.length) + ' px');
+  let gap = 0;
+  for (let i = 1; i < tk.pts.length; i++) gap = Math.max(gap, Math.hypot(tk.pts[i].x - tk.pts[i - 1].x, tk.pts[i].y - tk.pts[i - 1].y));
+  ok(gap < 40, '相邻采样点间距够小，轨道不会画成折线', gap.toFixed(2) + ' px');
+  let dAng = 0;
+  for (let i = 1; i < tk.pts.length; i++){
+    let d = Math.abs(tk.pts[i].ang - tk.pts[i - 1].ang);
+    if (d > Math.PI) d = Math.PI * 2 - d;
+    dAng = Math.max(dAng, d);
+  }
+  ok(dAng < 0.2, '切线角逐步变化，车厢不会突然翻角（含坡顶与接缝）', (dAng * 180 / Math.PI).toFixed(1) + '°');
+  const ys = tk.pts.map(p => p.y), xs = tk.pts.map(p => p.x);
+  ok(Math.min(...xs) > 20 && Math.max(...xs) < 940, '轨道横向不出画面', Math.min(...xs).toFixed(0) + '..' + Math.max(...xs).toFixed(0));
+  ok(Math.min(...ys) > 60 && Math.max(...ys) < 500, '轨道纵向不出画面（上方留题面文字）', Math.min(...ys).toFixed(0) + '..' + Math.max(...ys).toFixed(0));
+  ok(Math.max(...ys) - Math.min(...ys) > 250, '提升坡落差够大，看得出是过山车', (Math.max(...ys) - Math.min(...ys)).toFixed(0) + ' px');
+  /* u 参数化：端点正确、越界夹紧、弧长均匀 */
+  ok(Math.abs(K.trackAt(tk, 0).u) < 1e-9, 'u=0 在起点');
+  ok(Math.abs(K.trackAt(tk, 1).u - 1) < 1e-9, 'u=1 在终点');
+  ok(K.trackAt(tk, -0.5).u === 0 && K.trackAt(tk, 2).u === 1, '越界夹紧');
+  ok(Number.isFinite(K.trackAt(tk, undefined).x), 'u 缺失不 NaN');
+  let uPrev = -1, uMono = true;
+  for (let i = 0; i <= 200; i++){ const p = K.trackAt(tk, i / 200); if (p.u < uPrev) uMono = false; uPrev = p.u; }
+  ok(uMono, 'u 随进度单调递增');
+  /* 走过的路程 ≈ 弧长：u 从 0 到 1 每 1% 的位移之和应接近轨道总长 */
+  let walk = 0, pw = K.trackAt(tk, 0);
+  for (let i = 1; i <= 100; i++){
+    const p = K.trackAt(tk, i / 100);
+    walk += Math.hypot(p.x - pw.x, p.y - pw.y); pw = p;
+  }
+  ok(Math.abs(walk / tk.length - 1) < 0.05, '按 u 取点走过的路程与弧长一致', Math.round(walk) + ' / ' + Math.round(tk.length));
+  /* 圆环：轨道确实绕一整圈 —— 环顶在圆心上方、环底在圆心下方，且左右各经过一次 */
+  const LP = K.TRACK_LOOP;
+  let top = 0, bottom = 0, sideL = 0, sideR = 0;
+  for (const p of tk.pts){
+    const d = Math.hypot(p.x - LP.cx, p.y - LP.cy);
+    if (d < LP.r + 8){
+      if (p.y < LP.cy - LP.r * 0.6) top++;
+      if (p.y > LP.cy + LP.r * 0.6) bottom++;
+      if (p.x < LP.cx - LP.r * 0.6) sideL++;
+      if (p.x > LP.cx + LP.r * 0.6) sideR++;
+    }
+  }
+  ok(top > 2 && bottom > 2 && sideL > 2 && sideR > 2, '竖直圆环完整（顶/底/左/右都经过）', top + '/' + bottom + '/' + sideL + '/' + sideR);
+  /* 车厢沿环走一圈时朝向会翻转（倒挂）—— 用角度覆盖判断 */
+  let angMin = Infinity, angMax = -Infinity;
+  for (let i = 0; i <= 400; i++){
+    const p = K.trackAt(tk, i / 400);
+    angMin = Math.min(angMin, p.ang); angMax = Math.max(angMax, p.ang);
+  }
+  ok(angMax - angMin > Math.PI, '车头朝向覆盖一整圈（会倒挂过环）', ((angMax - angMin) * 180 / Math.PI).toFixed(0) + '°');
+  /* 支撑柱判定：环内部不立柱 */
+  let inLoopBelow = 0;
+  for (let i = 0; i < tk.pts.length; i++){
+    const p = tk.pts[i];
+    if (K.isLoopRegion(tk, i) && p.y > LP.cy && p.y < LP.cy + LP.r - 6) inLoopBelow++;
+  }
+  ok(inLoopBelow > 0, 'isLoopRegion 认得出环内的点', inLoopBelow + ' 点');
+  ok(K.isLoopRegion(tk, 0) === false, '起点不在环内');
+  /* 样条端点保真 */
+  const sp = K.sampleSpline(K.TRACK_ENTRY, 2);
+  ok(Math.abs(sp[0][0] - K.TRACK_ENTRY[0][0]) < 1e-6 && Math.abs(sp[0][1] - K.TRACK_ENTRY[0][1]) < 1e-6, '样条从第一个控制点出发');
+  ok(Math.abs(sp[sp.length - 1][0] - K.TRACK_ENTRY[K.TRACK_ENTRY.length - 1][0]) < 1e-6, '样条止于最后一个控制点');
+  ok(sp.every(p => Number.isFinite(p[0]) && Number.isFinite(p[1])), '样条无 NaN');
+  const lp = K.sampleLoop(K.TRACK_LOOP, 1);
+  ok(Math.hypot(lp[0][0] - LP.cx, lp[0][1] - (LP.cy + LP.r)) < 1e-6, '环从最低点起步');
+  ok(Math.abs(lp[0][0] - lp[lp.length - 1][0]) < 1e-6 && Math.abs(lp[0][1] - lp[lp.length - 1][1]) < 1e-6, '环闭合');
+  ok(K.sampleLoop(K.TRACK_LOOP, 0).length > 8, 'per=0 时环仍给出足够采样点');
+  /* 三段接缝：找环起点的 u，检查接缝前后不跳变 */
+  let seamU = 0, bestD = Infinity;
+  for (let i = 0; i <= 1000; i++){
+    const p = K.trackAt(tk, i / 1000);
+    const d = Math.hypot(p.x - LP.cx, p.y - (LP.cy + LP.r));
+    if (d < bestD){ bestD = d; seamU = i / 1000; }
+  }
+  const s1 = K.trackAt(tk, Math.max(0, seamU - 0.01)), s2 = K.trackAt(tk, seamU + 0.01);
+  ok(Math.hypot(s2.x - s1.x, s2.y - s1.y) < 60, '环接缝前后 2% 进度内的位移正常（没有瞬移）',
+     Math.round(Math.hypot(s2.x - s1.x, s2.y - s1.y)) + ' px @u=' + seamU.toFixed(2));
+  ok(seamU > 0.3 && seamU < 0.7, '环在轨道中段（先爬坡冲坡，再过环）', seamU.toFixed(2));
+  /* 每答对一题，车头沿轨道前进一段可测的距离 */
+  const game = K.startGame(K.makeState({ grade: 1, unit: 'animals', rounds: 8, seed: 42 }));
+  const p0 = K.trackAt(tk, K.stateInfo(game).progress);
+  K.choose(game, right(game)); K.advance(game);
+  const p1 = K.trackAt(tk, K.stateInfo(game).progress);
+  ok(Math.hypot(p1.x - p0.x, p1.y - p0.y) > 40, '答对一题车头真的移动一段距离', Math.round(Math.hypot(p1.x - p0.x, p1.y - p0.y)) + ' px');
+  let moved = 0, lastP = K.trackAt(tk, 0);
+  for (let i = 1; i < game.rounds; i++){
+    K.choose(game, right(game)); K.advance(game);
+    const p = K.trackAt(tk, K.stateInfo(game).progress);
+    moved += Math.hypot(p.x - lastP.x, p.y - lastP.y); lastP = p;
+  }
+  ok(moved > 1500 && moved <= tk.length * 1.35, '一整局走过的轨道长度与轨道总长相符', Math.round(moved) + ' / ' + Math.round(tk.length));
+  /* 车厢间距：CART_GAP 对应的弧长约等于车身长度，别叠成一坨 */
+  const gapPx = 0.04 * tk.length;
+  ok(gapPx > 40 && gapPx < 110, '车厢间距合理（约一个车身）', Math.round(gapPx) + ' px');
 }
 
 /* ---------- 完整一局：状态机 ---------- */

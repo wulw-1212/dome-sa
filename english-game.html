@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="英语小火车 · English Word Train —— 给小学一、二年级孩子的背单词小游戏：看图听音选单词，四个关卡词库，单文件离线运行。">
-<title>英语小火车 · English Word Train</title>
+<meta name="description" content="英语过山车 · English Word Coaster —— 给小学一到四年级孩子的背单词小游戏：看图听音选单词，四个年级词库，答对一次过山车就往前跑，爬提升坡、冲下大坡、穿过圆环。单文件离线运行。">
+<title>英语过山车 · English Word Coaster</title>
 <style>
 :root{
   --ink:#17324a; --muted:#5b7793; --paper:#f2f8fd; --card:#ffffff;
@@ -128,8 +128,8 @@ body.canvas-only .stage{border:none;border-radius:0;box-shadow:none;max-width:96
 <div class="wrap">
   <header>
     <div>
-      <h1>🚂 英语小火车 <span class="en">English Word Train</span></h1>
-      <p class="sub">给小学一、二、三、四年级孩子的背单词游戏：看图画、听发音，从四个单词里选出正确的英文。答对小车就往前开，开到终点站就赢！</p>
+      <h1>🎢 英语过山车 <span class="en">English Word Coaster</span></h1>
+      <p class="sub">给小学一、二、三、四年级孩子的背单词游戏：看图画、听发音，从四个单词里选出正确的英文。答对一次，过山车就往前跑一段 —— 爬提升坡、冲下大坡、穿过圆环，跑完全程就赢！</p>
     </div>
     <div class="tools">
       <button class="tbtn" id="soundBtn" title="音效开关">🔊 音效</button>
@@ -143,16 +143,16 @@ body.canvas-only .stage{border:none;border-radius:0;box-shadow:none;max-width:96
     <span class="pill">第 <b id="roundNo">1</b> / <b id="roundTot">8</b> 题</span>
     <span class="pill">得分 <b id="score">0</b></span>
     <span class="pill streak">连对 <b id="streak">0</b></span>
-    <span class="bar" title="小火车开到终点站就完成啦"><i id="prog"></i></span>
+    <span class="bar" title="过山车跑完全程就完成啦"><i id="prog"></i></span>
     <span class="pill">词库 <b id="unitName">动物 Animals</b></span>
   </div>
 
   <div class="stage">
-    <canvas id="scene" width="960" height="540" aria-label="小火车画面：答对时火车前进，图卡显示当前单词的图画"></canvas>
+    <canvas id="scene" width="960" height="540" aria-label="过山车画面：答对时车厢沿轨道前进，图卡显示当前单词的图画"></canvas>
     <div class="overlay" id="menuMask">
       <div class="sheet">
-        <h2>🚂 英语小火车</h2>
-        <p>选出正确的英文单词，小火车就会往前开。</p>
+        <h2>🎢 英语过山车</h2>
+        <p>选出正确的英文单词，过山车就会往前跑一段。</p>
         <div class="picklabel">1. 选年级 Grade</div>
         <div class="grades" id="gradePick"></div>
         <div class="picklabel">2. 选词库 Word list</div>
@@ -164,11 +164,11 @@ body.canvas-only .stage{border:none;border-radius:0;box-shadow:none;max-width:96
     </div>
     <div class="overlay hidden" id="overMask">
       <div class="sheet">
-        <h2 id="overTitle">到站啦！</h2>
+        <h2 id="overTitle">跑完啦！</h2>
         <div class="stars" id="overStars">★★★</div>
         <p id="overText"></p>
         <p id="overBest"></p>
-        <button class="start" id="againBtn">🚂 再来一列 Again</button>
+        <button class="start" id="againBtn">🎢 再坐一次 Again</button>
         <button class="start" id="menuBtn" style="background:var(--line);color:var(--ink)">换词库 Change</button>
       </div>
     </div>
@@ -499,11 +499,164 @@ function starsFor(avg){
   return 0;
 }
 
-/* 火车速度：答对推进，连对越多跑得越快（上限 2.6 倍） */
-function trainSpeedFor(p, dt, streak, done){
+/* 过山车速度：答对推进，连对越多跑得越快（上限 2.6 倍） */
+function cartSpeedFor(p, dt, streak, done){
   const target = done ? 0 : (1 + Math.min(3, streak || 0) * 0.55);
   const k = Math.min(1, dt * 2.5);
   return p + (target - p) * k;
+}
+
+/* ---------- 过山车轨道几何（纯数学，不碰 DOM） ----------
+ * 轨道 = 提升坡段（Catmull–Rom 样条）+ 一个完整的竖直环 + 落回站台段，
+ * 三段按弧长拼成一条参数曲线，u∈[0,1] 即「已经走完的比例」。
+ * 坐标写在 960×540 的画面坐标系里。 */
+const TRACK_ENTRY = [
+  [55, 470], [110, 469], [160, 464], [210, 446], [250, 404], [285, 340],
+  [315, 270], [342, 214], [372, 184], [404, 174], [436, 184], [462, 216],
+  [482, 262], [498, 314], [512, 366], [528, 412], [548, 446], [576, 464],
+  [608, 470], [640, 470]
+];
+const TRACK_LOOP = { cx: 640, cy: 470 - 108, r: 108 };
+const TRACK_EXIT = [
+  [640, 470], [688, 468], [734, 456], [780, 434], [822, 410], [860, 400],
+  [892, 408], [914, 434], [926, 470]
+];
+
+function catmullRom(p0, p1, p2, p3, t){
+  const t2 = t * t, t3 = t2 * t;
+  return [
+    0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+    0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+  ];
+}
+
+/* 开放折线的 Catmull–Rom 采样；首尾重复端点，保证端点切线方向正确 */
+function sampleSpline(pts, per){
+  const p = [pts[0]].concat(pts, [pts[pts.length - 1]]);
+  const out = [];
+  const step = Math.max(1, per || 1);
+  for (let i = 1; i < p.length - 2; i++){
+    for (let s = 0; s < step; s++){
+      out.push(catmullRom(p[i - 1], p[i], p[i + 1], p[i + 2], s / step));
+    }
+  }
+  out.push(pts[pts.length - 1].slice());
+  return out;
+}
+
+/* 竖直环：从最低点出发，切线水平向右，绕一整圈回到最低点 */
+function sampleLoop(loop, per){
+  const n = Math.max(8, Math.round((per || 1) * 24));
+  const out = [];
+  for (let i = 0; i <= n; i++){
+    const a = (i / n) * Math.PI * 2;
+    out.push([loop.cx + loop.r * Math.sin(a), loop.cy + loop.r * Math.cos(a)]);
+  }
+  return out;
+}
+
+/* 曲率限制：把转角过尖的点做 Chaikin 切角（端点保持不动）。
+ * 只在切角后两段仍然够长时才切，避免切出亚像素的碎段。
+ * 圆环本身每步转角很小，几乎不受影响；坡顶与落坡底部的急弯会被磨圆。 */
+function smoothPts(pts, maxStep, iters){
+  const limit = maxStep === undefined ? 0.12 : maxStep;
+  const rounds = iters === undefined ? 8 : iters;
+  const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const turn = (p0, p1, p2) => {
+    let d = Math.abs(ang(p1, p2) - ang(p0, p1));
+    if (d > Math.PI) d = Math.PI * 2 - d;
+    return d;
+  };
+  let a = pts.map(p => p.slice());
+  for (let k = 0; k < rounds; k++){
+    const out = [a[0]];
+    for (let i = 1; i < a.length - 1; i++){
+      const p0 = a[i - 1], p1 = a[i], p2 = a[i + 1];
+      const short = Math.min(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]),
+                             Math.hypot(p2[0] - p1[0], p2[1] - p1[1]));
+      if (short > 6 && turn(p0, p1, p2) > limit){
+        out.push([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2]);
+        out.push([(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]);
+      } else out.push(p1.slice());
+    }
+    out.push(a[a.length - 1]);
+    a = out;
+  }
+  return a;
+}
+
+/* 按固定弧长重新采样折线：ds 恒定，切线角用前后各一个样点的中心差分，
+ * 这样「每步转角」直接对应车厢跨度的弯曲程度，可测可控。 */
+function resample(pts, ds){
+  const step = Math.max(2, ds || 12);
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++){
+    cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  }
+  const total = cum[cum.length - 1] || 1;
+  const n = Math.max(2, Math.round(total / step));
+  const out = [];
+  let j = 0;
+  for (let i = 0; i <= n; i++){
+    const target = Math.min(total, i * total / n);
+    while (j < cum.length - 2 && cum[j + 1] < target) j++;
+    const f = ((target - cum[j]) / ((cum[j + 1] - cum[j]) || 1));
+    const t = Math.max(0, Math.min(1, f));
+    out.push([pts[j][0] + (pts[j + 1][0] - pts[j][0]) * t,
+              pts[j][1] + (pts[j + 1][1] - pts[j][1]) * t]);
+  }
+  return out;
+}
+
+function buildTrack(cfg){
+  const per = (cfg && cfg.per) || 4;
+  const segs = [sampleSpline(TRACK_ENTRY, per), sampleLoop(TRACK_LOOP, per), sampleSpline(TRACK_EXIT, per)];
+  const raw = [];
+  for (let s = 0; s < segs.length; s++){
+    const s0 = segs[s];
+    for (let i = (s === 0 ? 0 : 1); i < s0.length; i++) raw.push(s0[i].slice());
+  }
+  const cut = smoothPts(raw, cfg && cfg.maxStep, cfg && cfg.iters);
+  const ds = (cfg && cfg.ds) || 12;
+  const sp = resample(cut, ds);
+  const pts = sp.map(p => ({ x: p[0], y: p[1] }));
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  const length = cum[cum.length - 1] || 1;
+  for (let i = 0; i < pts.length; i++){
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    pts[i].ang = Math.atan2(b.y - a.y, b.x - a.x);
+    pts[i].u = cum[i] / length;
+  }
+  return { pts: pts, cum: cum, length: length, loop: TRACK_LOOP, ds: ds };
+}
+
+/* 按弧长比例 u 取轨道上的点与切线角（线性插值，越界夹紧） */
+function trackAt(track, u){
+  const t = Math.max(0, Math.min(1, u || 0));
+  const target = t * track.length;
+  let lo = 0, hi = track.cum.length - 1;
+  while (lo < hi - 1){
+    const mid = (lo + hi) >> 1;
+    if (track.cum[mid] <= target) lo = mid; else hi = mid;
+  }
+  const a = track.pts[lo], b = track.pts[hi];
+  const span = (track.cum[hi] - track.cum[lo]) || 1;
+  const f = Math.max(0, Math.min(1, (target - track.cum[lo]) / span));
+  let ang = a.ang;
+  if (b && b.ang !== undefined){
+    let d = b.ang - a.ang;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    ang = a.ang + d * f;
+  }
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, ang: ang, u: t };
+}
+
+/* 环上哪一段在轨道下方：画支撑柱时要跳过环内部的柱子 */
+function isLoopRegion(track, i){
+  const p = track.pts[i];
+  return Math.hypot(p.x - TRACK_LOOP.cx, p.y - TRACK_LOOP.cy) < TRACK_LOOP.r + 14;
 }
 
 /* 把指定单词固定为第一题（?word=apple，自动化出题与截图用）。
@@ -637,9 +790,10 @@ const W = canvas.width, H = canvas.height;
 let soundOn = qs.get('sound') !== 'off';
 let motionOn = qs.get('motion') !== 'off';
 let clock = 0, scroll = 0, speed = 1, last = 0;
-/* 小火车真的会往前开：trainPos 0 = 起点，1 = 终点站 */
-let trainPos = 0, trainPosShow = 0;
-const TRACK_START = 470, TRACK_END = 700;
+/* 过山车：cartU 是「已经走完的轨道比例」，cartShow 平滑跟随 */
+const GROUND = 470;
+const CART_GAP = 0.022;
+let cartU = 0, cartShow = 0;
 let banner = null;            // {text, tone, t}
 const cardFly = [];           // 答对飞出的卡片粒子
 let st = null;                // 游戏状态
@@ -1446,12 +1600,16 @@ function drawIcon(c, w, t){
 /* ---------- 场景 ---------- */
 const PALETTE = {
   light: { sky1:'#a9dcf6', sky2:'#e8f7ff', hill1:'#9ed48a', hill2:'#77c06f', grass:'#6fb96a',
-           tie:'#b9a184', rail:'#7d8896', stone:'#cfd8e2', tunnel:'#4b5563', cloud:'#ffffff',
-           sun:'#ffd45c', text:'#17324a', card:'#ffffff', cardEdge:'#1f8ad6', dark:false },
+           tie:'#b9a184', rail:'#7d8896', railHi:'#e8f2fb', steel:'#9fb0c2', stone:'#cfd8e2',
+           tunnel:'#4b5563', cloud:'#ffffff', sun:'#ffd45c', text:'#17324a', card:'#ffffff',
+           cardEdge:'#1f8ad6', dark:false },
   dark:  { sky1:'#0d1a33', sky2:'#16273f', hill1:'#20402f', hill2:'#183428', grass:'#1d3b2b',
-           tie:'#3b3730', rail:'#8d99a8', stone:'#2b3644', tunnel:'#141b26', cloud:'#3a4d68',
-           sun:'#cfd8e6', text:'#e6f1fb', card:'#1b2a3f', cardEdge:'#4fb2f0', dark:true }
+           tie:'#3b3730', rail:'#8d99a8', railHi:'#cfe3f5', steel:'#4a5c72', stone:'#2b3644',
+           tunnel:'#141b26', cloud:'#3a4d68', sun:'#cfd8e6', text:'#e6f1fb', card:'#1b2a3f',
+           cardEdge:'#4fb2f0', dark:true }
 };
+/* 轨道几何只依赖常量，启动时构建一次（约 1.3k 个采样点） */
+const track = buildTrack({ per: 3 });
 function pal(){ return document.documentElement.dataset.theme === 'dark' ? PALETTE.dark : PALETTE.light; }
 
 function drawSky(c, P){
@@ -1501,110 +1659,144 @@ function drawHills(c, P){
     const x = 40 + i * 140, y = 286 - Math.sin(i * 1.7) * 26;
     c.save(); c.translate(x, y); c.scale(0.42, 0.42); ICONS.tree(c, clock + i); c.restore();
   }
-  // 隧道
-  c.fillStyle = P.hill2;
-  c.beginPath(); c.moveTo(560, 470); c.quadraticCurveTo(660, 300, 760, 470); c.closePath(); c.fill();
-  c.fillStyle = P.tunnel;
-  c.beginPath(); c.moveTo(600, 470); c.quadraticCurveTo(660, 350, 720, 470); c.closePath(); c.fill();
+  // 草地与地平线
   c.fillStyle = P.grass;
-  c.fillRect(0, 430, W, H - 430);
-}
-function drawTrack(c, P){
-  const y = 452;
-  c.fillStyle = P.tie;
-  for (let i = -1; i < 30; i++){
-    const x = i * 34 - (scroll % 34) + 40;
-    c.fillRect(x, y, 22, 12);
+  c.fillRect(0, 470, W, H - 470);
+  c.fillStyle = P.dark ? '#16301f' : '#7fc775';
+  for (let i = 0; i < 26; i++){
+    const x = (i * 37) % W;
+    c.beginPath(); c.moveTo(x, 470); c.lineTo(x + 5, 462); c.lineTo(x + 10, 470); c.closePath(); c.fill();
   }
-  c.fillStyle = P.stone;
-  c.beginPath(); c.moveTo(0, y + 14); c.lineTo(W, y + 14); c.lineTo(W, y + 26); c.lineTo(0, y + 26); c.closePath(); c.fill();
-  c.strokeStyle = P.rail; c.lineWidth = 5;
-  c.beginPath(); c.moveTo(0, y - 2); c.lineTo(W, y - 2); c.stroke();
-  c.strokeStyle = P.rail; c.lineWidth = 3; c.globalAlpha = 0.7;
-  c.beginPath(); c.moveTo(0, y + 8); c.lineTo(W, y + 8); c.stroke(); c.globalAlpha = 1;
-  // 里程标
-  c.fillStyle = P.rail;
-  for (let i = 0; i <= 4; i++){
-    const x = 60 + i * ((W - 120) / 4);
-    c.globalAlpha = 0.5; c.fillRect(x, y - 34, 4, 22);
-    c.beginPath(); c.arc(x + 2, y - 40, 8, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+}
+/* ---------- 过山车轨道 ---------- */
+function drawTrack(c, P){
+  const pts = track.pts;
+  // 支撑柱（跳过环内部，避免环里长柱子）
+  c.strokeStyle = P.steel; c.lineWidth = 4; c.lineCap = 'round';
+  for (let i = 2; i < pts.length - 2; i += 12){
+    const p = pts[i];
+    if (p.y > GROUND - 6) continue;
+    if (isLoopRegion(track, i) && p.y > TRACK_LOOP.cy) continue;
+    c.globalAlpha = 0.85;
+    c.beginPath(); c.moveTo(p.x, p.y + 6); c.lineTo(p.x, GROUND); c.stroke();
+    // 斜撑
+    c.lineWidth = 2.4; c.globalAlpha = 0.55;
+    c.beginPath(); c.moveTo(p.x, p.y + 6); c.lineTo(p.x - 13, GROUND); c.moveTo(p.x, p.y + 6); c.lineTo(p.x + 13, GROUND); c.stroke();
+    c.lineWidth = 4; c.globalAlpha = 0.85;
+  }
+  c.globalAlpha = 1;
+  // 枕木：沿轨道法向
+  c.strokeStyle = P.tie; c.lineWidth = 6;
+  for (let i = 1; i < pts.length - 1; i += 4){
+    const p = pts[i], n = p.ang + Math.PI / 2;
+    c.beginPath();
+    c.moveTo(p.x + Math.cos(n) * 7, p.y + Math.sin(n) * 7);
+    c.lineTo(p.x - Math.cos(n) * 7, p.y - Math.sin(n) * 7);
+    c.stroke();
+  }
+  // 双轨
+  for (const [off, w, col] of [[-5, 4, P.rail], [5, 4, P.rail], [0, 2.4, P.railHi]]){
+    c.strokeStyle = col; c.lineWidth = w; c.lineJoin = 'round';
+    c.beginPath();
+    for (let i = 0; i < pts.length; i++){
+      const p = pts[i], n = p.ang + Math.PI / 2;
+      const x = p.x + Math.cos(n) * off, y = p.y + Math.sin(n) * off;
+      c[i ? 'lineTo' : 'moveTo'](x, y);
+    }
+    c.stroke();
   }
 }
 function drawStation(c, P){
-  const x = W - 92, y = 300;
-  c.save(); c.translate(x, y);
-  c.fillStyle = P.card; roundedRect(c, -46, -26, 92, 76, 8); c.fill();
+  // 左侧起点站房
+  c.save(); c.translate(78, 392);
+  c.fillStyle = P.card; roundedRect(c, -52, -30, 104, 78, 8); c.fill();
   c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.4; c.stroke();
-  c.fillStyle = '#e2452f';
-  c.beginPath(); c.moveTo(-56, -26); c.lineTo(0, -60); c.lineTo(56, -26); c.closePath(); c.fill();
+  c.fillStyle = '#2f6fe2';
+  c.beginPath(); c.moveTo(-62, -30); c.lineTo(0, -62); c.lineTo(62, -30); c.closePath(); c.fill();
   c.strokeStyle = '#2b3a4a'; c.stroke();
-  c.fillStyle = '#2f6fe2'; roundedRect(c, -16, 8, 32, 42, 4); c.fill(); c.stroke();
-  c.fillStyle = P.text; c.font = 'bold 12px "Segoe UI",sans-serif'; c.textAlign = 'center';
-  c.fillText('END', 0, -12);
+  c.fillStyle = P.text; c.font = 'bold 13px "Segoe UI",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('START', 0, -14);
+  c.fillStyle = '#9ec9e8'; roundedRect(c, -38, 4, 26, 24, 4); c.fill(); c.stroke();
+  roundedRect(c, 12, 4, 26, 24, 4); c.fill(); c.stroke();
   c.restore();
-  // 旗子
+  // 右侧终点旗
+  const x = 902, y = GROUND;
   c.strokeStyle = P.text; c.lineWidth = 3;
-  c.beginPath(); c.moveTo(x, y - 60); c.lineTo(x, y - 104); c.stroke();
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 74); c.stroke();
   c.fillStyle = '#f5a623';
   const flap = Math.sin(clock * 5) * 4;
-  c.beginPath(); c.moveTo(x, y - 104); c.lineTo(x + 30, y - 96 + flap); c.lineTo(x, y - 86); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(x, y - 74); c.lineTo(x + 30, y - 66 + flap); c.lineTo(x, y - 56); c.closePath(); c.fill();
   c.strokeStyle = '#2b3a4a'; c.lineWidth = 2; c.stroke();
+  c.fillStyle = P.text; c.font = 'bold 12px "Segoe UI",sans-serif'; c.textAlign = 'center';
+  c.fillText('END', x, y - 44);
 }
-function trainWheel(c, x, y, r, P){
-  c.save(); c.translate(x, y);
-  c.fillStyle = '#2b3a4a'; circle(c, 0, 0, r); c.fill();
-  c.fillStyle = '#cfd8e6'; circle(c, 0, 0, r * 0.45); c.fill();
-  c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.6;
-  const a = scroll * 0.9;
-  for (let i = 0; i < 3; i++){
-    const ang = a + i * Math.PI * 2 / 3;
-    c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * r * 0.85, Math.sin(ang) * r * 0.85); c.stroke();
+/* ---------- 过山车车厢：沿轨道样条排一列，车头在 cartShow 处 ---------- */
+function coasterWheel(c, x, y, r){
+  c.fillStyle = '#2b3a4a'; circle(c, x, y, r); c.fill();
+  c.fillStyle = '#e6edf5'; circle(c, x, y, r * 0.4); c.fill();
+}
+function drawCart(c, P, u, i, front){
+  const p = trackAt(track, u);
+  c.save(); c.translate(p.x, p.y); c.rotate(p.ang);
+  const col = front ? '#e2452f' : ['#f5a623', '#2f6fe2', '#37a862'][i % 3];
+  // 底盘抱轨（环里倒过来也不会脱轨的样子）
+  c.fillStyle = '#2b3a4a'; roundedRect(c, -20, -5, 40, 10, 3); c.fill();
+  coasterWheel(c, -13, 0, 5); coasterWheel(c, 13, 0, 5);
+  coasterWheel(c, -13, -10, 3.6); coasterWheel(c, 13, -10, 3.6);
+  // 车身
+  c.fillStyle = col;
+  c.beginPath();
+  c.moveTo(-19, -12); c.lineTo(19, -12);
+  c.quadraticCurveTo(23, -12, 23, -19); c.lineTo(20, -25); c.lineTo(-20, -25);
+  c.quadraticCurveTo(-23, -20, -23, -15); c.closePath(); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.6; c.stroke();
+  // 座位与安全压杠
+  c.fillStyle = '#2b3a4a'; roundedRect(c, -17, -30, 14, 7, 2); c.fill();
+  roundedRect(c, 3, -30, 14, 7, 2); c.fill();
+  c.strokeStyle = '#7d8896'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(-10, -30); c.lineTo(-10, -15); c.moveTo(10, -30); c.lineTo(10, -15); c.stroke();
+  // 两个小朋友（举双手）
+  for (const x of [-10, 10]){
+    c.fillStyle = ['#ffd08a', '#ffb3c7', '#a8e6cf'][(i + Math.abs(x)) % 3];
+    circle(c, x, -38, 5.4); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 1.6; c.stroke();
+    c.fillStyle = '#2b3a4a'; circle(c, x - 1.8, -39, 0.9); c.fill(); circle(c, x + 1.8, -39, 0.9); c.fill();
+    const wave = Math.sin(clock * 6 + x) * 0.25;
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 1.8; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x - 4, -34); c.lineTo(x - 7, -42 - wave * 5);
+    c.moveTo(x + 4, -34); c.lineTo(x + 7, -42 + wave * 5); c.stroke();
+  }
+  if (front){
+    // 车头鼻锥 + 车灯
+    c.fillStyle = '#f7d21b';
+    c.beginPath(); c.moveTo(23, -19); c.lineTo(31, -13); c.lineTo(23, -12); c.closePath(); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2; c.stroke();
+    c.fillStyle = '#fff6cf'; circle(c, 26, -16, 2.2); c.fill();
   }
   c.restore();
+  // 连接杆（画在车厢之间）
+  if (!front){
+    const a = trackAt(track, u), b = trackAt(track, Math.min(1, u + CART_GAP));
+    c.strokeStyle = '#7d8896'; c.lineWidth = 2.6;
+    c.beginPath(); c.moveTo(a.x, a.y - 9); c.lineTo(b.x, b.y - 9); c.stroke();
+  }
 }
-function drawTrain(c, P, frontX){
-  const base = 438, bob = Math.sin(clock * 9) * 1.4;
-  c.save(); c.translate(frontX, base + bob);
-  // 车厢（3 节，接在机车后面，往左排开）
-  for (let i = 0; i < 3; i++){
-    const x = -96 - i * 92;
-    c.save(); c.translate(x, 0);
-    c.fillStyle = ['#e2452f', '#2f6fe2', '#37a862'][i];
-    roundedRect(c, -38, -46, 78, 46, 8); c.fill();
-    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.6; c.stroke();
-    c.fillStyle = 'rgba(255,255,255,.85)'; roundedRect(c, -28, -40, 24, 20, 4); c.fill();
-    roundedRect(c, 2, -40, 24, 20, 4); c.fill();
-    trainWheel(c, -22, 4, 12, P); trainWheel(c, 24, 4, 12, P);
-    c.strokeStyle = '#7d8896'; c.lineWidth = 4;
-    c.beginPath(); c.moveTo(-38, -14); c.lineTo(-56, -14); c.stroke();
-    c.restore();
-  }
-  // 机车（车头朝右，正开向终点站）
-  c.fillStyle = '#f5a623'; roundedRect(c, -38, -56, 108, 56, 8); c.fill();
-  c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.8; c.stroke();
-  c.fillStyle = '#2b3a4a'; roundedRect(c, -30, -66, 40, 12, 5); c.fill();
-  c.fillStyle = '#f5a623'; roundedRect(c, 58, -30, 20, 30, 5); c.fill(); outline(c, 3);
-  c.fillStyle = '#cfe9ff'; roundedRect(c, -20, -50, 26, 22, 4); c.fill();
-  c.strokeStyle = '#2b3a4a'; c.lineWidth = 3; c.stroke();
-  // 烟囱 + 烟（往车后飘）
-  c.fillStyle = '#2b3a4a'; roundedRect(c, -18, -78, 18, 24, 4); c.fill();
-  for (let i = 0; i < 3; i++){
-    const s = ((clock * 1.2 + i * 0.4) % 1);
-    c.fillStyle = 'rgba(255,255,255,' + (0.5 - s * 0.45) + ')';
-    circle(c, -9 - s * 34, -84 - s * 42, 8 + s * 14); c.fill();
-  }
-  trainWheel(c, -20, 4, 14, P); trainWheel(c, 22, 4, 14, P); trainWheel(c, 56, 4, 12, P);
-  c.fillStyle = '#f7d21b'; circle(c, 74, 2, 5); c.fill(); outline(c, 2);
-  c.restore();
+function drawCoaster(c, P){
+  // 整列车保持在轨道内：车头最靠前，车尾不越过起点
+  const f = Math.max(CART_GAP * 3, Math.min(1, cartShow));
+  drawCart(c, P, f - CART_GAP * 3, 3, false);
+  drawCart(c, P, f - CART_GAP * 2, 2, false);
+  drawCart(c, P, f - CART_GAP, 1, false);
+  drawCart(c, P, f, 0, true);
 }
 function drawCard(c, P, info){
   const bob = Math.sin(clock * 2.2) * 5;
-  const cx = 150, cy = 222 + bob;
+  const cx = 150, cy = 176 + bob;
   c.save(); c.translate(cx, cy);
   c.rotate(Math.sin(clock * 1.1) * 0.02);
-  // 木牌立柱
+  // 木牌立柱（停在提升坡前面，不压到轨道）
   c.strokeStyle = '#8b5a34'; c.lineWidth = 8; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(0, 78); c.lineTo(0, 112); c.stroke();
+  c.beginPath(); c.moveTo(0, 78); c.lineTo(0, 254); c.stroke();
   // 卡片
   c.fillStyle = P.card; roundedRect(c, -86, -76, 172, 152, 18); c.fill();
   c.strokeStyle = P.cardEdge; c.lineWidth = 5; c.stroke();
@@ -1661,7 +1853,7 @@ function hintLine(c, P, info){
   c.restore();
 }
 function hudDraw(c, P, info){
-  // 进度条：火车从起点到终点
+  // 进度条：过山车从起点站跑到终点旗
   c.save();
   const y = 500, x0 = 40, x1 = W - 40;
   c.fillStyle = 'rgba(0,0,0,.12)'; roundedRect(c, x0, y, x1 - x0, 12, 6); c.fill();
@@ -1677,11 +1869,19 @@ function draw(){
   const info = st ? stateInfo(st) : null;
   g.clearRect(0, 0, W, H);
   drawSky(g, P); drawClouds(g, P); drawHills(g, P); drawTrack(g, P); drawStation(g, P);
-  drawTrain(g, P, TRACK_START + trainPosShow * (TRACK_END - TRACK_START));
+  drawCoaster(g, P);
   if (info && st.round) { drawCard(g, P, info); hintLine(g, P, info); }
   drawFlyCards(g);
   bannerDraw(g, P);
   if (info) hudDraw(g, P, info);
+}
+/* 冲下第一个坡顶、穿过圆环顶点时各给一声「呼——」，纯靠轨道比例触发 */
+const DROP_U = 0.26, LOOP_U = 0.62;
+let lastU = 0;
+function coasterSfx(u){
+  if (u > DROP_U && lastU <= DROP_U) sfx('whoosh');
+  else if (u > LOOP_U && lastU <= LOOP_U) sfx('whoosh');
+  lastU = u;
 }
 let needDraw = true;
 function loop(now){
@@ -1689,18 +1889,17 @@ function loop(now){
   last = now;
   if (motionOn) clock += dt;
   if (st && st.started && !st.over){
-    speed = trainSpeedFor(speed, dt, st.streak, st.round && st.round.done);
+    speed = cartSpeedFor(speed, dt, st.streak, st.round && st.round.done);
   } else {
-    speed = trainSpeedFor(speed, dt, 0, true);
+    speed = cartSpeedFor(speed, dt, 0, true);
   }
   scroll += dt * speed * 120;
-  if (scroll > 34) scroll -= 34;
-  // 火车头沿轨道开到终点站
+  // 车头沿轨道走到终点：progress 0→1 就是「爬完提升坡、冲下第一个坡、穿过圆环、回到站台」
   const info = st ? stateInfo(st) : null;
-  const target = info ? info.progress : 0;
-  trainPosShow += (trainPos - trainPosShow) * Math.min(1, dt * 3.2);
-  if (Math.abs(trainPos - trainPosShow) < 0.002) trainPosShow = trainPos;
-  trainPos = target;
+  cartU = info ? info.progress : 0;
+  cartShow += (cartU - cartShow) * Math.min(1, dt * 2.6);
+  if (Math.abs(cartU - cartShow) < 0.0015) cartShow = cartU;
+  coasterSfx(cartShow);
   for (const p of cardFly) p.t += dt;
   if (banner) banner.t += dt;
   if (motionOn || needDraw){ draw(); needDraw = false; }
@@ -1734,6 +1933,10 @@ function sfx(kind){
   if (kind === 'good'){ [523, 659, 784].forEach((f, i) => tone(f, 0.2, 'triangle', 0.2, i * 0.08)); }
   else if (kind === 'bad'){ tone(220, 0.22, 'sawtooth', 0.13); tone(160, 0.28, 'sawtooth', 0.1, 0.12); }
   else if (kind === 'click'){ tone(660, 0.08, 'sine', 0.1); }
+  else if (kind === 'whoosh'){
+    // 冲下坡 / 过环：一段下滑的噪声感（几个快速下滑的音）
+    [880, 740, 620, 520, 430].forEach((f, i) => tone(f, 0.09, 'triangle', 0.1, i * 0.045));
+  }
   else if (kind === 'win'){ [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, 'triangle', 0.18, i * 0.12)); }
 }
 
@@ -1866,7 +2069,7 @@ function render(){
   const u = unitInfo(info.unit);
   els.unitName.textContent = (info.unit === 'mixed' ? '全部单词' : u.cn + ' ' + u.en);
   els.opts.innerHTML = '';
-  if (!st.round){ els.qtext.textContent = '到站啦！'; els.fb.innerHTML = ''; els.next.classList.add('hidden'); return; }
+  if (!st.round){ els.qtext.textContent = '跑完啦！'; els.fb.innerHTML = ''; els.next.classList.add('hidden'); return; }
 
   if (info.mode === 'pic') els.qtext.innerHTML = '看图：这是什么？ <span class="cn">What is this?</span>';
   else if (info.mode === 'cn') els.qtext.innerHTML = '「<span class="cn">' + info.cn + '</span>」用英语怎么说？';
@@ -1895,7 +2098,7 @@ function render(){
     els.fb.innerHTML = '<span class="en">' + st.round.word.sentence + '</span>' +
       '<span class="cn">' + cnOf(st.round) + ' · 本题得 ' + st.round.score + ' 分' + (st.streak >= 2 ? ' · 连对 ' + st.streak + ' 🔥' : '') + '</span>';
     els.next.classList.remove('hidden');
-    els.next.textContent = info.round >= info.total ? '🏁 到站 Finish' : '下一题 Next →';
+    els.next.textContent = info.round >= info.total ? '🏁 跑完 Finish' : '下一题 Next →';
   } else {
     els.fb.innerHTML = info.mode === 'pic'
       ? '<span class="cn">点一个答案，或按键盘 1–4。答错了可以再选别的，答对才得分。</span>'
@@ -1938,7 +2141,7 @@ function finish(){
   render();                      // 先把 HUD / 题面收尾，别把最后一题留在屏幕上
   const info = stateInfo(st);
   const stars = info.stars;
-  els.overTitle.textContent = stars === 3 ? '🎉 满分小火车！' : (stars >= 1 ? '到站啦！' : '再试一次吧！');
+  els.overTitle.textContent = stars === 3 ? '🎉 满分过山车！' : (stars >= 1 ? '跑完啦！' : '再试一次吧！');
   els.overStars.textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(0, 3 - stars);
   els.overText.innerHTML = gradeInfo(st.grade).cn + ' · ' +
     (st.unit === 'mixed' ? '全部单词' : unitInfo(st.unit).cn) + '<br>本局 <b>' + info.score + '</b> / ' +
@@ -1956,7 +2159,7 @@ function startGameUI(){
   st = startGame(makeState({ grade: pickGrade, unit: pickUnit, rounds: roundsFor(pickGrade, ROUND_OVERRIDE),
                              seed: seedFor(), mode: qs.get('mode'), word: qs.get('word') }));
   els.menu.classList.add('hidden'); els.over.classList.add('hidden');
-  speed = 1; scroll = 0; trainPos = 0; trainPosShow = 0; cardFly.length = 0; banner = null;
+  speed = 1; scroll = 0; cartU = 0; cartShow = 0; lastU = 0; cardFly.length = 0; banner = null;
   render();
   sfx('click');
 }
@@ -1986,7 +2189,7 @@ function silentSolve(n, miss){
     if (i < want - 1 || want >= st.rounds) advance(st);   // 最后一题留在屏幕上等孩子点「下一题」
   }
   if (st.over) finish(); else render();
-  trainPos = st ? stateInfo(st).progress : 0; trainPosShow = trainPos;
+  cartU = st ? stateInfo(st).progress : 0; cartShow = cartU; lastU = cartShow;
   needDraw = true; draw();
   return stateInfo(st);
 }
@@ -2097,8 +2300,8 @@ function runSelftest(){
   }
   T('打完 8 题总分 800 封顶', () => t3.score <= 800 && isDone(t3));
   T('全部一次答对 → 三星', () => starsFor(t3.score / t3.rounds) === 3);
-  T('火车速度随连对提升且有上限', () => {
-    let p = 1; for (let i = 0; i < 300; i++) p = trainSpeedFor(p, 0.016, 9, false);
+  T('过山车速度随连对提升且有上限', () => {
+    let p = 1; for (let i = 0; i < 300; i++) p = cartSpeedFor(p, 0.016, 9, false);
     return p > 1.5 && p <= 3;
   });
   T('bestUnit 取更高者', () => bestUnit({ '1:animals': 70 }, '1:animals', 80)['1:animals'] === 80 && bestUnit({ '1:animals': 90 }, '1:animals', 50)['1:animals'] === 90);
@@ -2153,7 +2356,9 @@ function runSelftest(){
 window.ewt = {
   state: () => st ? stateInfo(st) : null,
   raw: () => st,
-  api: { makeState, startGame, choose, advance, stateInfo, starsFor, scoreFor, trainSpeedFor,
+  api: { makeState, startGame, choose, advance, stateInfo, starsFor, scoreFor, cartSpeedFor,
+         buildTrack, trackAt, catmullRom, sampleSpline, sampleLoop, isLoopRegion,
+         TRACK_ENTRY, TRACK_EXIT, TRACK_LOOP, GROUND, CART_GAP, track,
          unitWords, gradeWords, unitsFor, gradeInfo, unitInfo, canPic, pickMode, pickOptions,
          distractFor, firstLetterHint, bestUnit, bestKey, maxScore, nextIndex, forceFirst, isDone,
          LETTERS, WORDS, UNITS, GRADES, MODES },
@@ -2169,7 +2374,7 @@ window.ewt = {
   solve: (n, miss) => silentSolve(n, miss),
   next: () => next(),
   go: (t) => { clock = t; draw(); },
-  ff: (sec) => { clock += sec; scroll += sec * 40; trainPosShow = trainPos; draw(); },
+  ff: (sec) => { clock += sec; scroll += sec * 40; cartShow = cartU; draw(); },
   set: (k, v) => { if (k === 'theme'){ document.documentElement.dataset.theme = v; } else if (k === 'motion'){ motionOn = !!v; } needDraw = true; },
   selftest: runSelftest
 };
@@ -2188,7 +2393,7 @@ window.ewt = {
   requestAnimationFrame(loop);
   if (qs.get('selftest') === '1') runSelftest();
   const fr = parseFloat(qs.get('freeze'));
-  if (isFinite(fr)) { motionOn = false; clock = fr; trainPosShow = trainPos; draw(); }
+  if (isFinite(fr)) { motionOn = false; clock = fr; cartShow = cartU; draw(); }
 })();
 // __UI_END__
 </script>
