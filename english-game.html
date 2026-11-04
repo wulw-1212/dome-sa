@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="英语小火车 · English Word Train —— 给小学一、二年级孩子的背单词小游戏：看图听音选单词，四个关卡词库，单文件离线运行。">
+<title>英语小火车 · English Word Train</title>
+<style>
+:root{
+  --ink:#17324a; --muted:#5b7793; --paper:#f2f8fd; --card:#ffffff;
+  --line:#cfe2f0; --accent:#1f8ad6; --accent-ink:#ffffff;
+  --good:#2e9e5b; --bad:#d94b4b; --gold:#f2b21b; --panel:rgba(255,255,255,.72);
+  --shadow:0 10px 26px rgba(23,50,74,.14);
+}
+[data-theme="dark"]{
+  --ink:#e6f1fb; --muted:#9db4c8; --paper:#0c1524; --card:#14202f;
+  --line:#26405a; --accent:#4fb2f0; --accent-ink:#06121e;
+  --good:#5fd694; --bad:#ff8b8b; --gold:#ffd35c; --panel:rgba(12,21,36,.72);
+  --shadow:0 10px 26px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"Comic Sans MS","Baloo 2","PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); min-height:100vh;
+  padding:14px 14px 26px; transition:background .3s,color .3s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:clamp(20px,3.2vw,30px);letter-spacing:.01em}
+h1 .en{color:var(--accent);font-size:.72em}
+.sub{margin:4px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:66ch}
+.tools{display:flex;gap:8px;align-items:center}
+.tbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+  padding:7px 13px;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow)}
+.tbtn:active{transform:translateY(1px)}
+
+/* ---------- HUD ---------- */
+.hud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 8px;font-size:14px}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+  box-shadow:var(--shadow);white-space:nowrap}
+.pill b{color:var(--accent)}
+.pill.streak b{color:var(--gold)}
+.bar{flex:1 1 160px;min-width:140px;height:12px;border-radius:999px;background:var(--card);
+  border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#7fd0ff);transition:width .3s}
+
+/* ---------- Stage ---------- */
+.stage{position:relative;border-radius:20px;overflow:hidden;border:2px solid var(--line);
+  background:#bfe6ff;box-shadow:var(--shadow)}
+#scene{display:block;width:100%;height:auto}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(8,20,34,.55);backdrop-filter:blur(2px);padding:16px;text-align:center}
+.overlay.hidden{display:none}
+.sheet{background:var(--card);border-radius:18px;padding:18px 20px;max-width:520px;width:100%;
+  box-shadow:var(--shadow);color:var(--ink)}
+.sheet h2{margin:0 0 6px;font-size:clamp(19px,2.6vw,25px)}
+.sheet p{margin:4px 0;color:var(--muted);font-size:14px;line-height:1.7}
+.units{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin:14px 0 4px}
+.unit{text-align:left;border:2px solid var(--line);background:var(--paper);border-radius:14px;
+  padding:10px 12px;cursor:pointer;font-family:inherit;color:var(--ink);transition:transform .12s,border-color .12s}
+.unit:hover{transform:translateY(-2px);border-color:var(--accent)}
+.unit .t{font-size:15px;font-weight:700}
+.unit .s{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.stars{font-size:clamp(30px,6vw,46px);letter-spacing:.08em;color:var(--gold);min-height:1.2em}
+.start{display:inline-block;margin-top:12px;border:none;background:var(--accent);color:var(--accent-ink);
+  font-family:inherit;font-size:17px;font-weight:700;padding:11px 26px;border-radius:999px;cursor:pointer;
+  box-shadow:var(--shadow)}
+.start:active{transform:translateY(1px)}
+
+/* ---------- 答题面板 ---------- */
+.panel{background:var(--card);border:2px solid var(--line);border-radius:18px;margin-top:12px;
+  padding:14px 16px 16px;box-shadow:var(--shadow)}
+.prompt{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;min-height:44px}
+.qtext{font-size:clamp(17px,2.6vw,22px);font-weight:700}
+.qtext .cn{color:var(--accent)}
+.speak{border:2px dashed var(--accent);background:transparent;color:var(--accent);border-radius:999px;
+  padding:6px 14px;font-size:15px;cursor:pointer;font-family:inherit}
+.speak:disabled{opacity:.45;cursor:default}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.opt{display:flex;align-items:center;gap:10px;justify-content:center;min-height:58px;
+  border:3px solid var(--line);border-radius:16px;background:var(--paper);color:var(--ink);
+  font-family:inherit;font-size:clamp(18px,3vw,24px);font-weight:700;letter-spacing:.02em;cursor:pointer;
+  transition:transform .12s,border-color .12s,background .12s}
+.opt .k{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 auto;
+  border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:14px}
+.opt:hover:not(:disabled){transform:translateY(-2px);border-color:var(--accent)}
+.opt:disabled{cursor:default;opacity:.85}
+.opt.good{border-color:var(--good);background:rgba(46,158,91,.14)}
+.opt.good .k{background:var(--good)}
+.opt.bad{border-color:var(--bad);background:rgba(217,75,75,.12)}
+.opt.bad .k{background:var(--bad)}
+.opt.dim{opacity:.5}
+.fb{margin-top:11px;text-align:center;font-size:clamp(15px,2.2vw,18px);min-height:2.9em;line-height:1.5}
+.fb .en{font-weight:700;color:var(--accent)}
+.fb .cn{color:var(--muted);font-size:.9em;display:block}
+.next{margin:2px auto 0;display:block;border:none;background:var(--good);color:#fff;font-family:inherit;
+  font-size:16px;font-weight:700;padding:9px 24px;border-radius:999px;cursor:pointer;box-shadow:var(--shadow)}
+.next.hidden{display:none}
+footer{margin-top:14px;color:var(--muted);font-size:12.5px;text-align:center;line-height:1.9}
+kbd{background:var(--card);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:.92em}
+#selftest{margin-top:16px;font:12px/1.6 ui-monospace,Consolas,monospace;color:var(--muted);white-space:pre-wrap}
+#selftest .st{text-align:left;max-width:820px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+#selftest h3{margin:0 0 8px;font-size:14px;color:var(--ink)}
+@media (max-width:560px){
+  .opts{grid-template-columns:repeat(2,1fr)}
+  .opt{font-size:19px;min-height:52px}
+}
+/* ?ui=canvas：只留画面，用于纯场景截图 */
+body.canvas-only{padding:0;background:transparent}
+body.canvas-only .wrap{max-width:none}
+body.canvas-only header,body.canvas-only .hud,body.canvas-only .panel,
+body.canvas-only footer,body.canvas-only #selftest,body.canvas-only .overlay{display:none}
+body.canvas-only .stage{border:none;border-radius:0;box-shadow:none;max-width:960px;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🚂 英语小火车 <span class="en">English Word Train</span></h1>
+      <p class="sub">给一、二年级小朋友的背单词游戏：看图画、听发音，从四个单词里选出正确的英文。答对小车就往前开，开到终点站就赢！</p>
+    </div>
+    <div class="tools">
+      <button class="tbtn" id="soundBtn" title="音效开关">🔊 音效</button>
+      <button class="tbtn" id="speakBtnTop" title="朗读当前单词">🗣 朗读</button>
+      <button class="tbtn" id="themeBtn" title="深浅色">🌙 深色</button>
+    </div>
+  </header>
+
+  <div class="hud">
+    <span class="pill">第 <b id="roundNo">1</b> / <b id="roundTot">8</b> 题</span>
+    <span class="pill">得分 <b id="score">0</b></span>
+    <span class="pill streak">连对 <b id="streak">0</b></span>
+    <span class="bar" title="小火车开到终点站就完成啦"><i id="prog"></i></span>
+    <span class="pill">词库 <b id="unitName">动物 Animals</b></span>
+  </div>
+
+  <div class="stage">
+    <canvas id="scene" width="960" height="540" aria-label="小火车画面：答对时火车前进，图卡显示当前单词的图画"></canvas>
+    <div class="overlay" id="menuMask">
+      <div class="sheet">
+        <h2>🚂 英语小火车</h2>
+        <p>选出正确的英文单词，小火车就会往前开。<br>选一列小火车（词库）出发吧：</p>
+        <div class="units" id="unitPick"></div>
+        <p>题目数量：<span id="qCount"></span></p>
+        <button class="start" id="startBtn">▶ 开始游戏 Start</button>
+        <p style="margin-top:10px">键盘：<b>1–4</b> 或 <b>A–D</b> 选择 · <b>空格</b> 朗读 · <b>Enter / →</b> 下一题 · <b>R</b> 重新开始</p>
+      </div>
+    </div>
+    <div class="overlay hidden" id="overMask">
+      <div class="sheet">
+        <h2 id="overTitle">到站啦！</h2>
+        <div class="stars" id="overStars">★★★</div>
+        <p id="overText"></p>
+        <p id="overBest"></p>
+        <button class="start" id="againBtn">🚂 再来一列 Again</button>
+        <button class="start" id="menuBtn" style="background:var(--line);color:var(--ink)">换词库 Change</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="prompt">
+      <span class="qtext" id="qtext">选出正确的单词</span>
+      <button class="speak" id="speakBtn">🔊 听一听 Listen</button>
+    </div>
+    <div class="opts" id="opts"></div>
+    <div class="fb" id="fb"></div>
+    <button class="next hidden" id="nextBtn">下一题 Next →</button>
+  </div>
+
+  <footer>
+    单文件、零依赖、可离线：直接双击本文件就能玩。发音用浏览器自带的语音合成（Chrome / Edge 最好用），
+    没有语音时会用响铃提示，仍然可以照常看图选词。<br>
+    自动化参数：<code>?unit=1&amp;seed=7&amp;selftest=1</code> 等，见 README。
+  </footer>
+
+  <div id="selftest"></div>
+</div>
+
+<script>
+'use strict';
+// __CORE_START__
+/* ============ 纯规则内核：不碰 DOM / Canvas，可在 Node 里直接测 ============ */
+const LETTERS = 'ABCD';
+
+/* 词库：每词都有中文名、图标 key（画面现场绘制，不用图片）、示例短句 */
+const WORDS = [
+  // ---- 动物 animals ----
+  { en:'cat',     cn:'猫',       icon:'cat',     unit:'animals', sentence:'The cat is sleeping.' },
+  { en:'dog',     cn:'狗',       icon:'dog',     unit:'animals', sentence:'My dog can run.' },
+  { en:'bird',    cn:'鸟',       icon:'bird',    unit:'animals', sentence:'The bird can fly.' },
+  { en:'fish',    cn:'鱼',       icon:'fish',    unit:'animals', sentence:'The fish can swim.' },
+  { en:'rabbit',  cn:'兔子',     icon:'rabbit',  unit:'animals', sentence:'The rabbit likes carrots.' },
+  { en:'panda',   cn:'熊猫',     icon:'panda',   unit:'animals', sentence:'The panda eats bamboo.' },
+  { en:'bear',    cn:'熊',       icon:'bear',    unit:'animals', sentence:'The bear is big.' },
+  { en:'lion',    cn:'狮子',     icon:'lion',    unit:'animals', sentence:'The lion can roar.' },
+  // ---- 颜色与数字 colors ----
+  { en:'red',     cn:'红色',     icon:'color',   unit:'colors', hue:'#e2452f', sentence:'I see a red ball.' },
+  { en:'blue',    cn:'蓝色',     icon:'color',   unit:'colors', hue:'#2f6fe2', sentence:'The sky is blue.' },
+  { en:'yellow',  cn:'黄色',     icon:'color',   unit:'colors', hue:'#f5c518', sentence:'The sun is yellow.' },
+  { en:'green',   cn:'绿色',     icon:'color',   unit:'colors', hue:'#37a862', sentence:'The grass is green.' },
+  { en:'one',     cn:'一',       icon:'count',   unit:'colors', n:1, sentence:'I have one hand.' },
+  { en:'two',     cn:'二',       icon:'count',   unit:'colors', n:2, sentence:'I have two eyes.' },
+  { en:'three',   cn:'三',       icon:'count',   unit:'colors', n:3, sentence:'The cat has three cubs.' },
+  { en:'four',    cn:'四',       icon:'count',   unit:'colors', n:4, sentence:'The dog has four legs.' },
+  // ---- 食物与身体 food ----
+  { en:'apple',   cn:'苹果',     icon:'apple',   unit:'food',   sentence:'I eat an apple.' },
+  { en:'banana',  cn:'香蕉',     icon:'banana',  unit:'food',   sentence:'The banana is yellow.' },
+  { en:'egg',     cn:'鸡蛋',     icon:'egg',     unit:'food',   sentence:'I like eggs.' },
+  { en:'milk',    cn:'牛奶',     icon:'milk',    unit:'food',   sentence:'Drink your milk.' },
+  { en:'rice',    cn:'米饭',     icon:'rice',    unit:'food',   sentence:'We eat rice.' },
+  { en:'hand',    cn:'手',       icon:'hand',    unit:'food',   sentence:'Wash your hands.' },
+  { en:'eye',     cn:'眼睛',     icon:'eye',     unit:'food',   sentence:'Blink your eyes.' },
+  { en:'mouth',   cn:'嘴巴',     icon:'mouth',   unit:'food',   sentence:'Open your mouth.' },
+  // ----  everyday / 校园 ----
+  { en:'sun',     cn:'太阳',     icon:'sun',     unit:'school', sentence:'The sun is hot.' },
+  { en:'moon',    cn:'月亮',     icon:'moon',    unit:'school', sentence:'The moon is round.' },
+  { en:'star',    cn:'星星',     icon:'star',    unit:'school', sentence:'I can see a star.' },
+  { en:'book',    cn:'书',       icon:'book',    unit:'school', sentence:'Read the book.' },
+  { en:'ball',    cn:'球',       icon:'ball',    unit:'school', sentence:'Kick the ball.' },
+  { en:'car',     cn:'小汽车',   icon:'car',     unit:'school', sentence:'The car is fast.' },
+  { en:'tree',    cn:'树',       icon:'tree',    unit:'school', sentence:'The tree is tall.' },
+  { en:'house',   cn:'房子',     icon:'house',   unit:'school', sentence:'This is my house.' }
+];
+
+const UNITS = [
+  { key:'animals', cn:'动物', en:'Animals', blurb:'cat · dog · bird · fish' },
+  { key:'colors',  cn:'颜色 · 数字', en:'Colors & Numbers', blurb:'red · blue · one · two' },
+  { key:'food',    cn:'食物 · 身体', en:'Food & Body', blurb:'apple · milk · hand · eye' },
+  { key:'school',  cn:'身边事物', en:'Everyday Things', blurb:'sun · book · ball · tree' },
+  { key:'mixed',   cn:'混合挑战', en:'Mixed', blurb:'全部 ' + WORDS.length + ' 个单词' }
+];
+
+function mulberry32(seed){
+  let a = (seed >>> 0) || 1;
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function unitWords(unitKey){
+  if (unitKey === 'mixed' || !unitKey) return WORDS.slice();
+  const list = WORDS.filter(w => w.unit === unitKey);
+  return list.length ? list : WORDS.slice();
+}
+
+/* 打乱顺序（Fisher–Yates，用传入的 rng） */
+function shuffle(rng, arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+/* 干扰项优先同词库，不够时从全库补，保证凑满 n 个且不含正确词 */
+function distractFor(word, pool, n, rng){
+  let cand = pool.filter(w => w.en !== word.en && w.unit === word.unit);
+  if (cand.length < n) {
+    cand = cand.concat(WORDS.filter(w => w.en !== word.en && w.unit !== word.unit));
+  }
+  return shuffle(rng, cand).slice(0, n);
+}
+
+/* 选项：正确项位置随机，标签 A/B/C/D */
+function pickOptions(word, pool, rng, n){
+  n = Math.min(n === undefined ? 4 : n, 4);
+  const others = distractFor(word, pool, n - 1, rng);
+  const items = shuffle(rng, others.concat([word]));
+  return items.map((w, i) => ({ word: w, letter: LETTERS[i], index: i }));
+}
+
+/* 三种出题模式 */
+const MODES = ['pic', 'cn', 'spell'];
+
+/* 出题：看图选词 60% / 听中文选词 25% / 听发音补字母 15% */
+function pickMode(rng){
+  const r = rng();
+  return r < 0.60 ? 'pic' : (r < 0.85 ? 'cn' : 'spell');
+}
+
+function orderWord(pool, rng, rounds){
+  const list = unitWords(pool);
+  const picked = shuffle(rng, list);
+  const out = [];
+  for (let i = 0; i < rounds; i++) out.push(picked[i % picked.length]);
+  // 尽量别连着重复同一个词
+  for (let i = 1; i < out.length; i++){
+    if (out[i].en === out[i - 1].en){
+      const alt = picked.find(w => w.en !== out[i].en && w.en !== out[i - 1].en);
+      if (alt) out[i] = alt;
+    }
+  }
+  return out;
+}
+
+function newRound(word, pool, rng, forced){
+  const mode = MODES.indexOf(forced) >= 0 ? forced : pickMode(rng);
+  const options = pickOptions(word, pool, rng, 4);
+  return {
+    word: word, mode: mode, options: options,
+    answer: options.findIndex(o => o.word.en === word.en),
+    asked: false, picks: 0, firstTry: true, done: false, score: 0,
+    hint: mode === 'spell' ? firstLetterHint(word.en) : ''
+  };
+}
+
+/* 补字母题：首字母保留，其余用下划线 */
+function firstLetterHint(en){
+  const s = String(en || '');
+  if (s.length < 3) return '';
+  return s[0] + '.'.repeat(s.length - 1);
+}
+
+/* 一题最多 100 分：一次选中 100，两次 60，三次 30，四次 0。
+ * 连对不额外加分（保持满分整齐），但会在画面上给出「连对 x 🔥」的即时反馈。 */
+function scoreFor(picks){
+  const p = Math.max(1, Math.floor(picks || 1));
+  const base = [100, 60, 30, 0];
+  return base[Math.min(p, 4) - 1];
+}
+
+function starsFor(avg){
+  if (avg >= 90) return 3;
+  if (avg >= 72) return 2;
+  if (avg >= 55) return 1;
+  return 0;
+}
+
+/* 火车速度：答对推进，连对越多跑得越快（上限 2.6 倍） */
+function trainSpeedFor(p, dt, streak, done){
+  const target = done ? 0 : (1 + Math.min(3, streak || 0) * 0.55);
+  const k = Math.min(1, dt * 2.5);
+  return p + (target - p) * k;
+}
+
+/* 按序号取单词（供混合模式与自动化用），index 循环取模 */
+function wordFromIndex(pool, list, index){
+  const arr = list && list.length ? list : unitWords(pool);
+  const i = ((index | 0) % arr.length + arr.length) % arr.length;
+  return arr[i];
+}
+
+/* ---------- 可完整序列化的游戏状态 ---------- */
+function makeState(cfg){
+  cfg = cfg || {};
+  const unit = UNITS.some(u => u.key === cfg.unit) ? cfg.unit : 'animals';
+  const rounds = Math.max(1, Math.min(40, cfg.rounds || 8));
+  const seed = (cfg.seed === undefined ? 20260101 : cfg.seed | 0) >>> 0;
+  const rng = mulberry32(seed);
+  const order = orderWord(unit, rng, rounds);
+  return { unit, rounds, seed, mode: MODES.indexOf(cfg.mode) >= 0 ? cfg.mode : null,
+           started: false, over: false, i: 0, score: 0, streak: 0,
+           bestStreak: 0, list: order.map(w => w.en), rng: rng, order: order, round: null };
+}
+
+function startGame(st){
+  st.started = true; st.over = false; st.i = 0; st.score = 0; st.streak = 0; st.bestStreak = 0;
+  st.rng = mulberry32(st.seed);
+  st.order = orderWord(st.unit, st.rng, st.rounds);
+  st.list = st.order.map(w => w.en);
+  st.round = newRound(st.order[0], unitWords(st.unit), st.rng, st.mode);
+  return st;
+}
+
+/* 选择一个选项。返回 {correct, done, skipped} */
+function choose(st, letter){
+  const r = st.round;
+  if (!r || r.done) return { correct:false, done:true, skipped:true };
+  const L = String(letter === undefined || letter === null ? '' : letter).toUpperCase().charAt(0);
+  const idx = L === '' ? -1 : LETTERS.indexOf(L);
+  if (idx < 0 || idx >= r.options.length) return { correct:false, done:false, skipped:true };
+  const opt = r.options[idx];
+  if (opt.picked) return { correct:false, done:false, skipped:true };
+  opt.picked = true;
+  r.picks++;
+  const correct = opt.word.en === r.word.en;
+  if (correct){
+    r.done = true; r.asked = true; r.firstTry = r.picks === 1;
+    if (r.firstTry) st.streak++; else st.streak = 0;
+    st.bestStreak = Math.max(st.bestStreak, st.streak);
+    r.score = scoreFor(r.picks);
+    st.score += r.score;
+  } else {
+    r.asked = true; r.firstTry = false; r.score = 0;
+    st.streak = 0;
+    const left = r.options.filter(o => !o.picked);
+    if (!left.length) r.done = true;      // 四个都选完仍未答对：本题结束、0 分
+    else if (left.length === 1) choose(st, left[0].letter); // 只剩正确项，自动揭晓
+  }
+  return { correct: correct, done: !!r.done, skipped:false };
+}
+
+function nextIndex(st){
+  return Math.max(0, Math.min(st.rounds - 1, (st.i | 0) + 1));
+}
+
+/* 进入下一题；已经是最后一题则结束游戏 */
+function advance(st){
+  if (!st.started || !st.round) return st;
+  if (st.i >= st.rounds - 1){ st.over = true; st.round = null; return st; }
+  st.i = nextIndex(st);
+  st.round = newRound(st.order[st.i], unitWords(st.unit), st.rng, st.mode);
+  return st;
+}
+
+function isDone(st){ return !!st.over; }
+
+/* 对外只读的快照（便于测试与截图） */
+function stateInfo(st){
+  const total = Math.max(1, st.rounds | 0);
+  return {
+    unit: st.unit, round: st.i + 1, total: total, score: st.score,
+    avg: Math.round(st.score / total), started: !!st.started, over: !!st.over,
+    streak: st.streak, bestStreak: st.bestStreak,
+    stars: starsFor(st.score / total),
+    progress: st.over ? 1 : Math.min(1, (st.i + (st.round && st.round.done ? 1 : 0)) / total),
+    word: st.round ? st.round.word.en : null,
+    cn: st.round ? st.round.word.cn : null,
+    mode: st.round ? st.round.mode : null,
+    hint: st.round ? st.round.hint : '',
+    picks: st.round ? st.round.picks : 0,
+    answered: st.round ? st.round.done : false,
+    options: st.round ? st.round.options.map(o => ({ letter:o.letter, en:o.word.en, cn:o.word.cn, picked:!!o.picked })) : []
+  };
+}
+
+/* 每题满分 100：总分 = 各题得分之和 */
+function maxScore(st){ return Math.max(1, st.rounds | 0) * 100; }
+
+/* 最佳成绩合并：只保留平均分更高的那一局 */
+function bestUnit(best, unit, avg){
+  const key = String(unit || 'mixed');
+  const value = Math.max(0, Math.min(100, Math.round(avg || 0)));
+  const src = best && typeof best === 'object' ? best : {};
+  const out = {};
+  Object.keys(src).forEach(k => { const n = Number(src[k]); if (isFinite(n)) out[k] = Math.max(0, Math.min(100, Math.round(n))); });
+  out[key] = Math.max(value, out[key] || 0);
+  return out;
+}
+// __CORE_END__
+
+// __UI_START__
+/* ============ 画面与交互层 ============ */
+const qs = new URLSearchParams(window.location.search);
+const canvas = document.getElementById('scene');
+const g = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let soundOn = qs.get('sound') !== 'off';
+let motionOn = qs.get('motion') !== 'off';
+let clock = 0, scroll = 0, speed = 1, last = 0;
+/* 小火车真的会往前开：trainPos 0 = 起点，1 = 终点站 */
+let trainPos = 0, trainPosShow = 0;
+const TRACK_START = 470, TRACK_END = 700;
+let banner = null;            // {text, tone, t}
+const cardFly = [];           // 答对飞出的卡片粒子
+let st = null;                // 游戏状态
+
+/* ---------- 图标：全部代码现场绘制，无任何图片 ---------- */
+function roundedRect(c, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+function circle(c, x, y, r){ c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.closePath(); }
+function outline(c, lw){ c.strokeStyle = '#2b3a4a'; c.lineWidth = lw || 4; c.lineJoin = 'round'; c.lineCap = 'round'; c.stroke(); }
+
+const ICONS = {
+  cat(c, t){
+    c.fillStyle = '#f7a53c';
+    c.beginPath(); c.ellipse(0, 14, 46, 38, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.arc(0, -30, 30, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.moveTo(-26, -48); c.lineTo(-14, -66); c.lineTo(-6, -46); c.closePath(); c.fill(); outline(c, 3);
+    c.beginPath(); c.moveTo(26, -48); c.lineTo(14, -66); c.lineTo(6, -46); c.closePath(); c.fill(); outline(c, 3);
+    c.fillStyle = '#2b3a4a';
+    circle(c, -11, -32, 4.2); c.fill(); circle(c, 11, -32, 4.2); c.fill();
+    c.fillStyle = '#e8637c'; circle(c, 0, -22, 3.4); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2;
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++){
+      c.beginPath(); c.moveTo(s * 6, -20 + i * 4); c.lineTo(s * 34, -24 + i * 7); c.stroke();
+    }
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 4; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(40, 24); c.quadraticCurveTo(66, 18 + Math.sin(t * 2) * 8, 60, -8); c.stroke();
+  },
+  dog(c, t){
+    c.fillStyle = '#c98a4b';
+    c.beginPath(); c.ellipse(0, 16, 46, 36, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.arc(0, -26, 32, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#8d5a2b';
+    c.beginPath(); c.ellipse(-32, -34, 12, 26, 0.3, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.beginPath(); c.ellipse(32, -34, 12, 26, -0.3, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#f3e0c7'; c.beginPath(); c.ellipse(0, -12, 17, 14, 0, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#2b3a4a'; circle(c, -12, -30, 4); c.fill(); circle(c, 12, -30, 4); c.fill();
+    c.beginPath(); c.ellipse(0, -14, 6, 5, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(0, -9); c.lineTo(0, -2); c.stroke();
+    c.lineWidth = 5; c.beginPath(); c.moveTo(42, 6); c.lineTo(58, -12 + Math.sin(t * 5) * 8); c.stroke();
+  },
+  bird(c, t){
+    c.fillStyle = '#4aa8e8';
+    c.beginPath(); c.ellipse(0, 8, 38, 32, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    const fl = Math.sin(t * 6) * 14;
+    c.fillStyle = '#2f7fc4';
+    c.beginPath(); c.ellipse(4, -2, 22, 14 + fl * 0.2, -0.5 - fl * 0.02, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#4aa8e8'; c.beginPath(); c.arc(-18, -22, 20, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#f5a623';
+    c.beginPath(); c.moveTo(-34, -22); c.lineTo(-50, -16); c.lineTo(-34, -12); c.closePath(); c.fill(); outline(c, 3);
+    c.fillStyle = '#fff'; circle(c, -23, -25, 6); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, -24, -25, 3); c.fill();
+    c.strokeStyle = '#f5a623'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(-6, 38); c.lineTo(-6, 52); c.moveTo(8, 38); c.lineTo(8, 52); c.stroke();
+    c.fillStyle = '#eef6ff'; c.beginPath(); c.ellipse(-2, 18, 20, 15, 0, 0, Math.PI * 2); c.fill(); outline(c, 2);
+  },
+  fish(c, t){
+    const wig = Math.sin(t * 5) * 6;
+    c.fillStyle = '#ff8a4c';
+    c.beginPath(); c.ellipse(0, 0, 44, 27, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.moveTo(40, 0); c.lineTo(66, -20 + wig); c.lineTo(66, 20 + wig); c.closePath(); c.fill(); outline(c, 3);
+    c.beginPath(); c.moveTo(-4, -24); c.lineTo(10, -42); c.lineTo(20, -22); c.closePath(); c.fill(); outline(c, 3);
+    c.fillStyle = '#ffd7bd'; c.beginPath(); c.ellipse(-10, 8, 18, 12, 0, 0, Math.PI * 2); c.fill(); outline(c, 2);
+    c.fillStyle = '#fff'; circle(c, -26, -6, 8); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, -27, -6, 4); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3;
+    c.beginPath(); c.arc(-40, 4, 12, -0.7, 0.7); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.7)';
+    for (let i = 0; i < 3; i++) { circle(c, -60 - i * 9, -18 - i * 8 - (t * 12 % 14), 3 + i); c.fill(); }
+  },
+  rabbit(c, t){
+    const ear = Math.sin(t * 3) * 0.12;
+    c.save(); c.translate(-14, -52); c.rotate(-0.18 + ear);
+    c.fillStyle = '#f4f4f7'; c.beginPath(); c.ellipse(0, 0, 11, 34, 0, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#f7b7c6'; c.beginPath(); c.ellipse(0, 2, 5, 24, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.save(); c.translate(14, -52); c.rotate(0.18 - ear);
+    c.fillStyle = '#f4f4f7'; c.beginPath(); c.ellipse(0, 0, 11, 34, 0, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#f7b7c6'; c.beginPath(); c.ellipse(0, 2, 5, 24, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.fillStyle = '#f4f4f7';
+    c.beginPath(); c.ellipse(0, 20, 42, 34, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.arc(0, -18, 28, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#2b3a4a'; circle(c, -10, -20, 4); c.fill(); circle(c, 10, -20, 4); c.fill();
+    c.fillStyle = '#e8637c'; circle(c, 0, -10, 3.6); c.fill();
+    c.fillStyle = '#fff'; circle(c, 44, 26, 12); c.fill(); outline(c, 2);
+  },
+  panda(c, t){
+    const tilt = Math.sin(t * 2) * 0.05;
+    c.save(); c.rotate(tilt);
+    c.fillStyle = '#f7f7fa';
+    c.beginPath(); c.ellipse(0, 22, 42, 34, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.arc(0, -22, 32, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#2b3a4a';
+    circle(c, -26, -48, 12); c.fill(); circle(c, 26, -48, 12); c.fill();
+    c.beginPath(); c.ellipse(-13, -22, 8, 11, 0.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(13, -22, 8, 11, -0.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(-36, 22, 14, 18, 0.4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(36, 22, 14, 18, -0.4, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff'; circle(c, -13, -22, 3.4); c.fill(); circle(c, 13, -22, 3.4); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, 0, -8, 4.4); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(0, -4); c.quadraticCurveTo(-7, 4, -12, 0); c.moveTo(0, -4); c.quadraticCurveTo(7, 4, 12, 0); c.stroke();
+    c.restore();
+    c.strokeStyle = '#37a862'; c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(34, 44); c.lineTo(52, -12); c.stroke();
+    c.strokeStyle = '#4cc47a'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(44, 16); c.lineTo(62, 10); c.stroke();
+  },
+  bear(c, t){
+    const bob = Math.sin(t * 2) * 2;
+    c.fillStyle = '#8b5a34';
+    c.beginPath(); c.ellipse(0, 22 + bob * 0.3, 44, 36, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.beginPath(); c.arc(0, -22 + bob, 32, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#6d4526';
+    circle(c, -25, -46 + bob, 11); c.fill(); outline(c, 3);
+    circle(c, 25, -46 + bob, 11); c.fill(); outline(c, 3);
+    c.fillStyle = '#d8bb96'; c.beginPath(); c.ellipse(0, -12 + bob, 18, 14, 0, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#2b3a4a';
+    circle(c, -12, -26 + bob, 4); c.fill(); circle(c, 12, -26 + bob, 4); c.fill();
+    c.beginPath(); c.ellipse(0, -15 + bob, 6, 5, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(0, -10 + bob); c.quadraticCurveTo(-8, -2 + bob, -13, -6 + bob); c.moveTo(0, -10 + bob); c.quadraticCurveTo(8, -2 + bob, 13, -6 + bob); c.stroke();
+  },
+  lion(c, t){
+    c.fillStyle = '#f0a93a';
+    c.beginPath(); c.ellipse(0, 26, 40, 30, 0, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#c9741f';
+    for (let i = 0; i < 14; i++){
+      const a = (i / 14) * Math.PI * 2;
+      c.save(); c.rotate(a); c.beginPath(); c.ellipse(0, -44, 11, 16, 0, 0, Math.PI * 2); c.fill(); c.restore();
+    }
+    outline(c, 0);
+    c.fillStyle = '#f7c76a'; c.beginPath(); c.arc(0, -6, 32, 0, Math.PI * 2); c.fill(); outline(c);
+    c.fillStyle = '#fff';
+    c.beginPath(); c.moveTo(-8, 4); c.lineTo(-2, 4); c.lineTo(-5, 12); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(8, 4); c.lineTo(2, 4); c.lineTo(5, 12); c.closePath(); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, -12, -10, 4); c.fill(); circle(c, 12, -10, 4); c.fill();
+    c.beginPath(); c.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#c9741f';
+    c.beginPath(); c.moveTo(-6, -40); c.lineTo(0, -52 + Math.sin(t * 4) * 3); c.lineTo(6, -40); c.closePath(); c.fill(); outline(c, 2);
+  },
+  color(c, t, w){
+    const hue = (w && w.hue) || '#e2452f';
+    c.save(); c.rotate(Math.sin(t) * 0.04);
+    c.fillStyle = '#fff'; roundedRect(c, -46, -46, 92, 92, 14); c.fill(); outline(c);
+    c.fillStyle = hue; roundedRect(c, -36, -36, 72, 72, 10); c.fill(); outline(c, 3);
+    c.fillStyle = 'rgba(255,255,255,.35)';
+    c.beginPath(); c.ellipse(-14, -18, 14, 8, -0.6, 0, Math.PI * 2); c.fill();
+    c.restore();
+  },
+  count(c, t, w){
+    const n = (w && w.n) || 1;
+    c.fillStyle = '#f5c518';
+    const cols = n <= 2 ? n : 2, rows = n <= 2 ? 1 : 2;
+    let i = 0;
+    for (let r = 0; r < rows; r++){
+      const inRow = Math.min(cols, n - i);
+      for (let k = 0; k < inRow; k++){
+        const x = (k - (inRow - 1) / 2) * 44, y = (r - (rows - 1) / 2) * 46;
+        c.save(); c.translate(x, y + Math.sin(t * 3 + i) * 3);
+        // 小鸡
+        c.fillStyle = '#ffd93d'; circle(c, 0, 0, 20); c.fill(); outline(c, 3);
+        c.fillStyle = '#2b3a4a'; circle(c, 6, -5, 3); c.fill();
+        c.fillStyle = '#f57c1f'; c.beginPath(); c.moveTo(14, 0); c.lineTo(24, 4); c.lineTo(14, 7); c.closePath(); c.fill();
+        c.restore(); i++;
+      }
+    }
+  },
+  apple(c, t){
+    const bob = Math.sin(t * 2) * 3;
+    c.save(); c.translate(0, bob);
+    c.fillStyle = '#e2452f';
+    c.beginPath();
+    c.moveTo(0, -28); c.bezierCurveTo(30, -34, 40, 4, 18, 30); c.bezierCurveTo(8, 38, -8, 38, -18, 30);
+    c.bezierCurveTo(-40, 4, -30, -34, 0, -28); c.closePath(); c.fill(); outline(c);
+    c.strokeStyle = '#6b3d13'; c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, -28); c.quadraticCurveTo(2, -44, 8, -50); c.stroke();
+    c.fillStyle = '#37a862'; c.beginPath(); c.ellipse(20, -44, 14, 8, 0.5, 0, Math.PI * 2); c.fill(); outline(c, 2);
+    c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(-14, -8, 8, 14, -0.4, 0, Math.PI * 2); c.fill();
+    c.restore();
+  },
+  banana(c, t){
+    c.save(); c.rotate(Math.sin(t * 1.6) * 0.06 - 0.2);
+    c.fillStyle = '#f5c518';
+    c.beginPath();
+    c.moveTo(-44, -14); c.quadraticCurveTo(0, 54, 46, 6); c.quadraticCurveTo(38, 18, 26, 20);
+    c.quadraticCurveTo(-6, 62, -50, -4); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#e8a90f';
+    c.beginPath(); c.moveTo(-44, -14); c.quadraticCurveTo(-2, 46, 46, 6); c.quadraticCurveTo(0, 40, -44, -14); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-14, 32); c.lineTo(-8, 40); c.moveTo(6, 30); c.lineTo(12, 38); c.stroke();
+    c.fillStyle = '#8a6b2a'; circle(c, 46, 6, 6); c.fill(); circle(c, -50, -4, 6); c.fill();
+    c.restore();
+  },
+  egg(c, t){
+    const wob = Math.sin(t * 2.4) * 0.06;
+    c.save(); c.rotate(wob);
+    c.fillStyle = '#fdf6e6';
+    c.beginPath(); c.moveTo(0, -46); c.bezierCurveTo(34, -30, 40, 24, 0, 40); c.bezierCurveTo(-40, 24, -34, -30, 0, -46); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.ellipse(-14, -12, 7, 13, -0.3, 0, Math.PI * 2); c.fill();
+    c.restore();
+  },
+  milk(c, t){
+    c.fillStyle = '#eaf4ff'; roundedRect(c, -32, -38, 64, 78, 8); c.fill(); outline(c);
+    c.fillStyle = '#9ec9e8'; roundedRect(c, -32, -38, 64, 26, 8); c.fill();
+    c.fillStyle = '#2f6fe2'; roundedRect(c, -24, -6, 48, 34, 6); c.fill();
+    c.fillStyle = '#fff'; c.font = 'bold 22px "Segoe UI",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('MILK', 0, 11);
+    c.fillStyle = '#dbeafe'; c.beginPath(); c.moveTo(-32, -38); c.lineTo(0, -52); c.lineTo(32, -38); c.closePath(); c.fill(); outline(c, 3);
+    c.fillStyle = 'rgba(255,255,255,.5)'; c.fillRect(-26, 0, 5, 30);
+    const drip = (t * 20) % 30;
+    c.fillStyle = 'rgba(255,255,255,.6)'; circle(c, 0, -56 - drip * 0.2, 3); c.fill();
+  },
+  rice(c, t){
+    c.fillStyle = '#dfe7ee';
+    c.beginPath(); c.moveTo(-48, 6); c.quadraticCurveTo(0, 62, 48, 6); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#c3ced9'; c.beginPath(); c.moveTo(-48, 6); c.lineTo(48, 6); c.stroke();
+    c.fillStyle = '#fffdf6';
+    for (let i = 0; i < 16; i++){
+      const a = (i / 16) * Math.PI, x = Math.cos(a) * (i % 3 ? 30 : 18), y = -6 - Math.abs(Math.sin(a)) * 14 - (i % 4) * 3;
+      c.save(); c.translate(x, y + Math.sin(t * 3 + i) * 1.2); c.rotate(i);
+      c.beginPath(); c.ellipse(0, 0, 7, 3.4, 0, 0, Math.PI * 2); c.fill(); c.restore();
+    }
+    outline(c, 0);
+    c.strokeStyle = '#8b6a3f'; c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(24, -46); c.lineTo(52, -4); c.stroke();
+    c.beginPath(); c.moveTo(32, -50); c.lineTo(60, -10); c.stroke();
+  },
+  hand(c, t){
+    const wig = Math.sin(t * 2.2) * 0.09;
+    c.save(); c.rotate(wig);
+    c.fillStyle = '#f6c9a0';
+    roundedRect(c, -30, -18, 60, 52, 18); c.fill(); outline(c);
+    for (let i = 0; i < 4; i++){
+      const x = -21 + i * 14, len = 30 + (i === 1 ? 8 : 0) - (i === 3 ? 5 : 0);
+      roundedRect(c, x - 6, -18 - len, 12, len + 10, 6); c.fill(); outline(c, 3);
+    }
+    c.save(); c.translate(-30, 4); c.rotate(-0.9);
+    roundedRect(c, -6, -30, 13, 36, 6); c.fill(); outline(c, 3); c.restore();
+    c.strokeStyle = '#c98d5e'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-12, 12); c.quadraticCurveTo(0, 20, 12, 12); c.stroke();
+    c.restore();
+  },
+  eye(c, t){
+    const blink = Math.abs(Math.sin(t * 0.9)) < 0.06 ? 0.15 : 1;
+    c.save(); c.scale(1, blink);
+    c.fillStyle = '#fff';
+    c.beginPath(); c.moveTo(-48, 0); c.quadraticCurveTo(0, -44, 48, 0); c.quadraticCurveTo(0, 44, -48, 0); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#4aa8e8'; circle(c, 0, 0, 20); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, 0, 0, 10); c.fill();
+    c.fillStyle = '#fff'; circle(c, 7, -7, 5); c.fill();
+    c.restore();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 4; c.lineCap = 'round';
+    for (let i = -1; i <= 1; i++){ c.beginPath(); c.moveTo(i * 22, -34); c.lineTo(i * 26, -46); c.stroke(); }
+  },
+  mouth(c, t){
+    const open = 10 + Math.abs(Math.sin(t * 2.4)) * 16;
+    c.fillStyle = '#f6c9a0';
+    c.beginPath(); c.arc(0, -4, 46, Math.PI * 0.05, Math.PI * 0.95); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#c2405a';
+    c.beginPath(); c.ellipse(0, 6, 30, open, 0, 0, Math.PI * 2); c.fill(); outline(c, 3);
+    c.fillStyle = '#fff';
+    c.fillRect(-22, -4, 12, 9); c.fillRect(10, -4, 12, 9);
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2; c.strokeRect(-22, -4, 12, 9); c.strokeRect(10, -4, 12, 9);
+    c.fillStyle = '#e8798f'; c.beginPath(); c.ellipse(0, 12 + open * 0.4, 14, 8, 0, 0, Math.PI * 2); c.fill();
+  },
+  sun(c, t){
+    c.strokeStyle = '#f5a623'; c.lineWidth = 6; c.lineCap = 'round';
+    for (let i = 0; i < 12; i++){
+      const a = (i / 12) * Math.PI * 2 + t * 0.3, r1 = 42, r2 = 56 + (i % 2 ? 6 : 0);
+      c.beginPath(); c.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); c.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); c.stroke();
+    }
+    const grd = c.createRadialGradient(0, 0, 6, 0, 0, 40);
+    grd.addColorStop(0, '#fff2b8'); grd.addColorStop(1, '#f5a623');
+    c.fillStyle = grd; circle(c, 0, 0, 38); c.fill(); outline(c, 4);
+    c.fillStyle = '#2b3a4a'; circle(c, -12, -6, 3.6); c.fill(); circle(c, 12, -6, 3.6); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3; c.beginPath(); c.arc(0, 4, 14, 0.2, Math.PI - 0.2); c.stroke();
+  },
+  moon(c, t){
+    c.fillStyle = '#f7e39b';
+    c.beginPath(); c.arc(0, 0, 42, 0, Math.PI * 2); c.fill(); outline(c);
+    c.globalCompositeOperation = 'destination-out';
+    c.beginPath(); c.arc(24, -18, 34, 0, Math.PI * 2); c.fill();
+    c.globalCompositeOperation = 'source-over';
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 4;
+    c.beginPath(); c.arc(24, -18, 34, -0.4, 1.9); c.stroke();
+    c.fillStyle = '#e0c76f';
+    circle(c, -18, -6, 6); c.fill(); circle(c, -8, 20, 4); c.fill();
+    c.fillStyle = '#2b3a4a'; circle(c, -20, -10, 3); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.5; c.beginPath(); c.arc(-14, 6, 9, 0.2, Math.PI - 0.6); c.stroke();
+    const tw = (t * 2) % 4;
+    c.fillStyle = 'rgba(255,255,255,' + (0.4 + 0.5 * Math.sin(tw)) + ')';
+    circle(c, 40, 30, 3); c.fill();
+  },
+  star(c, t){
+    c.save(); c.rotate(Math.sin(t * 1.5) * 0.12);
+    c.fillStyle = '#f7d21b';
+    c.beginPath();
+    for (let i = 0; i < 10; i++){
+      const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 22 : 46;
+      c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r);
+    }
+    c.closePath(); c.fill(); outline(c);
+    c.restore();
+    c.fillStyle = '#2b3a4a'; circle(c, -8, -4, 3.4); c.fill(); circle(c, 8, -4, 3.4); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.6; c.beginPath(); c.arc(0, 4, 9, 0.3, Math.PI - 0.3); c.stroke();
+  },
+  book(c, t){
+    const flap = Math.sin(t * 2) * 4;
+    c.fillStyle = '#e2452f';
+    c.beginPath(); c.moveTo(-52, -30 - flap * 0.2); c.lineTo(0, -22); c.lineTo(0, 40); c.lineTo(-52, 32); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#c23a27';
+    c.beginPath(); c.moveTo(52, -30); c.lineTo(0, -22); c.lineTo(0, 40); c.lineTo(52, 32); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#fffdf4';
+    c.beginPath(); c.moveTo(-44, -24); c.lineTo(-4, -18); c.lineTo(-4, 32); c.lineTo(-44, 26); c.closePath(); c.fill(); outline(c, 2);
+    c.beginPath(); c.moveTo(44, -24); c.lineTo(4, -18); c.lineTo(4, 32); c.lineTo(44, 26); c.closePath(); c.fill(); outline(c, 2);
+    c.strokeStyle = '#b9c4cc'; c.lineWidth = 2;
+    for (let i = 0; i < 4; i++){
+      c.beginPath(); c.moveTo(-38, -10 + i * 9); c.lineTo(-10, -6 + i * 9); c.stroke();
+      c.beginPath(); c.moveTo(10, -6 + i * 9); c.lineTo(38, -10 + i * 9); c.stroke();
+    }
+  },
+  ball(c, t){
+    const bounce = Math.abs(Math.sin(t * 3)) * 10;
+    c.save(); c.translate(0, -bounce);
+    c.fillStyle = '#e2452f'; circle(c, 0, 0, 42); c.fill(); outline(c);
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(0, 0, 42, -0.5, 0.5); c.arc(0, 0, 42, Math.PI - 0.5, Math.PI + 0.5); c.closePath(); c.fill();
+    c.save(); c.rotate(1.57);
+    c.beginPath(); c.arc(0, 0, 42, -0.5, 0.5); c.arc(0, 0, 42, Math.PI - 0.5, Math.PI + 0.5); c.closePath(); c.fill();
+    c.restore();
+    c.beginPath(); c.arc(0, 0, 42, 0, Math.PI * 2); outline(c, 4);
+    c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(-14, -18, 9, 6, -0.6, 0, Math.PI * 2); c.fill();
+    c.restore();
+  },
+  car(c, t){
+    c.fillStyle = '#2f6fe2';
+    roundedRect(c, -52, -8, 104, 30, 10); c.fill(); outline(c);
+    c.beginPath(); c.moveTo(-32, -8); c.lineTo(-18, -34); c.lineTo(18, -34); c.lineTo(32, -8); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#cfe9ff';
+    c.beginPath(); c.moveTo(-14, -30); c.lineTo(-24, -10); c.lineTo(-2, -10); c.lineTo(-2, -30); c.closePath(); c.fill(); outline(c, 2);
+    c.beginPath(); c.moveTo(2, -30); c.lineTo(2, -10); c.lineTo(24, -10); c.lineTo(14, -30); c.closePath(); c.fill(); outline(c, 2);
+    const spin = t * 6;
+    for (const x of [-30, 30]){
+      c.save(); c.translate(x, 24);
+      c.fillStyle = '#2b3a4a'; circle(c, 0, 0, 15); c.fill();
+      c.fillStyle = '#cfd8e6'; circle(c, 0, 0, 7); c.fill();
+      c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(spin) * 12, Math.sin(spin) * 12); c.stroke();
+      c.restore();
+    }
+    c.fillStyle = '#f7d21b'; circle(c, 50, 2, 5); c.fill(); outline(c, 2);
+  },
+  tree(c, t){
+    const sway = Math.sin(t * 1.4) * 3;
+    c.strokeStyle = '#8b5a34'; c.lineWidth = 14; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, 54); c.lineTo(sway * 0.4, -4); c.stroke();
+    c.strokeStyle = '#8b5a34'; c.lineWidth = 6;
+    c.beginPath(); c.moveTo(sway * 0.3, 20); c.lineTo(-24, 4); c.moveTo(sway * 0.3, 10); c.lineTo(24, -4); c.stroke();
+    const blobs = [[-26, -22, 26], [26, -26, 26], [0, -44, 32], [-8, -14, 24], [14, -6, 20]];
+    c.fillStyle = '#37a862';
+    for (const [x, y, r] of blobs) { c.beginPath(); c.arc(x + sway, y, r, 0, Math.PI * 2); c.fill(); }
+    outline(c, 0);
+    c.fillStyle = '#2e8b50';
+    for (const [x, y, r] of blobs) { c.beginPath(); c.arc(x + sway - r * 0.3, y + r * 0.3, r * 0.55, 0, Math.PI * 2); c.fill(); }
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.4;
+    for (const [x, y, r] of blobs) { c.beginPath(); c.arc(x + sway, y, r, 0, Math.PI * 2); c.stroke(); }
+    c.fillStyle = '#e2452f';
+    for (const [x, y] of [[-20, -18], [16, -30], [2, -52]]) { circle(c, x + sway, y, 5); c.fill(); outline(c, 2); }
+  },
+  house(c, t){
+    c.fillStyle = '#f3e0c7'; roundedRect(c, -42, -8, 84, 60, 6); c.fill(); outline(c);
+    c.fillStyle = '#c2405a';
+    c.beginPath(); c.moveTo(-54, -6); c.lineTo(0, -52); c.lineTo(54, -6); c.closePath(); c.fill(); outline(c);
+    c.fillStyle = '#8b5a34'; roundedRect(c, -14, 16, 28, 36, 4); c.fill(); outline(c, 3);
+    c.fillStyle = '#2b3a4a'; circle(c, 8, 34, 2.6); c.fill();
+    c.fillStyle = '#9ec9e8'; roundedRect(c, -36, 2, 24, 22, 4); c.fill(); outline(c, 3);
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-24, 2); c.lineTo(-24, 24); c.moveTo(-36, 13); c.lineTo(-12, 13); c.stroke();
+    c.fillStyle = '#dfe7ee'; roundedRect(c, 22, -44, 12, 22, 3); c.fill(); outline(c, 3);
+    const puff = (t * 0.6) % 3;
+    c.fillStyle = 'rgba(255,255,255,' + Math.max(0, 0.55 - puff * 0.18) + ')';
+    circle(c, 28 - puff * 3, -54 - puff * 12, 7 + puff * 4); c.fill();
+  }
+};
+
+function drawIcon(c, w, t){
+  const fn = ICONS[w.icon];
+  if (!fn){ c.fillStyle = '#8fa3b6'; roundedRect(c, -40, -40, 80, 80, 12); c.fill(); return; }
+  c.save(); fn(c, t, w); c.restore();
+}
+
+/* ---------- 场景 ---------- */
+const PALETTE = {
+  light: { sky1:'#a9dcf6', sky2:'#e8f7ff', hill1:'#9ed48a', hill2:'#77c06f', grass:'#6fb96a',
+           tie:'#b9a184', rail:'#7d8896', stone:'#cfd8e2', tunnel:'#4b5563', cloud:'#ffffff',
+           sun:'#ffd45c', text:'#17324a', card:'#ffffff', cardEdge:'#1f8ad6', dark:false },
+  dark:  { sky1:'#0d1a33', sky2:'#16273f', hill1:'#20402f', hill2:'#183428', grass:'#1d3b2b',
+           tie:'#3b3730', rail:'#8d99a8', stone:'#2b3644', tunnel:'#141b26', cloud:'#3a4d68',
+           sun:'#cfd8e6', text:'#e6f1fb', card:'#1b2a3f', cardEdge:'#4fb2f0', dark:true }
+};
+function pal(){ return document.documentElement.dataset.theme === 'dark' ? PALETTE.dark : PALETTE.light; }
+
+function drawSky(c, P){
+  const grd = c.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, P.sky1); grd.addColorStop(1, P.sky2);
+  c.fillStyle = grd; c.fillRect(0, 0, W, H);
+  // 太阳 / 月亮
+  c.save(); c.translate(W - 120, 96); c.fillStyle = P.sun;
+  if (P.dark){ c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.fill();
+    c.fillStyle = P.sky1; c.beginPath(); c.arc(14, -12, 28, 0, Math.PI * 2); c.fill(); }
+  else {
+    c.strokeStyle = 'rgba(255,212,92,.7)'; c.lineWidth = 5;
+    for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2 + clock * 0.12;
+      c.beginPath(); c.moveTo(Math.cos(a) * 40, Math.sin(a) * 40); c.lineTo(Math.cos(a) * 52, Math.sin(a) * 52); c.stroke(); }
+    c.beginPath(); c.arc(0, 0, 34, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+  // 星星
+  if (P.dark){
+    c.fillStyle = '#eaf3ff';
+    for (let i = 0; i < 40; i++){
+      const x = (i * 97) % W, y = ((i * 61) % 220) + 12;
+      const a = 0.25 + 0.7 * Math.abs(Math.sin(clock * 0.9 + i));
+      c.globalAlpha = a; c.fillRect(x, y, 2.2, 2.2);
+    }
+    c.globalAlpha = 1;
+  }
+}
+function drawClouds(c, P){
+  for (let i = 0; i < 4; i++){
+    const base = ((clock * (7 + i * 4)) + i * 340) % (W + 320) - 160;
+    const y = 60 + i * 46;
+    c.fillStyle = P.cloud; c.globalAlpha = P.dark ? 0.5 : 0.9;
+    c.beginPath();
+    c.arc(base, y, 26, 0, Math.PI * 2); c.arc(base + 30, y - 10, 22, 0, Math.PI * 2);
+    c.arc(base + 58, y, 25, 0, Math.PI * 2); c.arc(base + 30, y + 8, 26, 0, Math.PI * 2);
+    c.fill(); c.globalAlpha = 1;
+  }
+}
+function drawHills(c, P){
+  c.fillStyle = P.hill1;
+  c.beginPath(); c.moveTo(0, 300);
+  c.quadraticCurveTo(150, 210, 320, 290); c.quadraticCurveTo(520, 380, 700, 280);
+  c.quadraticCurveTo(840, 210, W, 300); c.lineTo(W, H); c.lineTo(0, H); c.closePath(); c.fill();
+  // 山丘上的树（远景）
+  for (let i = 0; i < 7; i++){
+    const x = 40 + i * 140, y = 286 - Math.sin(i * 1.7) * 26;
+    c.save(); c.translate(x, y); c.scale(0.42, 0.42); ICONS.tree(c, clock + i); c.restore();
+  }
+  // 隧道
+  c.fillStyle = P.hill2;
+  c.beginPath(); c.moveTo(560, 470); c.quadraticCurveTo(660, 300, 760, 470); c.closePath(); c.fill();
+  c.fillStyle = P.tunnel;
+  c.beginPath(); c.moveTo(600, 470); c.quadraticCurveTo(660, 350, 720, 470); c.closePath(); c.fill();
+  c.fillStyle = P.grass;
+  c.fillRect(0, 430, W, H - 430);
+}
+function drawTrack(c, P){
+  const y = 452;
+  c.fillStyle = P.tie;
+  for (let i = -1; i < 30; i++){
+    const x = i * 34 - (scroll % 34) + 40;
+    c.fillRect(x, y, 22, 12);
+  }
+  c.fillStyle = P.stone;
+  c.beginPath(); c.moveTo(0, y + 14); c.lineTo(W, y + 14); c.lineTo(W, y + 26); c.lineTo(0, y + 26); c.closePath(); c.fill();
+  c.strokeStyle = P.rail; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(0, y - 2); c.lineTo(W, y - 2); c.stroke();
+  c.strokeStyle = P.rail; c.lineWidth = 3; c.globalAlpha = 0.7;
+  c.beginPath(); c.moveTo(0, y + 8); c.lineTo(W, y + 8); c.stroke(); c.globalAlpha = 1;
+  // 里程标
+  c.fillStyle = P.rail;
+  for (let i = 0; i <= 4; i++){
+    const x = 60 + i * ((W - 120) / 4);
+    c.globalAlpha = 0.5; c.fillRect(x, y - 34, 4, 22);
+    c.beginPath(); c.arc(x + 2, y - 40, 8, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+  }
+}
+function drawStation(c, P){
+  const x = W - 92, y = 300;
+  c.save(); c.translate(x, y);
+  c.fillStyle = P.card; roundedRect(c, -46, -26, 92, 76, 8); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.4; c.stroke();
+  c.fillStyle = '#e2452f';
+  c.beginPath(); c.moveTo(-56, -26); c.lineTo(0, -60); c.lineTo(56, -26); c.closePath(); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.stroke();
+  c.fillStyle = '#2f6fe2'; roundedRect(c, -16, 8, 32, 42, 4); c.fill(); c.stroke();
+  c.fillStyle = P.text; c.font = 'bold 12px "Segoe UI",sans-serif'; c.textAlign = 'center';
+  c.fillText('END', 0, -12);
+  c.restore();
+  // 旗子
+  c.strokeStyle = P.text; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(x, y - 60); c.lineTo(x, y - 104); c.stroke();
+  c.fillStyle = '#f5a623';
+  const flap = Math.sin(clock * 5) * 4;
+  c.beginPath(); c.moveTo(x, y - 104); c.lineTo(x + 30, y - 96 + flap); c.lineTo(x, y - 86); c.closePath(); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 2; c.stroke();
+}
+function trainWheel(c, x, y, r, P){
+  c.save(); c.translate(x, y);
+  c.fillStyle = '#2b3a4a'; circle(c, 0, 0, r); c.fill();
+  c.fillStyle = '#cfd8e6'; circle(c, 0, 0, r * 0.45); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 2.6;
+  const a = scroll * 0.9;
+  for (let i = 0; i < 3; i++){
+    const ang = a + i * Math.PI * 2 / 3;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * r * 0.85, Math.sin(ang) * r * 0.85); c.stroke();
+  }
+  c.restore();
+}
+function drawTrain(c, P, frontX){
+  const base = 438, bob = Math.sin(clock * 9) * 1.4;
+  c.save(); c.translate(frontX, base + bob);
+  // 车厢（3 节，接在机车后面，往左排开）
+  for (let i = 0; i < 3; i++){
+    const x = -96 - i * 92;
+    c.save(); c.translate(x, 0);
+    c.fillStyle = ['#e2452f', '#2f6fe2', '#37a862'][i];
+    roundedRect(c, -38, -46, 78, 46, 8); c.fill();
+    c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.6; c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.85)'; roundedRect(c, -28, -40, 24, 20, 4); c.fill();
+    roundedRect(c, 2, -40, 24, 20, 4); c.fill();
+    trainWheel(c, -22, 4, 12, P); trainWheel(c, 24, 4, 12, P);
+    c.strokeStyle = '#7d8896'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(-38, -14); c.lineTo(-56, -14); c.stroke();
+    c.restore();
+  }
+  // 机车（车头朝右，正开向终点站）
+  c.fillStyle = '#f5a623'; roundedRect(c, -38, -56, 108, 56, 8); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 3.8; c.stroke();
+  c.fillStyle = '#2b3a4a'; roundedRect(c, -30, -66, 40, 12, 5); c.fill();
+  c.fillStyle = '#f5a623'; roundedRect(c, 58, -30, 20, 30, 5); c.fill(); outline(c, 3);
+  c.fillStyle = '#cfe9ff'; roundedRect(c, -20, -50, 26, 22, 4); c.fill();
+  c.strokeStyle = '#2b3a4a'; c.lineWidth = 3; c.stroke();
+  // 烟囱 + 烟（往车后飘）
+  c.fillStyle = '#2b3a4a'; roundedRect(c, -18, -78, 18, 24, 4); c.fill();
+  for (let i = 0; i < 3; i++){
+    const s = ((clock * 1.2 + i * 0.4) % 1);
+    c.fillStyle = 'rgba(255,255,255,' + (0.5 - s * 0.45) + ')';
+    circle(c, -9 - s * 34, -84 - s * 42, 8 + s * 14); c.fill();
+  }
+  trainWheel(c, -20, 4, 14, P); trainWheel(c, 22, 4, 14, P); trainWheel(c, 56, 4, 12, P);
+  c.fillStyle = '#f7d21b'; circle(c, 74, 2, 5); c.fill(); outline(c, 2);
+  c.restore();
+}
+function drawCard(c, P, info){
+  const bob = Math.sin(clock * 2.2) * 5;
+  const cx = 150, cy = 222 + bob;
+  c.save(); c.translate(cx, cy);
+  c.rotate(Math.sin(clock * 1.1) * 0.02);
+  // 木牌立柱
+  c.strokeStyle = '#8b5a34'; c.lineWidth = 8; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(0, 78); c.lineTo(0, 112); c.stroke();
+  // 卡片
+  c.fillStyle = P.card; roundedRect(c, -86, -76, 172, 152, 18); c.fill();
+  c.strokeStyle = P.cardEdge; c.lineWidth = 5; c.stroke();
+  c.save(); c.translate(0, -14); c.scale(0.86, 0.86);
+  if (info.mode === 'cn'){
+    // 听中文：不给图，只给中文，孩子要靠「中文 → 英文」的对应
+    c.fillStyle = P.text; c.font = 'bold 62px "PingFang SC","Microsoft YaHei",sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(st.round.word.cn, 0, 6);
+  } else {
+    drawIcon(c, st.round.word, clock);
+  }
+  c.restore();
+  // 卡片下沿的提示行：答对显示单词，没答对显示字母点位 / 问号
+  c.fillStyle = P.text; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = 'bold 30px "Comic Sans MS","Segoe UI",sans-serif';
+  const spaced = (s) => s.split('').map(ch => ch === '.' ? '·' : ch).join(' ');
+  const label = st.round.done ? st.round.word.en
+    : (info.mode === 'spell' && st.round.hint ? spaced(st.round.hint)
+      : (info.mode === 'cn' ? spaced('.'.repeat(st.round.word.en.length)) : '？？？'));
+  c.fillText(label, 0, 58);
+  c.restore();
+}
+function drawFlyCards(c){
+  for (let i = cardFly.length - 1; i >= 0; i--){
+    const p = cardFly[i], a = 1 - p.t / p.life;
+    if (a <= 0){ cardFly.splice(i, 1); continue; }
+    c.save(); c.globalAlpha = a;
+    c.translate(p.x + p.vx * p.t, p.y + p.vy * p.t + 90 * p.t * p.t);
+    c.rotate(p.r + p.vr * p.t);
+    c.fillStyle = p.col; circle(c, 0, 0, p.s, 0, Math.PI * 2); c.fill();
+    c.restore();
+  }
+}
+function bannerDraw(c, P){
+  if (!banner) return;
+  const a = Math.max(0, 1 - banner.t / 1.5);
+  if (a <= 0){ banner = null; return; }
+  c.save(); c.globalAlpha = a;
+  c.font = 'bold 40px "Comic Sans MS","Segoe UI",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const y = 120 - (1 - a) * 26;
+  c.lineWidth = 8; c.strokeStyle = 'rgba(255,255,255,.9)';
+  c.fillStyle = banner.tone === 'bad' ? '#d94b4b' : (banner.tone === 'gold' ? '#e8a20b' : '#2e9e5b');
+  c.strokeText(banner.text, W / 2, y); c.fillText(banner.text, W / 2, y);
+  c.restore();
+}
+function hintLine(c, P, info){
+  c.save();
+  c.fillStyle = P.text; c.globalAlpha = 0.85; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = 'bold 22px "Segoe UI","PingFang SC",sans-serif';
+  const txt = info.mode === 'pic' ? '这是什么？选出它的英文单词' :
+              (info.mode === 'cn' ? '听中文：哪个是它的英文？' : '补全单词：' + (info.hint || '').replace(/\./g, '_'));
+  c.fillText(txt, W / 2, 60);
+  c.restore();
+}
+function hudDraw(c, P, info){
+  // 进度条：火车从起点到终点
+  c.save();
+  const y = 500, x0 = 40, x1 = W - 40;
+  c.fillStyle = 'rgba(0,0,0,.12)'; roundedRect(c, x0, y, x1 - x0, 12, 6); c.fill();
+  c.fillStyle = '#1f8ad6'; roundedRect(c, x0, y, (x1 - x0) * info.progress, 12, 6); c.fill();
+  c.fillStyle = P.text; c.font = '13px "Segoe UI",sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top';
+  c.fillText('第 ' + info.round + ' / ' + info.total + ' 题 · 得分 ' + info.score + ' · 连对 ' + info.streak, x0, y + 18);
+  c.restore();
+}
+
+/* ---------- 渲染主循环 ---------- */
+function draw(){
+  const P = pal();
+  const info = st ? stateInfo(st) : null;
+  g.clearRect(0, 0, W, H);
+  drawSky(g, P); drawClouds(g, P); drawHills(g, P); drawTrack(g, P); drawStation(g, P);
+  drawTrain(g, P, TRACK_START + trainPosShow * (TRACK_END - TRACK_START));
+  if (info && st.round) { drawCard(g, P, info); hintLine(g, P, info); }
+  drawFlyCards(g);
+  bannerDraw(g, P);
+  if (info) hudDraw(g, P, info);
+}
+let needDraw = true;
+function loop(now){
+  const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+  last = now;
+  if (motionOn) clock += dt;
+  if (st && st.started && !st.over){
+    speed = trainSpeedFor(speed, dt, st.streak, st.round && st.round.done);
+  } else {
+    speed = trainSpeedFor(speed, dt, 0, true);
+  }
+  scroll += dt * speed * 120;
+  if (scroll > 34) scroll -= 34;
+  // 火车头沿轨道开到终点站
+  const info = st ? stateInfo(st) : null;
+  const target = info ? info.progress : 0;
+  trainPosShow += (trainPos - trainPosShow) * Math.min(1, dt * 3.2);
+  if (Math.abs(trainPos - trainPosShow) < 0.002) trainPosShow = trainPos;
+  trainPos = target;
+  for (const p of cardFly) p.t += dt;
+  if (banner) banner.t += dt;
+  if (motionOn || needDraw){ draw(); needDraw = false; }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 音效（WebAudio 现场合成） ---------- */
+let actx = null;
+function ac(){
+  if (!soundOn) return null;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e){ return null; }
+}
+function tone(freq, dur, type, vol, when){
+  const A = ac(); if (!A) return;
+  try {
+    const o = A.createOscillator(), gn = A.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    const t0 = A.currentTime + (when || 0);
+    gn.gain.setValueAtTime(0.0001, t0);
+    gn.gain.exponentialRampToValueAtTime(vol === undefined ? 0.18 : vol, t0 + 0.02);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(gn); gn.connect(A.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e){ /* 无头环境没有音频设备：忽略 */ }
+}
+function sfx(kind){
+  if (!soundOn) return;
+  if (kind === 'good'){ [523, 659, 784].forEach((f, i) => tone(f, 0.2, 'triangle', 0.2, i * 0.08)); }
+  else if (kind === 'bad'){ tone(220, 0.22, 'sawtooth', 0.13); tone(160, 0.28, 'sawtooth', 0.1, 0.12); }
+  else if (kind === 'click'){ tone(660, 0.08, 'sine', 0.1); }
+  else if (kind === 'win'){ [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, 'triangle', 0.18, i * 0.12)); }
+}
+
+/* ---------- 语音朗读 ---------- */
+function speak(text){
+  const synth = window.speechSynthesis;
+  if (!synth || !text) { sfx('click'); return false; }
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(String(text));
+    u.lang = 'en-US'; u.rate = 0.82; u.pitch = 1.15;
+    synth.speak(u);
+    return true;
+  } catch (e){ sfx('click'); return false; }
+}
+
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const els = {
+  roundNo: $('roundNo'), roundTot: $('roundTot'), score: $('score'), streak: $('streak'),
+  prog: $('prog'), unitName: $('unitName'), opts: $('opts'), qtext: $('qtext'), fb: $('fb'),
+  next: $('nextBtn'), menu: $('menuMask'), over: $('overMask'), overTitle: $('overTitle'),
+  overStars: $('overStars'), overText: $('overText'), overBest: $('overBest'),
+  unitPick: $('unitPick'), qCount: $('qCount'), start: $('startBtn'), again: $('againBtn'),
+  menuBtn: $('menuBtn'), sound: $('soundBtn'), theme: $('themeBtn'), speak: $('speakBtn'),
+  speakTop: $('speakBtnTop'), stage: $('scene')
+};
+const ROUND_COUNT = Math.max(4, Math.min(20, parseInt(qs.get('rounds'), 10) || 8));
+let pickUnit = UNITS.some(u => u.key === qs.get('unit')) ? qs.get('unit') : 'animals';
+
+function best(){ try { return JSON.parse(localStorage.getItem('ewt.best') || '{}') || {}; } catch (e){ return {}; } }
+function saveBest(b){ try { localStorage.setItem('ewt.best', JSON.stringify(b)); } catch (e){} }
+
+function buildMenu(){
+  els.unitPick.innerHTML = '';
+  UNITS.forEach(u => {
+    const b = document.createElement('button');
+    b.className = 'unit'; b.type = 'button';
+    b.dataset.unit = u.key;
+    const t = document.createElement('span'); t.className = 't'; t.textContent = u.cn + ' ' + u.en;
+    const s = document.createElement('span'); s.className = 's'; s.textContent = u.blurb;
+    const star = document.createElement('span'); star.className = 's';
+    const bb = best()[u.key];
+    star.textContent = bb ? '最佳 ' + bb + ' 分' : '还没玩过';
+    b.append(t, s, star);
+    b.addEventListener('click', () => {
+      pickUnit = u.key; sfx('click');
+      [...els.unitPick.children].forEach(c => { c.style.borderColor = ''; });
+      b.style.borderColor = 'var(--accent)';
+    });
+    els.unitPick.appendChild(b);
+    if (u.key === pickUnit) setTimeout(() => { b.style.borderColor = 'var(--accent)'; }, 0);
+  });
+  els.qCount.textContent = ROUND_COUNT + ' 题 · ' + unitWords(pickUnit).length + ' 个单词可选';
+}
+
+function render(){
+  const info = st ? stateInfo(st) : null;
+  needDraw = true;
+  if (!info) return;
+  els.roundNo.textContent = info.round; els.roundTot.textContent = info.total;
+  els.score.textContent = info.score; els.streak.textContent = info.streak;
+  els.prog.style.width = Math.round(info.progress * 100) + '%';
+  const u = UNITS.find(x => x.key === info.unit) || UNITS[0];
+  els.unitName.textContent = u.cn + ' ' + u.en;
+  els.opts.innerHTML = '';
+  if (!st.round){ els.qtext.textContent = '到站啦！'; els.fb.innerHTML = ''; els.next.classList.add('hidden'); return; }
+
+  if (info.mode === 'pic') els.qtext.innerHTML = '看图：这是什么？ <span class="cn">What is this?</span>';
+  else if (info.mode === 'cn') els.qtext.innerHTML = '「<span class="cn">' + info.cn + '</span>」用英语怎么说？';
+  else els.qtext.innerHTML = '补全单词：<span class="cn">' + (info.hint || '').replace(/\./g, '_') + '</span>（' + info.cn + '）';
+
+  info.options.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'opt'; b.type = 'button'; b.dataset.letter = o.letter;
+    const k = document.createElement('span'); k.className = 'k'; k.textContent = o.letter;
+    const t = document.createElement('span'); t.className = 'w';
+    t.textContent = info.mode === 'spell' ? o.en.toUpperCase() : o.en;
+    b.append(k, t);
+    if (o.picked) b.disabled = true;
+    if (info.answered) {
+      b.disabled = true;
+      if (o.en === info.word) b.classList.add('good');
+      else if (o.picked) b.classList.add('bad');
+      else b.classList.add('dim');
+    }
+    b.addEventListener('click', () => pick(o.letter));
+    els.opts.appendChild(b);
+  });
+
+  if (info.answered){
+    els.qtext.innerHTML = '<span class="en">' + info.word + '</span> = <span class="cn">' + info.cn + '</span> ✅';
+    els.fb.innerHTML = '<span class="en">' + st.round.word.sentence + '</span>' +
+      '<span class="cn">' + cnOf(st.round) + ' · 本题得 ' + st.round.score + ' 分' + (st.streak >= 2 ? ' · 连对 ' + st.streak + ' 🔥' : '') + '</span>';
+    els.next.classList.remove('hidden');
+    els.next.textContent = info.round >= info.total ? '🏁 到站 Finish' : '下一题 Next →';
+  } else {
+    els.fb.innerHTML = info.mode === 'pic'
+      ? '<span class="cn">点一个答案，或按键盘 1–4。答错了可以再选别的，答对才得分。</span>'
+      : '<span class="cn">点一个答案，或按键盘 1–4。</span>';
+    els.next.classList.add('hidden');
+  }
+}
+function cnOf(r){
+  const map = {
+    'The cat is sleeping.':'猫在睡觉。', 'My dog can run.':'我的狗会跑步。',
+    'The bird can fly.':'鸟会飞。', 'The fish can swim.':'鱼会游泳。',
+    'The rabbit likes carrots.':'兔子爱吃胡萝卜。', 'The panda eats bamboo.':'熊猫吃竹子。',
+    'The bear is big.':'熊好大。', 'The lion can roar.':'狮子会吼。',
+    'I see a red ball.':'我看到一个红球。', 'The sky is blue.':'天空是蓝色的。',
+    'The sun is yellow.':'太阳是黄色的。', 'The grass is green.':'草是绿色的。',
+    'I have one hand.':'我有一只手。', 'I have two eyes.':'我有两只眼睛。',
+    'The cat has three cubs.':'猫有三只宝宝。', 'The dog has four legs.':'狗有四条腿。',
+    'I eat an apple.':'我吃一个苹果。', 'The banana is yellow.':'香蕉是黄色的。',
+    'I like eggs.':'我喜欢鸡蛋。', 'Drink your milk.':'喝你的牛奶。',
+    'We eat rice.':'我们吃米饭。', 'Wash your hands.':'洗洗你的手。',
+    'Blink your eyes.':'眨眨你的眼睛。', 'Open your mouth.':'张开你的嘴巴。',
+    'The sun is hot.':'太阳很热。', 'The moon is round.':'月亮是圆的。',
+    'I can see a star.':'我能看到一颗星星。', 'Read the book.':'读这本书。',
+    'Kick the ball.':'踢球。', 'The car is fast.':'小汽车跑得很快。',
+    'The tree is tall.':'树很高。', 'This is my house.':'这是我的家。'
+  };
+  return map[r.word.sentence] || '';
+}
+
+function pick(letter){
+  const res = choose(st, letter);
+  if (res.skipped) return;
+  sfx(res.correct ? 'good' : 'bad');
+  if (res.correct){
+    banner = { text: ['Great! 太棒了！', 'Good job! 很好！', 'Yes! 答对啦！', 'Well done! 真不错！'][Math.floor(Math.random() * 4)],
+               tone: st.streak >= 3 ? 'gold' : 'good', t: 0 };
+    for (let i = 0; i < 14; i++){
+      cardFly.push({ x: 150, y: 250, vx: (Math.random() - 0.5) * 460, vy: -180 - Math.random() * 160,
+                     r: Math.random() * 6, vr: (Math.random() - 0.5) * 8, t: 0, life: 1.3, s: 5 + Math.random() * 6,
+                     col: ['#f5a623', '#e2452f', '#37a862', '#2f6fe2', '#f7d21b'][i % 5] });
+    }
+    speak(st.round.word.en);
+    if (navigator.vibrate) try { navigator.vibrate(20); } catch (e){}
+  } else {
+    banner = { text: 'Try again! 再试一次', tone: 'bad', t: 0 };
+    els.stage.animate ? els.stage.animate([{ transform:'translateX(-8px)' }, { transform:'translateX(8px)' }, { transform:'translateX(0)' }], { duration: 240 }) : 0;
+  }
+  render();
+}
+
+function next(){
+  if (!st || !st.started) return;
+  if (st.round && !st.round.done) return;   // 没答对不许跳过（孩子必须把这道题做出来）
+  advance(st);
+  sfx('click');
+  if (st.over) finish(); else render();
+}
+
+function finish(){
+  render();                      // 先把 HUD / 题面收尾，别把最后一题留在屏幕上
+  const info = stateInfo(st);
+  const stars = info.stars;
+  els.overTitle.textContent = stars === 3 ? '🎉 满分小火车！' : (stars >= 1 ? '到站啦！' : '再试一次吧！');
+  els.overStars.textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(0, 3 - stars);
+  els.overText.innerHTML = '本局 <b>' + info.score + '</b> / ' + maxScore(st) + ' 分（平均 ' + info.avg + '）· 最长连对 ' + info.bestStreak;
+  const b = best();
+  const had = b[st.unit] || 0;
+  b[st.unit] = Math.max(b[st.unit] || 0, info.avg);
+  saveBest(b);
+  els.overBest.textContent = info.avg >= had ? '🏆 新纪录！' : '这个关卡最佳 ' + had + ' 分，继续加油！';
+  els.over.classList.remove('hidden');
+  sfx('win');
+}
+
+function startGameUI(){
+  st = startGame(makeState({ unit: pickUnit, rounds: ROUND_COUNT, seed: seedFor(), mode: qs.get('mode') }));
+  els.menu.classList.add('hidden'); els.over.classList.add('hidden');
+  speed = 1; scroll = 0; trainPos = 0; trainPosShow = 0; cardFly.length = 0; banner = null;
+  render();
+  sfx('click');
+}
+function seedFor(){
+  const s = parseInt(qs.get('seed'), 10);
+  return isFinite(s) ? s : Math.floor(Math.random() * 1e6);
+}
+
+/* 无人值守作答：solve=N 连续答对 N 题（miss=M 让前 M 题先答错一次再看对），
+ * 用于无头截图与自动化验证，不开口、不响铃，完全按 seed 复现。 */
+function silentSolve(n, miss){
+  if (!st || !st.started) return st ? stateInfo(st) : null;
+  const want = n === undefined ? st.rounds : Math.max(0, n | 0);
+  const bad = Math.max(0, miss | 0);
+  for (let i = 0; i < want && !st.over; i++){
+    if (i < bad){
+      const w = st.round.options.find(o => o.word.en !== st.round.word.en);
+      if (w) choose(st, w.letter);
+    }
+    const L = LETTERS[st.round.options.findIndex(o => o.word.en === st.round.word.en)];
+    choose(st, L);
+    advance(st);
+  }
+  if (st.over) finish(); else render();
+  trainPos = st ? stateInfo(st).progress : 0; trainPosShow = trainPos;
+  needDraw = true; draw();
+  return stateInfo(st);
+}
+
+function toggleTheme(){
+  const d = document.documentElement;
+  d.dataset.theme = d.dataset.theme === 'dark' ? 'light' : 'dark';
+  els.theme.textContent = d.dataset.theme === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  needDraw = true;
+}
+function toggleSound(){
+  soundOn = !soundOn;
+  els.sound.textContent = soundOn ? '🔊 音效' : '🔇 静音';
+  if (soundOn) sfx('click');
+}
+
+els.start.addEventListener('click', startGameUI);
+els.again.addEventListener('click', () => { els.over.classList.add('hidden'); startGameUI(); });
+els.menuBtn.addEventListener('click', () => { els.over.classList.add('hidden'); buildMenu(); els.menu.classList.remove('hidden'); });
+els.next.addEventListener('click', next);
+els.theme.addEventListener('click', toggleTheme);
+els.sound.addEventListener('click', toggleSound);
+els.speak.addEventListener('click', () => {
+  if (!st || !st.round) return;
+  if (st.round.mode === 'spell' || stateInfo(st).answered) speak(st.round.word.en);
+  else { speak(st.round.word.cn); speak(st.round.word.en); }
+});
+els.speakTop.addEventListener('click', () => { if (st && st.round) speak(st.round.word.en); });
+
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 't' || k === 'T'){ toggleTheme(); return; }
+  if (k === 'm' || k === 'M'){ toggleSound(); return; }
+  if (k === 'r' || k === 'R'){ if (st && st.started){ els.over.classList.add('hidden'); startGameUI(); } return; }
+  if (!st || !st.started || st.over) return;
+  if (k >= '1' && k <= '4'){ pick(LETTERS[+k - 1]); e.preventDefault(); return; }
+  const L = k.toUpperCase();
+  if (LETTERS.indexOf(L) >= 0){ pick(L); e.preventDefault(); return; }
+  if (k === ' ' || k === 'Enter' || k === 'ArrowRight'){
+    e.preventDefault();
+    if (k === ' ' && st.round && !stateInfo(st).answered){ els.speak.click(); return; }
+    next();
+  }
+});
+
+/* ---------- 页内自检 ---------- */
+function runSelftest(){
+  const out = [];
+  const T = (name, fn) => { try { const r = fn(); out.push([r === true || r === undefined ? 'ok' : 'FAIL', name, typeof r === 'string' ? r : '']); } catch (e){ out.push(['FAIL', name, e.message]); } };
+  const s = makeState({ unit:'animals', rounds:8, seed:42 });
+  T('内核可建局（8 题 / 动物）', () => s.order.length === 8 && s.rounds === 8);
+  T('每词都有中文与图标', () => WORDS.every(w => w.cn && w.en && w.icon));
+  T('词库总数 ≥ 28', () => WORDS.length >= 28 || 'only ' + WORDS.length);
+  T('五个关卡都存在', () => UNITS.length === 5 && UNITS.every(u => unitWords(u.key).length >= 4));
+  T('混合词库 = 全库', () => unitWords('mixed').length === WORDS.length);
+  const r0 = startGame(makeState({ unit:'animals', rounds:8, seed:42 }));
+  T('开局生成 4 个选项', () => r0.round.options.length === 4);
+  T('选项字母为 ABCD', () => r0.round.options.map(o => o.letter).join('') === 'ABCD');
+  T('正确项在选项里', () => r0.round.options.some(o => o.word.en === r0.round.word.en));
+  T('干扰项不含正确词重复', () => new Set(r0.round.options.map(o => o.word.en)).size === 4);
+  T('seed 固定 → 出题序列一致', () => {
+    const a = startGame(makeState({ unit:'animals', rounds:8, seed:99 })).list.join(',');
+    const b = startGame(makeState({ unit:'animals', rounds:8, seed:99 })).list.join(',');
+    return a === b || a + ' != ' + b;
+  });
+  const rightOf = (g) => LETTERS[g.round.options.findIndex(o => o.word.en === g.round.word.en)];
+  const wrongOf = (g) => { const o = g.round.options.find(x => x.word.en !== g.round.word.en && !x.picked); return o ? o.letter : null; };
+  const t1 = startGame(makeState({ unit:'animals', rounds:8, seed:5 }));
+  const res = choose(t1, rightOf(t1));
+  T('一次答对得 100 分', () => res.correct && t1.score === 100 && t1.round.score === 100);
+  T('答对即判本题完成', () => t1.round.done === true);
+  const t2 = startGame(makeState({ unit:'animals', rounds:8, seed:6 }));
+  choose(t2, wrongOf(t2));
+  T('答错不结束、连对清零', () => t2.round.done === false && t2.streak === 0);
+  choose(t2, rightOf(t2));
+  T('错一次再答对得 60 分', () => t2.score === 60 && t2.round.done === true);
+  const t2b = startGame(makeState({ unit:'animals', rounds:8, seed:6 }));
+  while (!t2b.round.done) choose(t2b, wrongOf(t2b) || rightOf(t2b));
+  T('四个全错仍未答对 → 本题结束且 0 分', () => t2b.round.done && t2b.score === 0);
+  const t3 = startGame(makeState({ unit:'animals', rounds:8, seed:7 }));
+  for (let i = 0; i < 8; i++){
+    const r = t3.round;
+    const L = LETTERS[r.options.findIndex(o => o.word.en === r.word.en)];
+    choose(t3, L); advance(t3);
+  }
+  T('打完 8 题总分 800 封顶', () => t3.score <= 800 && isDone(t3));
+  T('全部一次答对 → 三星', () => starsFor(t3.score / t3.rounds) === 3);
+  T('火车速度随连对提升且有上限', () => {
+    let p = 1; for (let i = 0; i < 300; i++) p = trainSpeedFor(p, 0.016, 9, false);
+    return p > 1.5 && p <= 3;
+  });
+  T('bestUnit 取更高者', () => bestUnit({ animals: 70 }, 'animals', 80).animals === 80 && bestUnit({ animals: 90 }, 'animals', 50).animals === 90);
+  T('补字母提示格式正确', () => firstLetterHint('apple') === 'a....' && firstLetterHint('egg') === 'e..');
+  T('stateInfo 报告题目与进度', () => {
+    const q = startGame(makeState({ unit:'colors', rounds:5, seed:3 }));
+    const info = stateInfo(q);
+    return info.total === 5 && info.options.length === 4 && info.progress >= 0 && info.progress <= 1;
+  });
+  T('mode 参数可强制出题类型', () => ['pic','cn','spell'].every(m => {
+    const q = startGame(makeState({ unit:'animals', rounds:4, seed:3, mode:m }));
+    return q.round.mode === m && stateInfo(q).mode === m;
+  }));
+  T('强制模式不影响选项与答案', () => {
+    const q = startGame(makeState({ unit:'animals', rounds:4, seed:3, mode:'spell' }));
+    return q.round.options.length === 4 && q.round.options[q.round.answer].word.en === q.round.word.en;
+  });
+  T('画布非空白（天空已绘制）', () => {
+    draw();
+    const d = g.getImageData(10, 10, 1, 1).data;
+    return (d[0] + d[1] + d[2]) > 30;
+  });
+  T('每个图标都能画（无异常）', () => {
+    g.save(); g.translate(20, 20);
+    WORDS.forEach(w => drawIcon(g, w, 1.2));
+    g.restore(); return true;
+  });
+  T('无横向溢出', () => document.documentElement.scrollWidth <= window.innerWidth + 2 ||
+      'scrollWidth ' + document.documentElement.scrollWidth + ' > ' + window.innerWidth);
+  T('控件齐备', () => ['scene', 'opts', 'qtext', 'fb', 'nextBtn', 'startBtn', 'unitPick', 'soundBtn', 'themeBtn']
+      .every(id => !!document.getElementById(id)));
+  const fails = out.filter(r => r[0] === 'FAIL').length;
+  const host = $('selftest');
+  host.innerHTML = '<div class="st"><h3>自检 ' + (out.length - fails) + ' / ' + out.length + ' 通过' +
+    (fails ? '（FAIL ' + fails + '）' : ' ✅') + '</h3>' +
+    out.map(r => '<div>' + (r[0] === 'ok' ? '✅' : '❌') + ' ' + r[1] + (r[2] ? ' — ' + r[2] : '') + '</div>').join('') + '</div>';
+  window.ewtSelftest = { pass: out.length - fails, total: out.length, rows: out };
+  return fails === 0;
+}
+
+/* ---------- 启动 ---------- */
+window.ewt = {
+  state: () => st ? stateInfo(st) : null,
+  raw: () => st,
+  api: { makeState, startGame, choose, advance, stateInfo, starsFor, scoreFor, trainSpeedFor,
+         unitWords, pickOptions, distractFor, firstLetterHint, bestUnit, maxScore, nextIndex, wordFromIndex, isDone, LETTERS, WORDS, UNITS },
+  start: (o) => { pickUnit = (o && o.unit) || pickUnit; st = startGame(makeState(Object.assign({ unit: pickUnit, rounds: ROUND_COUNT, seed: 7 }, o || {})));
+                  els.menu.classList.add('hidden'); els.over.classList.add('hidden'); render(); return stateInfo(st); },
+  pick: (L) => pick(L),
+  solve: (n, miss) => silentSolve(n, miss),
+  next: () => next(),
+  go: (t) => { clock = t; draw(); },
+  ff: (sec) => { clock += sec; scroll += sec * 40; trainPosShow = trainPos; draw(); },
+  set: (k, v) => { if (k === 'theme'){ document.documentElement.dataset.theme = v; } else if (k === 'motion'){ motionOn = !!v; } needDraw = true; },
+  selftest: runSelftest
+};
+
+(function boot(){
+  if (qs.get('ui') === 'canvas') document.body.classList.add('canvas-only');
+  const th = qs.get('theme');
+  if (th === 'dark' || th === 'light') document.documentElement.dataset.theme = th;
+  else document.documentElement.dataset.theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  els.theme.textContent = document.documentElement.dataset.theme === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  if (qs.get('sound') === 'off') toggleSound();
+  buildMenu();
+  if (qs.get('auto') === '1') startGameUI();
+  const sv = qs.get('solve');
+  if (sv !== null) { if (!st || !st.started) startGameUI(); silentSolve(parseInt(sv, 10), parseInt(qs.get('miss'), 10) || 0); }
+  requestAnimationFrame(loop);
+  if (qs.get('selftest') === '1') runSelftest();
+  const fr = parseFloat(qs.get('freeze'));
+  if (isFinite(fr)) { motionOn = false; clock = fr; trainPosShow = trainPos; draw(); }
+})();
+// __UI_END__
+</script>
+</body>
+</html>
