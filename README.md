@@ -32,8 +32,8 @@
 
 ## 验证
 
-- `cat-mouse-game.html?selftest=1`：**33 项内核断言全部通过**（含迷宫连通与墙体对称、奶酪全部可达、同格即被扣一条命、无敌期不扣命、猫薄荷 6 秒生效、集齐奶酪获胜、三条命用完即失败、12 组种子 × 三档难度均不崩溃且 AI 能持续得分）。
-- `node tools/cat-mouse-core.cjs`：33 条规则 / 物理 / 状态机断言全部通过。
+- `cat-mouse-game.html?selftest=1`：**23 项页内断言全部通过**（含迷宫连通与墙体两侧对称、奶酪数量固定、同格即被扣一条命、猫薄荷 6 秒生效与过期、暂停冻结时间、集齐奶酪获胜、AI 老鼠能偷奶酪、画布非空白的像素检查、可导出 PNG、无横向溢出）。
+- `node tools/cat-mouse-core.cjs`：33 条规则 / 迷宫 / 状态机断言全部通过（另覆盖无敌期不扣命、命用完即失败、12 组种子 × 三档难度均不崩溃且 AI 能持续得分）。
 - `node tools/cat-mouse-ui-harness.cjs`：DOM + Canvas 桩驱动 UI 层跑完整场景，渲染与输入事件全程不抛异常、HUD 无 NaN。
 - 无头 Edge 截图见 `docs/screenshots/`：`before-cat-mouse-main.png` 是改动前 `main` 分支的实际内容（`main` 上没有猫和老鼠页面），`after-cat-mouse-*.png` 是本分支的运行画面（菜单、浅色/深色对打中、504×900 窄屏、页内自检全部绿），全部由无头 Edge 按固定随机种子抓取，可直接复现。
 
