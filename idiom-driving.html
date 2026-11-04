@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="成语 driving 小游戏：变道接住正确的字，补全成语并大声读出来。单文件 HTML，离线可玩。">
+<title>成语大飞车 · Idiom Drive</title>
+<style>
+:root{
+  --ink:#22303f; --paper:#eef4fa; --card:#ffffff; --accent:#1f7ae0; --accent-ink:#fff;
+  --muted:#66788a; --line:rgba(90,120,150,.30); --panel:rgba(255,255,255,.9);
+  --good:#2e9d5a; --danger:#d64541; --shadow:0 14px 34px rgba(30,60,90,.16);
+}
+[data-theme="dark"]{
+  --ink:#e6edf5; --paper:#0d1419; --card:#16202a; --accent:#4aa8ff; --accent-ink:#08131e;
+  --muted:#93a7b8; --line:rgba(150,180,205,.26); --panel:rgba(16,22,28,.92);
+  --good:#7fd6a4; --danger:#ff7a6e; --shadow:0 18px 46px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Segoe UI",system-ui,sans-serif;
+  background:radial-gradient(1100px 640px at 70% -10%,var(--paper),var(--card) 70%);
+  color:var(--ink); padding:18px 16px 30px; min-height:100vh; transition:background .35s,color .35s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font-size:clamp(20px,3.2vw,32px);letter-spacing:.02em}
+h1 .dot{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:74ch}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;
+  font-size:13px;padding:7px 13px;border-radius:999px;cursor:pointer;
+}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button:active{transform:translateY(1px)}
+label.seed{font-size:13px;color:var(--muted)}
+input#seedInp{width:5.5em;font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.stage{position:relative;margin-top:14px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0b1220;box-shadow:var(--shadow)}
+#scene{display:block;width:100%;height:auto}
+.mask{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:18px;background:rgba(8,14,22,.55);backdrop-filter:blur(3px)}
+.mask.show{display:grid}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 26px;max-width:36em}
+.card h2{margin:0 0 .4em;font-size:1.5em}
+.card p{margin:.45em 0;color:var(--muted);font-size:.95em;line-height:1.7}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:.25em .9em;margin:1em 0;text-align:left;font-size:.95em}
+.keys b{color:var(--accent);font-family:ui-monospace,Consolas,monospace}
+#foot{margin-top:12px;color:var(--muted);font-size:12.5px;line-height:1.7}
+#popup{
+  position:absolute;left:50%;top:14%;transform:translate(-50%,-8px);pointer-events:none;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 22px;
+  text-align:center;opacity:0;transition:opacity .18s,transform .18s;box-shadow:var(--shadow);max-width:92%;
+}
+#popup.show{opacity:1;transform:translate(-50%,0)}
+#popup .ci{font-size:clamp(22px,3.4vw,34px);font-weight:800;letter-spacing:.12em}
+#popup .ci .fill{color:var(--accent)}
+#popup .ci .bad{color:var(--danger)}
+#popup .py{color:var(--muted);font-size:13px;margin-top:2px}
+#popup .mean{font-size:13.5px;margin-top:4px;line-height:1.6}
+#popup .tag{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;margin-bottom:4px}
+#popup .tag.ok{background:rgba(46,157,90,.16);color:var(--good)}
+#popup .tag.no{background:rgba(214,69,65,.16);color:var(--danger)}
+#selftestBox{margin-top:14px;text-align:left;font-size:12.5px;line-height:1.8;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;color:var(--ink)}
+#selftestBox .bad{color:var(--danger);font-weight:700}
+#selftestBox .good{color:var(--good)}
+</style>
+</head>
+<body data-theme="light">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🚗 成语大飞车 <span class="dot">·</span> Idiom Drive</h1>
+      <p class="sub">公路从眼前铺开，每个成语缺一个字，四个车道各举着一个字牌开过来——
+      <b>变道接住对的那个</b>。接对了，完整成语弹出并<b>读给你听</b>；接错了或放跑了，扣一条命。</p>
+    </div>
+    <div class="btns">
+      <span id="modeSeg" class="seg">
+        <button id="modeSingle" class="primary">开车答题</button>
+        <button id="modeDemo">AI 演示</button>
+      </span>
+      <label class="seed">题序 <input id="seedInp" type="number" min="1" max="99999" value="7"></label>
+      <button id="startBtn" class="primary">开始开车</button>
+      <button id="pauseBtn">暂停</button>
+      <button id="resetBtn">重来</button>
+      <button id="soundBtn">🔊 声音</button>
+      <button id="voiceBtn">🗣 朗读</button>
+      <button id="themeBtn">🌙 深色</button>
+      <button id="exportBtn">💾 存图</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="scene" width="960" height="640" aria-label="成语大飞车画面"></canvas>
+    <div id="popup"><div class="tag ok">成语完成</div><div class="ci"></div><div class="py"></div><div class="mean"></div></div>
+    <div class="mask show" id="menuMask">
+      <div class="card">
+        <h2>🚗 成语大飞车</h2>
+        <p>成语缺一个字，四条车道各有一个字牌迎面开来。开到正确的车道上接住它，
+        成语补全弹出，还会<b>用语音读出来</b>。接错或放跑都扣一条命，三条命用完一局结束。</p>
+        <div class="keys">
+          <b>← → / A D</b><span>左右变道</span>
+          <b>空格 / P</b><span>暂停 · 继续</span>
+          <b>R</b><span>重开一局</span>
+          <b>M · V · T · E</b><span>静音 · 朗读开关 · 深色 · 存图</span>
+        </div>
+        <button id="menuStart" class="primary">开始开车</button>
+      </div>
+    </div>
+    <div class="mask" id="pauseMask"><div class="card"><h2>已暂停</h2><p>按 空格 / P 继续。</p></div></div>
+    <div class="mask" id="overMask">
+      <div class="card">
+        <h2 id="overTitle">到站了</h2>
+        <p id="overText"></p>
+        <button id="overStart" class="primary">再开一局</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="foot"></p>
+  <div id="selftestBox" hidden></div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+ * __CORE_START__
+ * 规则内核：只用标准数学、不访问 DOM，可被抽到 Node 里直接单测。
+ * ==========================================================================*/
+function mulberry32(seed){
+  let a = (seed >>> 0) || 0x9e3779b9;
+  return function(){
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* 题库：四字成语 + 拼音 + 释义。缺的字按题序随机选位置。 */
+const IDIOMS = [
+  {t:'一心一意', p:'yī xīn yī yì', m:'心思专一，毫无杂念。'},
+  {t:'画蛇添足', p:'huà shé tiān zú', m:'做了多余的事反而坏事。'},
+  {t:'守株待兔', p:'shǒu zhū dài tù', m:'不努力，妄想靠运气得到成功。'},
+  {t:'亡羊补牢', p:'wáng yáng bǔ láo', m:'出了问题及时补救，还不算晚。'},
+  {t:'对牛弹琴', p:'duì niú tán qín', m:'对不懂的人讲道理，白费口舌。'},
+  {t:'井底之蛙', p:'jǐng dǐ zhī wā', m:'见识狭窄的人。'},
+  {t:'狐假虎威', p:'hú jiǎ hǔ wēi', m:'借别人的势力吓唬人。'},
+  {t:'画龙点睛', p:'huà lóng diǎn jīng', m:'关键一笔使整体生动起来。'},
+  {t:'掩耳盗铃', p:'yǎn ěr dào líng', m:'自己骗自己。'},
+  {t:'刻舟求剑', p:'kè zhōu qiú jiàn', m:'拘泥成法，不知变通。'},
+  {t:'叶公好龙', p:'yè gōng hào lóng', m:'口头喜欢，实际并不真爱。'},
+  {t:'拔苗助长', p:'bá miáo zhù zhǎng', m:'违反规律急于求成反坏事。'},
+  {t:'自相矛盾', p:'zì xiāng máo dùn', m:'言行前后抵触，不能自圆其说。'},
+  {t:'滥竽充数', p:'làn yú chōng shù', m:'没有真才实学混在其中充数。'},
+  {t:'杯弓蛇影', p:'bēi gōng shé yǐng', m:'疑神疑鬼，妄自惊慌。'},
+  {t:'塞翁失马', p:'sài wēng shī mǎ', m:'得失祸福在一定条件下可以互相转化。'},
+  {t:'胸有成竹', p:'xiōng yǒu chéng zhú', m:'动手之前已有全面考虑。'},
+  {t:'水到渠成', p:'shuǐ dào qú chéng', m:'条件成熟，事情自然成功。'},
+  {t:'半途而废', p:'bàn tú ér fèi', m:'做事有始无终。'},
+  {t:'一鸣惊人', p:'yī míng jīng rén', m:'平时默默无闻，一干就有惊人成绩。'},
+  {t:'三心二意', p:'sān xīn èr yì', m:'犹豫不定，心思不专。'},
+  {t:'十全十美', p:'shí quán shí měi', m:'十分完美，毫无欠缺。'},
+  {t:'龙飞凤舞', p:'lóng fēi fèng wǔ', m:'气势奔放，书法笔势生动。'},
+  {t:'风和日丽', p:'fēng hé rì lì', m:'微风和煦，阳光明丽的好天气。'},
+  {t:'花好月圆', p:'huā hǎo yuè yuán', m:'美好圆满的生活。'},
+  {t:'水滴石穿', p:'shuǐ dī shí chuān', m:'坚持不懈，事情终能成功。'},
+  {t:'温故知新', p:'wēn gù zhī xīn', m:'复习旧的，获得新的体会。'},
+  {t:'量力而行', p:'liàng lì ér xíng', m:'按照自己能力的大小去做。'},
+  {t:'厚积薄发', p:'hòu jī bó fā', m:'长期积累，少量而精地释放出来。'},
+  {t:'集思广益', p:'jí sī guǎng yì', m:'集中大家的智慧，广泛吸收有益的意见。'}
+];
+
+const LANES = 4;
+const SPAWN_Z = 13;      // 字牌出现的最远距离
+const HIT_Z = 0.8;       // 判定接住的车头距离
+const DEAD_Z = -0.9;     // 放跑判定
+const BASE_SPEED = 5.5;  // 初始来牌速度（格/秒）
+const MAX_SPEED = 13;
+
+function createGame(cfg){
+  cfg = cfg || {};
+  const seed = Math.max(1, Math.min(99999, cfg.seed == null ? 7 : cfg.seed | 0));
+  const rng = mulberry32(seed);
+  const pool = [];
+  for (const it of IDIOMS) for (const ch of it.t) pool.push(ch);
+
+  function pickDistractors(answer, usedChars){
+    const out = [];
+    let guard = 0;
+    while (out.length < 3 && guard++ < 400){
+      const ch = pool[(rng() * pool.length) | 0];
+      if (ch === answer) continue;
+      if (out.indexOf(ch) >= 0) continue;
+      if (usedChars.indexOf(ch) >= 0 && rng() < .6) continue;
+      out.push(ch);
+    }
+    while (out.length < 3){ out.push(String.fromCharCode(0x4e00 + ((rng() * 2000) | 0))); if (out[out.length-1] === answer) out[out.length-1] = '的'; }
+    return out;
+  }
+
+  /* 一题 = 三块字牌占三条车道，第四条车道空着。
+   * 车开在哪条车道，就接到哪条车道的字：
+   *   接到正解 → 答对；接到错字 → 答错扣命；空车道 → 什么也没接到，正解开过去了（放跑）扣命。
+   * 于是「答对 / 答错 / 放跑」三种结果都真实可达，玩家也看得见哪条道是空的。 */
+  function makeQuestion(){
+    const item = IDIOMS[(rng() * IDIOMS.length) | 0];
+    const chars = Array.from(item.t);
+    const blankIdx = (rng() * 4) | 0;
+    const answer = chars[blankIdx];
+    const others = chars.filter((c, i) => i !== blankIdx);
+    const dis = pickDistractors(answer, others);
+    // 三条有牌的车道 + 一条空车道
+    const lanes = [0, 1, 2, 3];
+    for (let i = lanes.length - 1; i > 0; i--){
+      const j = (rng() * (i + 1)) | 0;
+      const t = lanes[i]; lanes[i] = lanes[j]; lanes[j] = t;
+    }
+    const emptyLane = lanes[3];
+    const signLanes = lanes.slice(0, 3);
+    // 三个字（正解 + 两个干扰）分配到三条车道
+    const charsOn = [answer, dis[0], dis[1]];
+    for (let i = charsOn.length - 1; i > 0; i--){
+      const j = (rng() * (i + 1)) | 0;
+      const t = charsOn[i]; charsOn[i] = charsOn[j]; charsOn[j] = t;
+    }
+    const tokens = signLanes.map((lane, i) => ({
+      ch: charsOn[i], lane, isAnswer: charsOn[i] === answer,
+      z: SPAWN_Z, done: false
+    }));
+    const answerToken = tokens.filter(t => t.isAnswer)[0];
+    return {
+      item, chars, blankIdx, answer, answerLane: answerToken.lane, emptyLane,
+      tokens, resolved: false, result: null
+    };
+  }
+
+  const S = {
+    seed, phase: 'menu', paused: false, t: 0, elapsed: 0,
+    score: 0, combo: 0, bestCombo: 0, lives: 3,
+    speed: BASE_SPEED, carLane: 1,
+    question: null, nextAt: 0.6,
+    stats: {correct: 0, wrong: 0, miss: 0, questions: 0},
+    events: [], demo: cfg.mode === 'demo', rng,
+    demoMistake: 0, demoNextT: 0
+  };
+
+  function resolve(q, token, kind){
+    q.resolved = true;
+    q.result = kind;
+    if (kind === 'correct'){
+      S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo);
+      const bonus = Math.min(100, (S.combo - 1) * 20);
+      S.score += 100 + bonus;
+      S.stats.correct++;
+      S.events.push({t: 'correct', idiom: q.item.t, p: q.item.p, m: q.item.m, blankIdx: q.blankIdx, combo: S.combo});
+    } else if (kind === 'wrong'){
+      S.lives--; S.combo = 0; S.stats.wrong++;
+      S.events.push({t: 'wrong', idiom: q.item.t, p: q.item.p, m: q.item.m, blankIdx: q.blankIdx, picked: token.ch, answer: q.answer});
+    } else {
+      S.lives--; S.combo = 0; S.stats.miss++;
+      S.events.push({t: 'miss', idiom: q.item.t, p: q.item.p, m: q.item.m, blankIdx: q.blankIdx, answer: q.answer});
+    }
+    S.nextAt = S.t + 1.15;
+    if (S.lives <= 0){ S.phase = 'over'; S.events.push({t: 'over', score: S.score}); }
+  }
+
+  /* 演示模式的车：默认开在正解车道；偶尔犹豫一下偏到别的车道，制造真实的失误节奏。 */
+  function demoDrive(q, dt){
+    if (S.demoMistake > 0){
+      S.demoMistake -= dt;
+      if (S.demoMistake > 0){
+        const others = q.tokens.filter(t => !t.isAnswer);
+        if (others.length) S.carLane = others[(rng() * others.length) | 0].lane;
+      }
+      else S.carLane = q.answerLane;   // 犹豫结束，回到正解车道
+    }
+    else {
+      S.carLane = q.answerLane;
+      if (S.t >= S.demoNextT){
+        S.demoNextT = S.t + 3.5;
+        if (rng() < 0.18){
+          const others = q.tokens.filter(t => !t.isAnswer);
+          if (others.length) S.carLane = others[(rng() * others.length) | 0].lane;
+          S.demoMistake = 1.1;
+        }
+      }
+    }
+  }
+
+  function step(dt){
+    if (S.paused || S.phase !== 'play') return;
+    S.t += dt; S.elapsed += dt;
+    S.speed = Math.min(MAX_SPEED, BASE_SPEED + S.score / 600);
+    if (!S.question){
+      if (S.t >= S.nextAt){
+        S.question = makeQuestion(); S.stats.questions++;
+        if (S.demo) demoDrive(S.question, dt);   // 新题一出现就选好车道
+      }
+      return;
+    }
+    const q = S.question;
+    if (S.demo && !q.resolved) demoDrive(q, dt);
+    for (const tk of q.tokens) if (!tk.done) tk.z -= S.speed * dt;
+    if (!q.resolved){
+      // 车头同车道，字牌进入判定区：接到什么算什么
+      let hit = null;
+      for (const tk of q.tokens){
+        if (tk.done || tk.lane !== S.carLane) continue;
+        if (tk.z <= HIT_Z && tk.z > DEAD_Z){ hit = tk; break; }
+      }
+      if (hit){ hit.done = true; resolve(q, hit, hit.ch === q.answer ? 'correct' : 'wrong'); }
+      else {
+        // 车停在空车道（或还没对上）：正解从车头开过去了 —— 判「放跑」
+        const ans = q.tokens.filter(t => t.isAnswer)[0];
+        if (ans && !ans.done && ans.z <= DEAD_Z){ ans.done = true; resolve(q, ans, 'miss'); }
+      }
+    }
+    if (q.resolved && q.tokens.every(tk => tk.done || tk.z <= DEAD_Z)) S.question = null;
+  }
+
+  return {
+    S,
+    setLane(n){ if (n >= 0 && n < LANES) S.carLane = n; },
+    shift(d){ const n = S.carLane + d; if (n >= 0 && n < LANES) S.carLane = n; },
+    pause(on){ if (S.phase === 'over') return; S.paused = on === undefined ? !S.paused : !!on; },
+    startMatch(o){
+      o = o || {};
+      if (o.mode) S.demo = o.mode === 'demo';
+      S.phase = 'play'; S.paused = false;
+      S.t = 0; S.elapsed = 0; S.score = 0; S.combo = 0; S.bestCombo = 0;
+      S.lives = o.lives || 3; S.speed = BASE_SPEED; S.carLane = 1;
+      S.question = null; S.nextAt = 0.6;
+      S.demoMistake = 0; S.demoNextT = 0;
+      S.stats = {correct: 0, wrong: 0, miss: 0, questions: 0};
+      S.events.length = 0;
+    },
+    reset(){ S.phase = 'menu'; S.paused = false; S.t = 0; S.elapsed = 0; S.score = 0; S.combo = 0;
+      S.lives = 3; S.question = null; S.events.length = 0; S.stats = {correct: 0, wrong: 0, miss: 0, questions: 0}; },
+    step
+  };
+}
+/* __CORE_END__
+ * ==========================================================================*/
+
+/* __UI_START__
+ * 渲染与交互层：把内核状态画成一条迎面而来的公路。
+ * ==========================================================================*/
+(function(){
+  const qs = new URLSearchParams((typeof location !== 'undefined' && location.search) || '');
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const els = {
+    menu: $('menuMask'), pause: $('pauseMask'), over: $('overMask'),
+    overTitle: $('overTitle'), overText: $('overText'), foot: $('foot'),
+    start: $('startBtn'), menuStart: $('menuStart'), overStart: $('overStart'),
+    pauseBtn: $('pauseBtn'), reset: $('resetBtn'), sound: $('soundBtn'),
+    voice: $('voiceBtn'), theme: $('themeBtn'), exportBtn: $('exportBtn'),
+    seed: $('seedInp'), popup: $('popup'), selftestBox: $('selftestBox'),
+    modeSingle: $('modeSingle'), modeDemo: $('modeDemo')
+  };
+
+  const CW = 960, CH = 640;
+  canvas.width = CW; canvas.height = CH;
+  const HORIZON_Y = 150, ROAD_L0 = 70, ROAD_R0 = 890, ROAD_L1 = 415, ROAD_R1 = 545;
+  const CAR_Y = 560;
+
+  const THEME = {
+    light: {sky1:'#cfe8ff', sky2:'#f2f8ee', hill:'#9fc79a', hill2:'#7fb57c',
+      road1:'#5d6a78', road2:'#505d6b', edge:'#f5f7fa', dash:'#ffd24d',
+      grass1:'#bfe3a8', grass2:'#a9d792', pole:'#8a6a44',
+      ink:'#22303f', muted:'#66788a', plate:'#ffffff', plateEdge:'#1f7ae0',
+      plateInk:'#22303f', car:'#e2452f', carTop:'#b52f1f', carWin:'#bfe3ff',
+      hud:'rgba(255,255,255,.88)', hudLine:'rgba(90,120,150,.3)',
+      good:'#2e9d5a', danger:'#d64541', sun:'#ffd24d', cloud:'rgba(255,255,255,.9)'},
+    dark: {sky1:'#0a1222', sky2:'#101a2c', hill:'#1c2b3a', hill2:'#16222f',
+      road1:'#2b3542', road2:'#242d38', edge:'#c9d6e4', dash:'#ffd24d',
+      grass1:'#141d16', grass2:'#101820', pole:'#5a4a34',
+      ink:'#e6edf5', muted:'#93a7b8', plate:'#16202a', plateEdge:'#4aa8ff',
+      plateInk:'#e6edf5', car:'#ff6f57', carTop:'#c94a34', carWin:'#8fd0ff',
+      hud:'rgba(16,22,28,.88)', hudLine:'rgba(150,180,205,.26)',
+      good:'#7fd6a4', danger:'#ff7a6e', sun:'#e8e4d8', cloud:'rgba(140,160,190,.25)'}
+  };
+
+  let theme = qs.get('theme') === 'dark' ? 'dark'
+    : (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  let soundOn = qs.get('sound') !== 'off';
+  let voiceOn = qs.get('voice') !== 'off';
+  let mode = qs.get('demo') === '1' || qs.get('mode') === 'demo' ? 'demo' : 'single';
+  const th = () => THEME[theme];
+
+  function setTheme(t){
+    theme = t;
+    if (document.documentElement && document.documentElement.dataset) document.documentElement.dataset.theme = t;
+    if (document.body && document.body.dataset) document.body.dataset.theme = t;
+    if (els.theme) els.theme.textContent = t === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  }
+  function setMode(m){
+    mode = m;
+    if (els.modeSingle) els.modeSingle.classList.toggle('primary', m === 'single');
+    if (els.modeDemo) els.modeDemo.classList.toggle('primary', m === 'demo');
+  }
+
+  let game = null;
+  function makeGame(seed, demoMode){
+    const g = createGame({seed, mode: demoMode ? 'demo' : 'single'});
+    return g;
+  }
+  game = makeGame(parseInt(qs.get('seed') || '7', 10) || 7, mode === 'demo');
+  window.__game = game;
+
+  /* ---------- 声音：WebAudio 音效 + 语音朗读成语 ---------- */
+  let AC = null;
+  function initAudio(){
+    if (AC || !soundOn) return;
+    const W = (typeof window !== 'undefined') ? window : {};
+    const Ctor = W.AudioContext || W.webkitAudioContext;
+    if (!Ctor) return;
+    try{ AC = new Ctor(); }catch(e){ AC = null; }
+  }
+  function tone(freq, dur, type, gain, slide){
+    if (!AC || !soundOn) return;
+    try{
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), AC.currentTime + dur);
+      g.gain.value = gain || .15;
+      g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + dur);
+      o.connect(g); g.connect(AC.destination);
+      o.start(); o.stop(AC.currentTime + dur + .02);
+    }catch(e){}
+  }
+  function speak(text){
+    if (!voiceOn || !soundOn) return;
+    try{
+      const W = (typeof window !== 'undefined') ? window : {};
+      if (!W.speechSynthesis || !W.SpeechSynthesisUtterance) return;
+      W.speechSynthesis.cancel();
+      const u = new W.SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN'; u.rate = .9; u.pitch = 1.05;
+      W.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  const sfx = {
+    correct(){ tone(660, .12, 'triangle', .16, 240); setTimeout(() => tone(880, .14, 'triangle', .14, 180), 90); },
+    wrong(){ tone(200, .3, 'sawtooth', .2, -120); },
+    miss(){ tone(320, .18, 'sine', .14, -160); },
+    over(){ tone(240, .5, 'sawtooth', .18, -160); }
+  };
+
+  /* ---------- 几何：把 (lane, z) 投到屏幕 ---------- */
+  function persp(z){ // z: SPAWN_Z(远) → 0(车头)。返回 0..1 的进度 k
+    const k = 1 - Math.max(-0.5, Math.min(SPAWN_Z, z)) / SPAWN_Z;
+    return k;
+  }
+  function depth(k){ return 0.12 + 0.88 * Math.pow(k, 2.4); }
+  function laneX(lane, k){
+    const d = depth(k);
+    const L = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d);
+    const R = ROAD_R1 + (ROAD_R0 - ROAD_R1) * (1 - d);
+    return L + (lane + .5) * (R - L) / LANES;
+  }
+  function roadY(k){ return HORIZON_Y + (CAR_Y - HORIZON_Y) * Math.pow(k, 2.2); }
+
+  /* ---------- 绘制 ---------- */
+  function drawSky(k0){
+    const c = th();
+    const g = ctx.createLinearGradient(0, 0, 0, HORIZON_Y + 40);
+    g.addColorStop(0, c.sky1); g.addColorStop(1, c.sky2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, CW, HORIZON_Y + 40);
+    ctx.fillStyle = c.sun;
+    ctx.beginPath(); ctx.arc(CW - 130, 78, 34, 0, 7); ctx.fill();
+    ctx.fillStyle = c.cloud;
+    for (let i = 0; i < 3; i++){
+      const cx = ((i * 331 + 120 - k0 * 8) % (CW + 200)) - 100, cy = 60 + i * 26;
+      ctx.beginPath(); ctx.ellipse(cx, cy, 52, 13, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + 30, cy - 6, 30, 10, 0, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = c.hill;
+    ctx.beginPath(); ctx.moveTo(0, HORIZON_Y + 6);
+    for (let x = 0; x <= CW; x += 40) ctx.lineTo(x, HORIZON_Y + 6 - 26 * Math.abs(Math.sin(x * .006 + 1.7)));
+    ctx.lineTo(CW, HORIZON_Y + 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c.hill2;
+    ctx.beginPath(); ctx.moveTo(0, HORIZON_Y + 8);
+    for (let x = 0; x <= CW; x += 40) ctx.lineTo(x, HORIZON_Y + 8 - 16 * Math.abs(Math.sin(x * .009 + .4)));
+    ctx.lineTo(CW, HORIZON_Y + 8); ctx.closePath(); ctx.fill();
+  }
+  function drawRoad(){
+    const c = th();
+    ctx.fillStyle = c.grass1; ctx.fillRect(0, HORIZON_Y, CW, CH - HORIZON_Y);
+    const g = ctx.createLinearGradient(0, HORIZON_Y, 0, CH);
+    g.addColorStop(0, c.grass2); g.addColorStop(1, c.grass1);
+    ctx.fillStyle = g; ctx.fillRect(0, HORIZON_Y, CW, CH - HORIZON_Y);
+    // 路面
+    ctx.fillStyle = c.road1;
+    ctx.beginPath();
+    ctx.moveTo(ROAD_L1, HORIZON_Y); ctx.lineTo(ROAD_R1, HORIZON_Y);
+    ctx.lineTo(ROAD_R0, CH); ctx.lineTo(ROAD_L0, CH); ctx.closePath(); ctx.fill();
+    // 路肩
+    ctx.strokeStyle = c.edge; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(ROAD_L1, HORIZON_Y); ctx.lineTo(ROAD_L0, CH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ROAD_R1, HORIZON_Y); ctx.lineTo(ROAD_R0, CH); ctx.stroke();
+    // 车道虚线：滚动相位
+    const scroll = (game.S.t * game.S.speed) % 1.6;
+    ctx.strokeStyle = c.dash; ctx.lineCap = 'butt';
+    for (let li = 1; li < LANES; li++){
+      for (let seg = 0; seg < 12; seg++){
+        const z0 = SPAWN_Z - (seg * 1.6 + scroll), z1 = z0 - .8;
+        if (z1 > SPAWN_Z) continue;
+        if (z0 < -1) break;
+        const k0 = persp(Math.min(z0, SPAWN_Z)), k1 = persp(Math.max(z1, -0.5));
+        const x0 = laneX(li - .5, k0) + (laneX(li + .5, k0) - laneX(li - .5, k0)) / 2;
+        const x1 = laneX(li - .5, k1) + (laneX(li + .5, k1) - laneX(li - .5, k1)) / 2;
+        // 更精确：车道边界在 lane 索引 li 的左边界
+        const bx0 = interpLane(li, k0), bx1 = interpLane(li, k1);
+        ctx.lineWidth = Math.max(1.4, 7 * depth(k0));
+        ctx.beginPath(); ctx.moveTo(bx0, roadY(k0)); ctx.lineTo(bx1, roadY(k1)); ctx.stroke();
+      }
+    }
+    // 电线杆
+    ctx.strokeStyle = c.pole;
+    for (let p = 0; p < 6; p++){
+      const z = SPAWN_Z - ((p * 2.4 + (game.S.t * game.S.speed * .8) % 2.4));
+      if (z < 0) continue;
+      const k = persp(z), d = depth(k);
+      const y = roadY(k), x = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d) - 18 * (1 - d) - 4;
+      ctx.lineWidth = Math.max(1.5, 5 * d);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 120 * d); ctx.stroke();
+    }
+  }
+  function interpLane(boundary, k){
+    const d = depth(k);
+    const L = ROAD_L1 + (ROAD_L0 - ROAD_L1) * (1 - d);
+    const R = ROAD_R1 + (ROAD_R0 - ROAD_R1) * (1 - d);
+    return L + boundary * (R - L) / LANES;
+  }
+  function drawToken(tk){
+    const c = th();
+    if (tk.done) return;
+    const k = persp(tk.z); if (k < 0.02) return;
+    const d = depth(k);
+    const x = laneX(tk.lane, k), y = roadY(k) - 56 * d;
+    const w = 74 * d + 14, h = 66 * d + 12;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, .25 + k);
+    // 支架
+    ctx.strokeStyle = c.pole; ctx.lineWidth = Math.max(1.5, 5 * d);
+    ctx.beginPath(); ctx.moveTo(x, y + h / 2); ctx.lineTo(x, roadY(k)); ctx.stroke();
+    // 牌
+    roundRect(x - w / 2, y - h / 2, w, h, 8 * d + 3);
+    ctx.fillStyle = tk.ch === game.S.question.answer && game.S.question.resolved && game.S.question.result === 'correct' ? c.good : c.plate;
+    ctx.fill();
+    ctx.strokeStyle = c.plateEdge; ctx.lineWidth = Math.max(1, 3 * d); ctx.stroke();
+    ctx.fillStyle = (tk.ch === game.S.question.answer && game.S.question.resolved && game.S.question.result === 'correct') ? '#fff' : c.plateInk;
+    ctx.font = '800 ' + Math.round(30 * d + 10) + 'px "PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(tk.ch, x, y + 2);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+  function roundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function drawCar(){
+    const c = th();
+    const S = game.S;
+    const x = laneX(S.carLane, 1), y = CAR_Y;
+    const w = 96, h = 62;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.ellipse(0, h * .52, w * .58, 10, 0, 0, 7); ctx.fill();
+    // 车身
+    ctx.fillStyle = c.car; roundRect(-w / 2, -h / 2, w, h, 12); ctx.fill();
+    ctx.fillStyle = c.carTop; roundRect(-w / 2 + 8, -h / 2 + 6, w - 16, h * .34, 8); ctx.fill();
+    ctx.fillStyle = c.carWin; roundRect(-w / 2 + 14, -h / 2 + 10, w - 28, h * .2, 6); ctx.fill();
+    // 尾灯
+    ctx.fillStyle = '#ffd24d';
+    ctx.fillRect(-w / 2 + 6, h / 2 - 8, 14, 5); ctx.fillRect(w / 2 - 20, h / 2 - 8, 14, 5);
+    // 轮
+    ctx.fillStyle = '#1a1f26';
+    roundRect(-w / 2 - 6, -h / 2 + 8, 8, 18, 3); ctx.fill();
+    roundRect(w / 2 - 2, -h / 2 + 8, 8, 18, 3); ctx.fill();
+    roundRect(-w / 2 - 6, h / 2 - 26, 8, 18, 3); ctx.fill();
+    roundRect(w / 2 - 2, h / 2 - 26, 8, 18, 3); ctx.fill();
+    ctx.restore();
+  }
+  function drawQuestionBanner(){
+    const c = th(), S = game.S;
+    if (!S.question) return;
+    const q = S.question;
+    ctx.save();
+    ctx.fillStyle = c.hud;
+    roundRect(CW / 2 - 190, 12, 380, 46, 12); ctx.fill();
+    ctx.strokeStyle = c.hudLine; ctx.lineWidth = 1; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '800 26px "PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+    const letters = q.chars.map((ch, i) => i === q.blankIdx ? '□' : ch);
+    let total = 0; const widths = [];
+    for (const ch of letters){ const w = ctx.measureText(ch).width; widths.push(w); total += w + 10; }
+    let x = CW / 2 - total / 2 + 5;
+    for (let i = 0; i < 4; i++){
+      ctx.fillStyle = i === q.blankIdx ? c.plateEdge : c.ink;
+      ctx.fillText(letters[i], x + widths[i] / 2, 36);
+      x += widths[i] + 10;
+    }
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+  function drawHud(){
+    const c = th(), S = game.S;
+    ctx.save();
+    ctx.fillStyle = c.hud;
+    roundRect(14, 12, 300, 46, 12); ctx.fill();
+    ctx.strokeStyle = c.hudLine; ctx.stroke();
+    roundRect(CW - 314, 12, 300, 46, 12); ctx.fill();
+    ctx.strokeStyle = c.hudLine; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = c.ink;
+    ctx.font = '800 19px system-ui,"Segoe UI",sans-serif';
+    ctx.fillText('得分 ' + S.score, 30, 35);
+    ctx.font = '14px system-ui,sans-serif';
+    ctx.fillStyle = c.muted;
+    ctx.fillText('⏱ ' + S.elapsed.toFixed(1) + 's · ' + (S.speed).toFixed(1) + ' 格/s', 130, 35);
+    ctx.textAlign = 'right';
+    ctx.font = '15px system-ui,sans-serif';
+    ctx.fillStyle = c.muted;
+    ctx.fillText('对 ' + S.stats.correct + ' · 错 ' + S.stats.wrong + ' · 漏 ' + S.stats.miss, CW - 30, 27);
+    ctx.font = '17px system-ui,sans-serif';
+    let hearts = '';
+    for (let i = 0; i < 3; i++) hearts += i < S.lives ? '❤' : '♡';
+    ctx.fillStyle = c.danger;
+    ctx.fillText(hearts + (S.combo >= 2 ? '  连击 ×' + S.combo : ''), CW - 30, 45);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+
+  /* ---------- 弹出成语 ---------- */
+  let popupTimer = 0;
+  function showPopup(ev, okKind){
+    const box = els.popup;
+    if (!box) return;
+    const tag = box.querySelector('.tag'), ci = box.querySelector('.ci'),
+      py = box.querySelector('.py'), mean = box.querySelector('.mean');
+    if (tag){ tag.className = 'tag ' + (okKind ? 'ok' : 'no'); tag.textContent = okKind ? '成语完成' : (ev.t === 'wrong' ? '接错了' : '放跑了'); }
+    if (ci){
+      ci.innerHTML = '';
+      if (ci.replaceChildren) ci.replaceChildren();   // 清掉上一条成语留下的节点
+      const chars = Array.from(ev.idiom);
+      chars.forEach((ch, i) => {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        if (okKind && i === ev.blankIdx) s.className = 'fill';
+        if (!okKind && i === ev.blankIdx) s.className = 'fill';
+        ci.appendChild(s);
+      });
+    }
+    if (py) py.textContent = ev.p + (ev.t === 'wrong' ? ' · 你接的是「' + ev.picked + '」，正解「' + ev.answer + '」' : (ev.t === 'miss' ? ' · 正解「' + ev.answer + '」' : ''));
+    if (mean) mean.textContent = ev.m;
+    box.classList.add('show');
+    popupTimer = okKind ? 2.6 : 3.2;
+  }
+
+  /* ---------- 事件 ---------- */
+  function drainEvents(){
+    const S = game.S;
+    while (S.events.length){
+      const ev = S.events.shift();
+      if (ev.t === 'correct'){ sfx.correct(); speak(ev.idiom); showPopup(ev, true); }
+      else if (ev.t === 'wrong'){ sfx.wrong(); speak(ev.idiom); showPopup(ev, false); }
+      else if (ev.t === 'miss'){ sfx.miss(); showPopup(ev, false); }
+      else if (ev.t === 'over'){ sfx.over(); }
+    }
+  }
+
+  /* ---------- 状态 -> DOM ---------- */
+  function syncDom(dt){
+    const S = game.S;
+    if (els.menu) els.menu.classList.toggle('show', S.phase === 'menu');
+    if (els.pause) els.pause.classList.toggle('show', S.paused && S.phase === 'play');
+    const over = S.phase === 'over';
+    if (els.over) els.over.classList.toggle('show', over);
+    if (over){
+      if (els.overTitle) els.overTitle.textContent = '🏁 到站了';
+      if (els.overText) els.overText.textContent = '得分 ' + S.score + ' · 答对 ' + S.stats.correct +
+        ' 条成语 · 最高连击 ×' + S.bestCombo + ' · 用时 ' + S.elapsed.toFixed(1) + 's';
+      try{
+        const store = (typeof window !== 'undefined' && window.localStorage) || null;
+        if (store){
+          const best = Number(store.getItem('idiom-drive-best') || 0);
+          if (S.score > best) store.setItem('idiom-drive-best', String(S.score));
+        }
+      }catch(e){}
+    }
+    if (popupTimer > 0){
+      popupTimer -= (dt || 0);
+      if (popupTimer <= 0 && els.popup) els.popup.classList.remove('show');
+    }
+    if (els.foot){
+      els.foot.textContent = '题库 ' + IDIOMS.length + ' 条成语 · 四车道 · 来牌速度 ' + S.speed.toFixed(1) +
+        ' 格/s（每 600 分 +1）· 答对弹出成语并语音朗读 · 题序 #' + S.seed + ' · ' + (mode === 'demo' ? 'AI 演示' : '开车答题');
+    }
+  }
+
+  /* ---------- 主循环 ---------- */
+  const freeze = qs.get('freeze') === '1';
+  const motionOn = qs.get('motion') !== 'off';
+  let last = 0;
+  function loop(ts){
+    if (!last) last = ts;
+    const dt = Math.min(.05, (ts - last) / 1000);
+    last = ts;
+    if (motionOn){ game.step(dt); drainEvents(); }
+    render();
+    syncDom(dt);
+    if (!freeze) requestAnimationFrame(loop);
+  }
+  function render(){
+    const c = th();
+    drawSky(game.S.t);
+    drawRoad();
+    if (game.S.question){
+      const toks = game.S.question.tokens.slice().sort((a, b) => a.z - b.z);
+      for (const tk of toks) drawToken(tk);
+    }
+    drawCar();
+    drawQuestionBanner();
+    drawHud();
+  }
+
+  /* ---------- 输入 ---------- */
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A' || e.code === 'KeyA'){ game.shift(-1); if (e.preventDefault) e.preventDefault(); return; }
+    if (k === 'ArrowRight' || k === 'd' || k === 'D' || e.code === 'KeyD'){ game.shift(1); if (e.preventDefault) e.preventDefault(); return; }
+    if (k === ' ' || k === 'p' || k === 'P'){ game.pause(); if (e.preventDefault) e.preventDefault(); }
+    else if (k === 'r' || k === 'R'){ startGame(); }
+    else if (k === 't' || k === 'T'){ setTheme(theme === 'dark' ? 'light' : 'dark'); }
+    else if (k === 'm' || k === 'M'){ toggleSound(); }
+    else if (k === 'v' || k === 'V'){ toggleVoice(); }
+    else if (k === 'e' || k === 'E'){ savePNG(); }
+  });
+  let touchX = null;
+  canvas.addEventListener('pointerdown', (e) => { touchX = [e.clientX, e.pointerType]; });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!touchX) return;
+    const dx = e.clientX - touchX[0];
+    if (Math.abs(dx) > 40){ game.shift(dx > 0 ? 1 : -1); touchX = [e.clientX, touchX[1]]; }
+  });
+  document.addEventListener('pointerup', () => { touchX = null; });
+  canvas.addEventListener('click', (e) => {
+    if (e.pointerType === 'mouse'){
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width * CW;
+      for (let li = 0; li < LANES; li++){
+        const b0 = interpLane(li, 1), b1 = interpLane(li + 1, 1);
+        if (x >= b0 && x <= b1){ game.setLane(li); break; }
+      }
+    }
+  });
+
+  function startGame(){
+    const seed = Math.max(1, Math.min(99999, parseInt(els.seed && els.seed.value, 10) || game.S.seed));
+    game = makeGame(seed, mode === 'demo');
+    window.__game = game;
+    game.startMatch({mode: mode === 'demo' ? 'demo' : 'single'});
+    initAudio();
+    syncDom(0);
+  }
+  function toggleSound(){
+    soundOn = !soundOn;
+    if (els.sound) els.sound.textContent = soundOn ? '🔊 声音' : '🔇 静音';
+    if (els.voice) els.voice.textContent = voiceOn ? (soundOn ? '🗣 朗读' : '🗣 朗读(关)') : '🗣 朗读(关)';
+  }
+  function toggleVoice(){
+    voiceOn = !voiceOn;
+    if (els.voice) els.voice.textContent = voiceOn ? '🗣 朗读' : '🗣 朗读(关)';
+  }
+  function savePNG(){
+    try{
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url; a.download = 'idiom-drive-' + game.S.seed + '.png';
+      a.click();
+    }catch(e){}
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn) return;
+    if (btn === els.modeSingle){ setMode('single'); }
+    else if (btn === els.modeDemo){ setMode('demo'); }
+    else if (btn === els.start || btn === els.menuStart || btn === els.overStart){ startGame(); }
+    else if (btn === els.pauseBtn){ game.pause(); }
+    else if (btn === els.reset){ game.reset(); syncDom(0); }
+    else if (btn === els.sound){ toggleSound(); }
+    else if (btn === els.voice){ toggleVoice(); }
+    else if (btn === els.theme){ setTheme(theme === 'dark' ? 'light' : 'dark'); }
+    else if (btn === els.exportBtn){ savePNG(); }
+  });
+
+  /* ---------- 初始化 ---------- */
+  setTheme(theme);
+  setMode(mode);
+  if (!soundOn && els.sound) els.sound.textContent = '🔇 静音';
+  if (!voiceOn && els.voice) els.voice.textContent = '🗣 朗读(关)';
+  if (els.seed) els.seed.value = game.S.seed;
+
+  if (qs.get('auto') === '1'){
+    game.startMatch({mode: mode === 'demo' ? 'demo' : 'single'});
+    const ff = parseFloat(qs.get('ff') || '0') || 0;
+    if (ff > 0){ let left = ff; while (left > 1e-6){ const s = Math.min(1 / 60, left); game.step(s); left -= s; } drainEvents(); }
+    if (qs.get('pause') === '1') game.pause(true);
+  }
+  syncDom(0);
+  requestAnimationFrame(loop);
+
+  window.driving = {
+    state(){
+      const S = game.S;
+      return {phase: S.phase, paused: S.paused, score: S.score, combo: S.combo, lives: S.lives,
+        elapsed: S.elapsed, speed: S.speed, carLane: S.carLane, seed: S.seed, demo: S.demo,
+        stats: JSON.parse(JSON.stringify(S.stats)),
+        question: S.question ? {idiom: S.question.item.t, blankIdx: S.question.blankIdx,
+          answer: S.question.answer, answerLane: S.question.answerLane,
+          tokens: S.question.tokens.map(t => ({ch: t.ch, lane: t.lane, z: Math.round(t.z * 100) / 100, done: t.done}))} : null};
+    },
+    ff(sec){ let left = sec; while (left > 1e-6){ const s = Math.min(1 / 60, left); game.step(s); left -= s; } drainEvents(); },
+    go(t){ game.S.t = t; render(); },
+    setLane(n){ game.setLane(n); },
+    savePNG, runSelftest
+  };
+
+  /* ---------- 页内自检 ---------- */
+  function runSelftest(){
+    const out = [];
+    const push = (name, pass, info) => out.push({name, pass: !!pass, info: info == null ? '' : String(info)});
+    try{
+      push('题库齐备', IDIOMS.length >= 24 && IDIOMS.every(x => Array.from(x.t).length === 4 && x.p && x.m), IDIOMS.length + ' 条');
+      const g1 = createGame({seed: 900}), g2 = createGame({seed: 900}), g3 = createGame({seed: 901});
+      g1.startMatch({}); g2.startMatch({}); g3.startMatch({});
+      const q1 = [], q2 = [], q3 = [];
+      for (let i = 0; i < 4000; i++){
+        g1.step(1/60);
+        if (g1.S.question && q1.length < 5 && !q1.includes(g1.S.question.item.t)) q1.push(g1.S.question.item.t);
+        g2.step(1/60);
+        if (g2.S.question && q2.length < 5 && !q2.includes(g2.S.question.item.t)) q2.push(g2.S.question.item.t);
+        g3.step(1/60);
+        if (g3.S.question && q3.length < 5 && !q3.includes(g3.S.question.item.t)) q3.push(g3.S.question.item.t);
+      }
+      push('同题序题目一致', q1.length > 0 && q1.join('|') === q2.join('|'), q1.length + ' 条');
+      push('换题序题目改变', q1.join('|') !== q3.join('|'));
+      const g = createGame({seed: 7}); g.startMatch({});
+      // 走到第一题
+      for (let i = 0; i < 200 && !g.S.question; i++) g.step(1/60);
+      const q = g.S.question;
+      push('第一题已出题', !!q && q.tokens.length === 3);
+      const ansTok = q && q.tokens.filter(t => t.isAnswer)[0];
+      push('答案恰在一个车道', !!ansTok && ansTok.lane === q.answerLane && q.tokens.filter(t => t.ch === q.answer).length === 1);
+      push('有一车道是空的', !!q && q.emptyLane >= 0 && !q.tokens.some(t => t.lane === q.emptyLane));
+      push('三字互不重复', q && new Set(q.tokens.map(t => t.ch)).size === 3);
+      // 接对
+      if (q){
+        g.setLane(q.answerLane);
+        let sawCorrect = false;
+        for (let i = 0; i < 900 && !sawCorrect; i++){ g.step(1/60); while (g.S.events.length){ const ev = g.S.events.shift(); if (ev.t === 'correct') sawCorrect = true; } }
+        push('接对得分+100', sawCorrect && g.S.score >= 100 && g.S.stats.correct === 1, 'score=' + g.S.score);
+        push('弹出数据完整', sawCorrect && g.S.stats.questions >= 1);
+      }
+      // 接错扣命：开到挂着别的字的车道
+      const g4 = createGame({seed: 7}); g4.startMatch({});
+      for (let i = 0; i < 400 && !g4.S.question; i++) g4.step(1/60);
+      const q4 = g4.S.question;
+      if (q4){
+        const wrongTok = q4.tokens.filter(t => !t.isAnswer)[0];
+        g4.setLane(wrongTok.lane);
+        let sawWrong = false, lives0 = g4.S.lives;
+        for (let i = 0; i < 900 && !sawWrong; i++){ g4.step(1/60); while (g4.S.events.length){ const ev = g4.S.events.shift(); if (ev.t === 'wrong'){ sawWrong = true; } } }
+        push('接错扣一条命', sawWrong && g4.S.lives === lives0 - 1, 'lives ' + lives0 + '->' + g4.S.lives);
+      }
+      // 放跑扣命：停在空车道，正解直接开过去
+      const g5 = createGame({seed: 7}); g5.startMatch({});
+      for (let i = 0; i < 400 && !g5.S.question; i++) g5.step(1/60);
+      const q5 = g5.S.question;
+      if (q5){
+        g5.setLane(q5.emptyLane);
+        let sawMiss = false;
+        for (let i = 0; i < 1800 && !sawMiss; i++){ g5.step(1/60); while (g5.S.events.length){ const ev = g5.S.events.shift(); if (ev.t === 'miss') sawMiss = true; } }
+        push('放跑扣一条命', sawMiss, '');
+      }
+      // 三条命用完即结束
+      const g6 = createGame({seed: 7}); g6.startMatch({lives: 3});
+      let guard = 0;
+      while (g6.S.phase === 'play' && guard++ < 60 * 300){ g6.step(1/60); while (g6.S.events.length) g6.S.events.shift(); }
+      push('命用完一局结束', g6.S.phase === 'over' && g6.S.lives === 0, 'score=' + g6.S.score);
+      // 暂停冻结
+      const g7 = createGame({seed: 7}); g7.startMatch({});
+      g7.pause(true);
+      const e7 = g7.S.elapsed;
+      for (let i = 0; i < 60; i++) g7.step(1/60);
+      push('暂停冻结时间', g7.S.elapsed === e7);
+      g7.pause(false);
+      // AI 演示能连续答对
+      const g8 = createGame({seed: 7, mode: 'demo'}); g8.startMatch({mode: 'demo'});
+      for (let i = 0; i < 60 * 40; i++){ g8.step(1/60); while (g8.S.events.length) g8.S.events.shift(); }
+      push('AI 演示能答对', g8.S.stats.correct >= 3, 'correct=' + g8.S.stats.correct + ' score=' + g8.S.score);
+      push('速度随得分上升', g8.S.speed > BASE_SPEED || g8.S.score === 0, g8.S.speed.toFixed(1));
+      push('API 暴露', !!(window.driving && window.driving.state && window.driving.savePNG));
+      const ids = ['scene', 'menuMask', 'pauseMask', 'overMask', 'startBtn', 'pauseBtn', 'resetBtn', 'soundBtn', 'voiceBtn', 'themeBtn', 'exportBtn', 'seedInp', 'foot', 'popup'];
+      push('控件齐备', ids.every(i => !!document.getElementById(i)));
+      push('弹层含拼音与释义', !!(els.popup && els.popup.querySelector('.py') && els.popup.querySelector('.mean')));
+      push('HUD 无 NaN', !/NaN|undefined/.test(String(game.S.score) + String(game.S.elapsed)), game.S.score + '/' + game.S.elapsed.toFixed(1));
+      try{
+        render();
+        const img = ctx.getImageData(0, 0, CW, CH).data;
+        let colors = new Set(), painted = 0;
+        for (let p = 0; p < img.length; p += 4 * 97){
+          colors.add((img[p] >> 4) + ',' + (img[p + 1] >> 4) + ',' + (img[p + 2] >> 4));
+          if (img[p] > 8 || img[p + 1] > 8) painted++;
+        }
+        push('画布有内容', colors.size >= 8 && painted > 50, 'colors=' + colors.size);
+        push('可导出 PNG', (canvas.toDataURL('image/png') || '').slice(0, 22).includes('data:'));
+      }catch(err){ push('画布有内容', false, String(err && err.message)); }
+      const wide = (typeof document.documentElement !== 'undefined' && typeof window !== 'undefined' && document.documentElement.scrollWidth > window.innerWidth + 2);
+      push('无横向溢出', !wide);
+    }catch(err){
+      push('自检无异常', false, String(err && err.stack ? err.stack.split('\n')[0] : err));
+    }
+    const box = els.selftestBox;
+    if (box){
+      box.hidden = false;
+      const fails = out.filter(r => !r.pass);
+      box.innerHTML = '<b>自检 ' + (out.length - fails.length) + '/' + out.length + ' 通过</b>' +
+        out.map(r => '<div class="' + (r.pass ? 'good' : 'bad') + '">' + (r.pass ? '✔' : '✘') + ' ' + r.name + (r.info ? ' <span>' + r.info + '</span>' : '') + '</div>').join('');
+    }
+    return out;
+  }
+  if (qs.get('selftest') === '1') runSelftest();
+})();
+/* __UI_END__ */
+</script>
+</body>
+</html>
