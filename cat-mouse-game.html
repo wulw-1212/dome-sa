@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="猫和老鼠迷宫大作战：在随机生成的迷宫里偷光所有奶酪，躲开追来的猫。单文件 HTML，离线可玩。">
+<title>猫和老鼠迷宫大作战 · Cat &amp; Mouse Maze</title>
+<style>
+:root{
+  --ink:#33261c; --paper:#f7efe2; --card:#fffaf0; --accent:#d9822b; --accent-ink:#fff;
+  --muted:#8a7a6b; --line:rgba(120,95,70,.28); --panel:rgba(255,250,240,.9);
+  --wall:#c8a06a; --shadow:0 14px 34px rgba(80,55,30,.18); --danger:#d64541; --good:#3d8b5f;
+}
+[data-theme="dark"]{
+  --ink:#efe6d8; --paper:#17120d; --card:#221a13; --accent:#e69a3c; --accent-ink:#20160b;
+  --muted:#a4937f; --line:rgba(220,190,150,.22); --panel:rgba(24,18,12,.92);
+  --wall:#6d5233; --shadow:0 18px 46px rgba(0,0,0,.5); --danger:#ff7a6e; --good:#7fd6a4;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Segoe UI",system-ui,sans-serif;
+  background:radial-gradient(1100px 640px at 70% -10%,var(--paper),var(--bg2,#efe4d2) 70%);
+  color:var(--ink); padding:18px 16px 30px; min-height:100vh; transition:background .35s,color .35s;
+}
+[data-theme="dark"] body{background:radial-gradient(1100px 640px at 70% -10%,#241b12,#120d08 70%)}
+.wrap{max-width:1000px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font-size:clamp(20px,3.2vw,32px);letter-spacing:.02em}
+h1 .dot{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:72ch}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;
+  font-size:13px;padding:7px 13px;border-radius:999px;cursor:pointer;
+}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button:active{transform:translateY(1px)}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{border:none;background:transparent;padding:5px 12px;border-radius:999px;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--paper);font-weight:700}
+label.seed{font-size:13px;color:var(--muted)}
+input#seedInp{width:5.5em;font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.stage{position:relative;margin-top:14px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0d0a07;box-shadow:var(--shadow)}
+#scene{display:block;width:100%;height:auto}
+.mask{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:18px;background:rgba(20,12,6,.55);backdrop-filter:blur(3px)}
+.mask.show{display:grid}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 26px;max-width:34em}
+.card h2{margin:0 0 .4em;font-size:1.5em}
+.card p{margin:.45em 0;color:var(--muted);font-size:.95em;line-height:1.7}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:.25em .9em;margin:1em 0;text-align:left;font-size:.95em}
+.keys b{color:var(--accent);font-family:ui-monospace,Consolas,monospace}
+#foot{margin-top:12px;color:var(--muted);font-size:12.5px;line-height:1.7}
+#selftestBox{margin-top:14px;text-align:left;font-size:12.5px;line-height:1.8;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;color:var(--ink)}
+#selftestBox .bad{color:var(--danger);font-weight:700}
+#selftestBox .good{color:var(--good)}
+</style>
+</head>
+<body data-theme="light">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🐱 猫和老鼠迷宫大作战 <span class="dot">·</span> 🐭 Cat &amp; Mouse Maze</h1>
+      <p class="sub">在随机生成的迷宫里偷光所有奶酪 🧀，别让猫抓住。拿一株猫薄荷 🌿 可以让猫打盹变慢。
+      纯单文件、零依赖、可离线，双击即玩。</p>
+    </div>
+    <div class="btns">
+      <span class="seg" id="modeSeg">
+        <button id="modeSingle" data-mode="single" class="on">单人对猫</button>
+        <button id="modeDemo" data-mode="demo">AI 表演赛</button>
+      </span>
+      <span class="seg" id="diffSeg">
+        <button data-diff="easy">轻松</button>
+        <button data-diff="normal" class="on">正常</button>
+        <button data-diff="hard">惊险</button>
+      </span>
+      <label class="seed">迷宫 <input id="seedInp" type="number" min="1" max="99999" value="7"></label>
+      <button id="startBtn" class="primary">开始游戏</button>
+      <button id="pauseBtn">暂停</button>
+      <button id="resetBtn">重来</button>
+      <button id="soundBtn">🔊 音效</button>
+      <button id="themeBtn">🌙 深色</button>
+      <button id="exportBtn">💾 存图</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="scene" width="960" height="640" aria-label="猫和老鼠迷宫画面"></canvas>
+    <div class="mask show" id="menuMask">
+      <div class="card">
+        <h2>🐭 偷光奶酪，别被抓</h2>
+        <p>方向键 / <kbd>WASD</kbd> 移动，触屏可滑动。地图是一张随机迷宫：每次「重来」按迷宫编号重新生成。</p>
+        <div class="keys">
+          <b>← → ↑ ↓ / WASD</b><span>跑动</span>
+          <b>空格 / P</b><span>暂停 · 继续</span>
+          <b>R</b><span>重来一局</span>
+          <b>M · T · E</b><span>静音 · 深色 · 存图</span>
+        </div>
+        <button id="menuStart" class="primary">开始游戏</button>
+      </div>
+    </div>
+    <div class="mask" id="pauseMask"><div class="card"><h2>已暂停</h2><p>按 空格 / P 继续。</p></div></div>
+    <div class="mask" id="overMask">
+      <div class="card">
+        <h2 id="overTitle">时间到</h2>
+        <p id="overText"></p>
+        <button id="overStart" class="primary">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="foot"></p>
+  <div id="msg" hidden></div>
+  <div id="selftestBox" hidden></div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+ * __CORE_START__
+ * 规则与迷宫内核：只用标准数学、不访问 DOM，可被抽到 Node 里直接单测。
+ * ==========================================================================*/
+function mulberry32(seed){
+  let a = (seed >>> 0) || 0x9e3779b9;
+  return function(){
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DIRS = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+const BIT = {1:1, 2:2, 4:4, 8:8};
+const OPP = {1:4, 2:8, 4:1, 8:2};
+const DIFF_NAMES = {easy:'轻松', normal:'正常', hard:'惊险'};
+
+function makeMaze(W, H, rng, braidP){
+  const walls = new Uint8Array(W * H).fill(15);
+  const visited = new Uint8Array(W * H);
+  const idx = (x, y) => y * W + x;
+  const stack = [idx(0, 0)];
+  visited[idx(0, 0)] = 1;
+  while (stack.length){
+    const cur = stack[stack.length - 1];
+    const cx = cur % W, cy = (cur - cx) / W;
+    const cand = [];
+    for (const d of DIRS){
+      const nx = cx + d.dx, ny = cy + d.dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || visited[idx(nx, ny)]) continue;
+      cand.push({bit: BIT[d.dx > 0 ? 2 : d.dx < 0 ? 8 : d.dy > 0 ? 4 : 1], n: idx(nx, ny)});
+    }
+    if (!cand.length){ stack.pop(); continue; }
+    const pick = cand[(rng() * cand.length) | 0];
+    walls[cur] &= ~pick.bit;
+    walls[pick.n] &= ~OPP[pick.bit];
+    visited[pick.n] = 1;
+    stack.push(pick.n);
+  }
+  // braid：随机拆掉一部分死胡同，让迷宫有环路——老鼠才有地方绕。
+  const dirsOf = (i) => {
+    const out = [];
+    const x = i % W, y = (i - x) / W;
+    for (const d of DIRS){
+      const nx = x + d.dx, ny = y + d.dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      if (!(walls[i] & (d.dx > 0 ? 2 : d.dx < 0 ? 8 : d.dy > 0 ? 4 : 1))) out.push(idx(nx, ny));
+    }
+    return out;
+  };
+  for (let i = 0; i < W * H; i++){
+    const nb = dirsOf(i);
+    if (nb.length !== 1) continue;
+    if (rng() >= braidP) continue;
+    const x = i % W, y = (i - x) / W;
+    const opts = [];
+    for (const d of DIRS){
+      const nx = x + d.dx, ny = y + d.dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const j = idx(nx, ny), b = d.dx > 0 ? 2 : d.dx < 0 ? 8 : d.dy > 0 ? 4 : 1;
+      if (walls[i] & b && nb.indexOf(j) < 0) opts.push({j, b});
+    }
+    if (!opts.length) continue;
+    const pick = opts[(rng() * opts.length) | 0];
+    walls[i] &= ~pick.b;
+    walls[pick.j] &= ~OPP[pick.b];
+  }
+  return walls;
+}
+
+function createGame(cfg){
+  cfg = cfg || {};
+  const W = Math.max(7, Math.min(31, cfg.W || 15));
+  const H = Math.max(5, Math.min(25, cfg.H || 11));
+  const seed = Math.max(1, Math.min(99999, cfg.seed == null ? 7 : cfg.seed | 0));
+  const diffKey = cfg.diff in DIFF_NAMES ? cfg.diff : 'normal';
+  const rng = mulberry32(seed);
+  const walls = makeMaze(W, H, rng, 0.5);
+  const idx = (x, y) => y * W + x;
+  const wallBetween = (a, b) => {
+    const ax = a % W, ay = (a - ax) / W, bx = b % W, by = (b - bx) / W;
+    return !!(walls[a] & (bx > ax ? 2 : bx < ax ? 8 : by > ay ? 4 : 1));
+  };
+  function distMap(src){
+    const out = new Int32Array(W * H).fill(-1);
+    out[src] = 0;
+    const q = [src];
+    for (let head = 0; head < q.length; head++){
+      const i = q[head], x = i % W, y = (i - x) / W, d = out[i];
+      for (const dd of DIRS){
+        const nx = x + dd.dx, ny = y + dd.dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = idx(nx, ny);
+        if (out[j] >= 0 || wallBetween(i, j)) continue;
+        out[j] = d + 1;
+        q.push(j);
+      }
+    }
+    return out;
+  }
+  function pathStep(fromI, toI){
+    if (fromI === toI) return 0;
+    const prev = new Int32Array(W * H).fill(-1);
+    const seen = new Uint8Array(W * H);
+    seen[fromI] = 1;
+    const q = [fromI];
+    for (let head = 0; head < q.length; head++){
+      const i = q[head], x = i % W, y = (i - x) / W;
+      for (const dd of DIRS){
+        const nx = x + dd.dx, ny = y + dd.dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = idx(nx, ny);
+        if (seen[j] || wallBetween(i, j)) continue;
+        seen[j] = 1; prev[j] = i;
+        if (j === toI){
+          let k = toI;
+          while (prev[k] !== fromI && prev[k] >= 0) k = prev[k];
+          const kx = k % W, ky = (k - kx) / W, fx = fromI % W, fy = (fromI - fx) / W;
+          const dx = kx - fx, dy = ky - fy;
+          return dx > 0 ? 1 : dx < 0 ? 2 : dy > 0 ? 3 : 4;
+        }
+        q.push(j);
+      }
+    }
+    return 0;
+  }
+
+  const start = idx(1, 1);
+  const dStart = distMap(start);
+  let maxD = 1;
+  for (let i = 0; i < W * H; i++) if (dStart[i] > maxD) maxD = dStart[i];
+  const used = new Uint8Array(W * H);
+  used[start] = 1;
+  const catStart = idx(W - 2, H - 2);
+  used[catStart] = 1;
+  const goal = Math.max(5, cfg.goal || Math.floor(W * H / 6));
+  const bands = [];
+  for (let k = 0; k < goal; k++) bands.push([(k + 0.15) * maxD / goal, (k + 0.95) * maxD / goal]);
+  const cheese = [];
+  for (const [lo, hi] of bands){
+    let best = -1, bestD = 1e9;
+    for (let i = 0; i < W * H; i++){
+      if (used[i] || dStart[i] < 0) continue;
+      if (dStart[i] < lo || dStart[i] > hi) continue;
+      const cand = i;
+      if (best < 0 || rng() < 0.5) { if (best < 0 || dStart[cand] !== dStart[best]) best = cand; }
+      if (cand === start) bestD = 0;
+    }
+    if (best < 0){
+      for (let i = 0; i < W * H; i++){ if (!used[i] && dStart[i] > 0){ best = i; break; } }
+    }
+    if (best >= 0 && best < W * H){ used[best] = 1; cheese.push({i: best, got: false}); }
+  }
+  let catnipI = -1;
+  {
+    const cand = [];
+    for (let i = 0; i < W * H; i++) if (!used[i] && dStart[i] >= maxD * 0.3 && dStart[i] <= maxD * 0.85) cand.push(i);
+    if (cand.length) catnipI = cand[(rng() * cand.length) | 0]; else catnipI = catStart;
+  }
+
+  const DIFF = {
+    easy:   {cat: 2.05, react: 0.55, vision: 5.5},
+    normal: {cat: 2.50, react: 0.42, vision: 7.0},
+    hard:   {cat: 2.85, react: 0.30, vision: 8.5}
+  }[diffKey];
+
+  const R = {
+    seed, W, H, walls, diff: diffKey, diffName: DIFF_NAMES[diffKey], DIFF,
+    goal: cheese.length, start, catStart,
+    mouse: {cx: 1, cy: 1, dir: 0, want: 0, fx: 0, fy: 0, prog: 0},
+    cat: {cx: W - 2, cy: H - 2, dir: 0, want: 0, fx: 0, fy: 0, prog: 0},
+    cheese, catnip: {i: catnipI, taken: false},
+    phase: 'menu', paused: false, t: 0, elapsed: 0, tick: 0,
+    score: 0, lives: cfg.lives || 3, combo: 0, got: 0,
+    caughtAt: 0, inv: 0, catnipT: 0, lastSeen: catStart, path: [], rePathAt: 0,
+    danger: false, sameCell: 0, events: [],
+    result: null, stats: {points: 0, catches: 0, bestChase: 0, demoSeconds: 0},
+    demo: cfg.mode === 'demo', mode: cfg.mode || 'single',
+    helpers: {distMap, pathStep, wallBetween, idx}
+  };
+  const cellI = (e) => idx(e.cx, e.cy);
+
+  function moveStep(e, dt, speed){
+    if (e.prog > 0){
+      e.prog += speed * dt;
+      if (e.prog >= 1){
+        e.cx = e.fx; e.cy = e.fy;
+        e.dir = e.want; e.want = 0; e.fx = 0; e.fy = 0; e.prog = 0;
+      }
+      return;
+    }
+    if (!e.dir && e.want){ e.dir = e.want; e.want = 0; }
+    if (!e.dir) return;
+    const d = DIRS[e.dir - 1];
+    const nx = e.cx + d.dx, ny = e.cy + d.dy;
+    if (nx < 0 || ny < 0 || nx >= W || ny >= H || wallBetween(idx(e.cx, e.cy), idx(nx, ny))){ e.dir = 0; return; }
+    e.fx = nx; e.fy = ny; e.want = 0; e.prog = speed * dt;
+    if (e.prog >= 1){
+      e.cx = nx; e.cy = ny; e.dir = e.want; e.want = 0; e.fx = 0; e.fy = 0; e.prog = 0;
+    }
+  }
+
+  function applyEvent(e){
+    if (e.t === 'win'){
+      R.phase = 'over'; R.result = {won: true};
+      const tb = Math.max(0, Math.round(900 - R.elapsed)) * 2;
+      const lb = (R.lives - 1) * 200;
+      R.result.timeBonus = tb; R.result.lifeBonus = lb; R.result.score = R.score;
+      R.score += tb + lb;
+    } else if (e.t === 'caught'){
+      R.stats.catches++;
+      if (R.lives > 0){ R.phase = 'caught'; R.caughtAt = R.t; }
+      else { R.phase = 'over'; R.result = {won: false}; }
+    }
+  }
+
+  function collect(){
+    const mi = cellI(R.mouse);
+    for (const c of R.cheese){
+      if (c.got || c.i !== mi) continue;
+      c.got = true; R.got++; R.combo++;
+      const bonus = Math.min(100, (R.combo - 1) * 20);
+      R.score += 100 + bonus;
+      R.events.push({t: 'cheese', i: mi, bonus, combo: R.combo});
+      if (R.got >= R.goal) R.events.push({t: 'win', got: R.got, score: R.score});
+    }
+    if (R.catnip.i === mi && !R.catnip.taken && !R.catnipT){
+      R.catnip.taken = true; R.catnipT = 6; R.score += 50;
+      R.events.push({t: 'catnip', i: mi});
+    }
+  }
+
+  function catchMouse(){
+    R.lives--; R.combo = 0; R.danger = false; R.path = [];
+    R.events.push({t: 'caught', lives: R.lives});
+    const s = R.helpers.distMap(R.lastSeen);
+    let far = R.start, fd = -1;
+    for (let i = 0; i < W * H; i++){
+      if (s[i] < 0) continue;
+      const d = s[i] + rng() * 1.5;
+      if (d > fd){ fd = d; far = i; }
+    }
+    R.cat.cx = far % W; R.cat.cy = (far - (far % W)) / W;
+    R.cat.dir = 0; R.cat.want = 0; R.cat.prog = 0;
+    R.mouse.cx = 1; R.mouse.cy = 1; R.mouse.dir = 0; R.mouse.want = 0; R.mouse.prog = 0;
+    R.inv = 2;
+  }
+
+  function tick(){
+    const mi = cellI(R.mouse), ci = cellI(R.cat);
+    if (R.demo) demoInput();
+    // 猫：看得见就追（隔墙也算，给点压力），看不见就巡逻。
+    let target = R.lastSeen;
+    if (R.inv <= 0){
+      const d = R.helpers.distMap(R.catStart ? ci : ci);
+      if (d[mi] <= (R.catnipT > 0 ? 2.2 : R.DIFF.vision)) { target = mi; R.lastSeen = mi; }
+      else target = R.lastSeen;
+    }
+    R.cat.pathTarget = target;
+    if (R.t >= R.rePathAt){
+      R.rePathAt = R.t + R.DIFF.react * (R.catnipT > 0 ? 1.8 : 1);
+      const st = R.helpers.pathStep(ci, target);
+      if (st){ R.cat.want = st; R.cat.dir = R.cat.dir || st; }
+    }
+    if (cellI(R.cat) === cellI(R.mouse) && R.inv <= 0) catchMouse();
+  }
+
+  function demoInput(){
+    const m = R.mouse, mi = cellI(m), ci = cellI(R.cat);
+    const dd = R.helpers.distMap(ci)[mi];
+    const catActive = dd >= 0 && dd <= (R.catnipT > 0 ? 2.2 : R.DIFF.vision) && R.inv <= 0;
+    if (catActive){
+      // 猫在视野内：优先逃向离猫最远的相邻格，避免反复被抓
+      const dc = R.helpers.distMap(ci);
+      const x = m.cx, y = m.cy;
+      let best = 0, bs = -1e9;
+      for (const k of DIRS.keys()){
+        const d = DIRS[k];
+        const nx = x + d.dx, ny = y + d.dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = idx(nx, ny);
+        if (wallBetween(mi, j)) continue;
+        const s = dc[j];
+        if (s >= 0 && s > bs){ bs = s; best = k + 1; }
+      }
+      if (best){ m.want = best; R.demoTarget = 0; return; }
+    }
+    // 否则朝最近的未吃奶酪 / 猫薄荷移动，目标命中后再重新选
+    if (R.demoTarget && R.demoTarget === mi){ R.demoTarget = 0; }
+    if (!R.demoTarget){
+      const targets = [];
+      for (const c of R.cheese) if (!c.got) targets.push(c.i);
+      if (R.catnip.i >= 0 && !R.catnip.taken && !R.catnipT) targets.push(R.catnip.i);
+      if (!targets.length) return;
+      const from = R.helpers.distMap(mi);
+      let bt = targets[0], bd = 1e9;
+      for (const t of targets){ const d = from[t]; if (d >= 0 && d < bd){ bd = d; bt = t; } }
+      R.demoTarget = bt;
+    }
+    const st = R.helpers.pathStep(mi, R.demoTarget);
+    if (st) m.want = st;
+  }
+
+  function substep(dt){
+    R.t += dt; R.elapsed += dt;
+    if (R.phase === 'caught'){
+      if (R.t - R.caughtAt >= 0.9){ R.phase = 'play'; }
+      return;
+    }
+    if (R.catnipT > 0){ R.catnipT = Math.max(0, R.catnipT - dt); if (!R.catnipT) R.events.push({t: 'catnip_end'}); }
+    if (R.inv > 0) R.inv = Math.max(0, R.inv - dt);
+    const ms = 3.4 * (R.combo >= 3 ? 1.06 : 1);
+    const cs = R.DIFF.cat * (R.catnipT > 0 ? 0.38 : 1);
+    moveStep(R.mouse, dt, ms);
+    moveStep(R.cat, dt, cs);
+    if (cellI(R.mouse) === cellI(R.cat) && R.inv <= 0) catchMouse();
+    collect();
+    if (R.tick % 15 === 0){
+      tick();
+      const dm = R.helpers.distMap(cellI(R.cat));
+      const dme = dm[cellI(R.mouse)];
+      R.danger = R.inv <= 0 && dme >= 0 && dme <= 3.6;
+      if (cellI(R.mouse) === cellI(R.cat)) R.sameCell++;
+      R.stats.bestChase = Math.max(R.stats.bestChase, R.sameCell);
+      if (R.demo) R.stats.demoSeconds = Math.round(R.t * 10) / 10;
+    }
+    R.tick++;
+    for (const e of R.events) applyEvent(e);
+  }
+
+  return {
+    S: R,
+    setDir(dir){ R.mouse.want = dir; },
+    beginCatnip(){ /* 猫薄荷是捡的，不是按的；留给自动化接口做等价触发 */ if (R.catnip.i >= 0 && !R.catnip.taken){ R.catnip.taken = true; R.catnipT = 6; R.score += 50; R.events.push({t: 'catnip', i: R.catnip.i}); } },
+    pause(on){ if (R.phase === 'over') return; R.paused = on === undefined ? !R.paused : !!on; },
+    startMatch(o){
+      o = o || {};
+      if (o.mode) R.demo = o.mode === 'demo';
+      R.phase = 'play'; R.paused = false; R.result = null;
+      R.score = 0; R.got = 0; R.combo = 0; R.lives = o.lives || R.lives || 3;
+      R.t = 0; R.elapsed = 0; R.tick = 0; R.catnipT = 0; R.inv = 1.2;
+      R.stats = {points: 0, catches: 0, bestChase: 0, demoSeconds: 0};
+      R.events.length = 0;
+      for (const c of R.cheese) c.got = false;
+      R.catnip.taken = false;
+      R.mouse.cx = 1; R.mouse.cy = 1; R.mouse.dir = 0; R.mouse.want = 0; R.mouse.prog = 0;
+      R.cat.cx = R.W - 2; R.cat.cy = R.H - 2; R.cat.dir = 0; R.cat.want = 0; R.cat.prog = 0;
+      R.lastSeen = R.catStart; R.path = []; R.rePathAt = 0;
+    },
+    reset(){ R.phase = 'menu'; R.paused = false; R.t = 0; R.elapsed = 0; R.tick = 0; R.inv = 0;
+      R.score = 0; R.got = 0; R.combo = 0; R.lives = 3; R.catnipT = 0; R.result = null;
+      R.events.length = 0; for (const c of R.cheese) c.got = false; R.catnip.taken = false;
+      R.mouse.cx = 1; R.mouse.cy = 1; R.mouse.dir = 0; R.mouse.want = 0; R.mouse.prog = 0;
+      R.cat.cx = R.W - 2; R.cat.cy = R.H - 2; R.cat.dir = 0; R.cat.want = 0; R.cat.prog = 0; },
+    step(dt){
+      if (R.paused || R.phase === 'menu' || R.phase === 'over') return;
+      const SUB = 1 / 120;
+      let acc = dt;
+      let guard = 0;
+      while (acc > 1e-9 && guard++ < 600){
+        const s = Math.min(SUB, acc);
+        acc -= s;
+        substep(s);
+        if (R.phase === 'over') break;
+      }
+      if (R.phase === 'play' && !R.paused) R.stats.points = R.got;
+    }
+  };
+}
+/* __CORE_END__
+ * ==========================================================================*/
+
+/* __UI_START__
+ * 渲染与交互层：把内核状态画成一张俯视角迷宫。
+ * ==========================================================================*/
+(function(){
+  const qs = new URLSearchParams((typeof location !== 'undefined' && location.search) || '');
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const els = {
+    menu: $('menuMask'), pause: $('pauseMask'), over: $('overMask'),
+    overTitle: $('overTitle'), overText: $('overText'), foot: $('foot'),
+    start: $('startBtn'), menuStart: $('menuStart'), overStart: $('overStart'),
+    pauseBtn: $('pauseBtn'), reset: $('resetBtn'), sound: $('soundBtn'),
+    theme: $('themeBtn'), exportBtn: $('exportBtn'), seed: $('seedInp'),
+    modeSeg: $('modeSeg'), diffSeg: $('diffSeg'), msg: $('msg'), selftestBox: $('selftestBox')
+  };
+  const MAZE_W = 15, MAZE_H = 11, CELL = 52, OX = 22, OY = 68;
+  const CW = OX * 2 + MAZE_W * CELL, CH = OY + MAZE_H * CELL + 24;
+  canvas.width = CW; canvas.height = CH;
+
+  const THEME = {
+    light: {bg1:'#f7efe2', bg2:'#eadbc2', floor:'#f3e7d2', floorAlt:'#eee0c7',
+      speck:'rgba(120,95,70,.16)', wall:'#c8a06a', wallShade:'#a87f4b', wallEdge:'#8a6a44',
+      outer:'#b98d58', cheese:'#ffd24d', cheeseShade:'#e0a92f', cheeseHole:'#c98f3a',
+      catnip:'#57a86b', catnipDark:'#3d7d4f', body:'#aebdc9', bodyShade:'#8fa2b2',
+      belly:'#e8eef4', ear:'#f2c8cf', inner:'#d9a5ae', eye:'#26313a', nose:'#e88fa0',
+      whisker:'rgba(40,50,60,.5)', tail:'#93a6b6',
+      catFur:'#e78a2f', catShade:'#c96f1e', catStripe:'#4a3320', catMuzzle:'#f7e8d6',
+      catNose:'#e2808f', catEye:'#2f8f4e', catPupil:'#14231a',
+      ink:'#33261c', muted:'#8a7a6b', hud:'rgba(255,250,240,.85)', hudLine:'rgba(120,95,70,.3)',
+      danger:'rgba(214,69,65,.55)', heart:'#d64541', glow:'rgba(217,130,43,.18)'},
+    dark: {bg1:'#241b12', bg2:'#140f0a', floor:'#2f2417', floorAlt:'#2a2013',
+      speck:'rgba(230,200,150,.10)', wall:'#6d5233', wallShade:'#54401f', wallEdge:'#3c2d16',
+      outer:'#8a6a44', cheese:'#ffd24d', cheeseShade:'#d9a02f', cheeseHole:'#a97a2c',
+      catnip:'#6cc085', catnipDark:'#478a5b', body:'#c3d0dc', bodyShade:'#9fb0bf',
+      belly:'#eef3f8', ear:'#f2c8cf', inner:'#cf9aa4', eye:'#0f1a22', nose:'#f0a2b2',
+      whisker:'rgba(230,240,250,.55)', tail:'#a8b8c6',
+      catFur:'#f0954a', catShade:'#cf7326', catStripe:'#241708', catMuzzle:'#f7e8d6',
+      catNose:'#e2808f', catEye:'#8fe6a8', catPupil:'#0f2415',
+      ink:'#efe6d8', muted:'#a4937f', hud:'rgba(24,18,12,.85)', hudLine:'rgba(220,190,150,.25)',
+      danger:'rgba(255,122,110,.6)', heart:'#ff7a6e', glow:'rgba(230,154,60,.22)'}
+  };
+
+  let diff = 'normal', mode = 'single', soundOn = true, theme = 'light';
+  const setTheme = (t) => {
+    theme = t;
+    if (document.documentElement && document.documentElement.dataset) document.documentElement.dataset.theme = t;
+    if (document.body && document.body.dataset) document.body.dataset.theme = t;
+    if (els.theme) els.theme.textContent = t === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  };
+  const th = () => THEME[theme];
+
+  let game = null;
+  function makeGame(seed, demoMode, d){
+    const g = createGame({seed, mode: demoMode ? 'demo' : 'single', diff: d || diff});
+    return g;
+  }
+  game = makeGame(7, false, diff);
+  window.__game = game;
+
+  /* ---------- 音效：WebAudio 现场合成 ---------- */
+  let AC = null;
+  function initAudio(){
+    if (AC || !soundOn) return;
+    const W = (typeof window !== 'undefined') ? window : {};
+    const Ctor = W.AudioContext || W.webkitAudioContext;
+    if (!Ctor) return;
+    try{ AC = new Ctor(); }catch(e){ AC = null; }
+  }
+  function tone(freq, dur, type, gain, slide){
+    if (!AC || !soundOn) return;
+    try{
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), AC.currentTime + dur);
+      g.gain.value = gain || .15;
+      g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + dur);
+      o.connect(g); g.connect(AC.destination);
+      o.start(); o.stop(AC.currentTime + dur + .02);
+    }catch(e){}
+  }
+  const sfx = {
+    cheese(){ tone(660, .1, 'triangle', .16, 260); },
+    combo(n){ tone(500 + 90 * Math.min(6, n), .12, 'triangle', .16, 200); },
+    catnip(){ tone(300, .22, 'sine', .16, -120); },
+    caught(){ tone(180, .3, 'sawtooth', .2, -110); },
+    win(){ tone(520, .14, 'triangle', .18, 300); setTimeout(() => tone(720, .22, 'triangle', .18, 240), 140); },
+    lose(){ tone(220, .4, 'sawtooth', .18, -150); }
+  };
+
+  /* ---------- 工具 ---------- */
+  const lerp = (a, b, k) => a + (b - a) * k;
+  function px(e){
+    const x = e.cx + (e.fx ? lerp(0, e.fx - e.cx, e.prog) : 0);
+    const y = e.cy + (e.fy ? lerp(0, e.fy - e.cy, e.prog) : 0);
+    return [OX + (x + .5) * CELL, OY + (y + .5) * CELL];
+  }
+  function pxOf(cx, cy, prog, fx, fy){ return [0, 0]; }
+
+  /* ---------- 画面 ---------- */
+  function drawBackground(){
+    const c = th();
+    const g = ctx.createLinearGradient(0, 0, 0, CH);
+    g.addColorStop(0, c.bg1); g.addColorStop(1, c.bg2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+  }
+  function drawMaze(){
+    const c = th(), S = game.S;
+    const mw = S.W * CELL, mh = S.H * CELL;
+    ctx.fillStyle = c.floor;
+    roundRect(OX, OY, mw, mh, 10); ctx.fill();
+    ctx.save();
+    roundRect(OX, OY, mw, mh, 10); ctx.clip();
+    for (let y = 0; y < S.H; y++){
+      for (let x = 0; x < S.W; x++){
+        if ((x + y) & 1){
+          ctx.fillStyle = c.floorAlt;
+          ctx.fillRect(OX + x * CELL, OY + y * CELL, CELL, CELL);
+        }
+        const h = ((x * 73 + y * 151 + S.seed * 31) % 41);
+        if (h < 9){
+          ctx.fillStyle = c.speck;
+          ctx.beginPath();
+          ctx.arc(OX + x * CELL + 10 + (h * 3) % (CELL - 20), OY + y * CELL + 12 + (h * 7) % (CELL - 24), 1.6, 0, 7);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+    // 墙
+    ctx.lineCap = 'round'; ctx.strokeStyle = c.wallEdge; ctx.lineWidth = 11;
+    wallPaths(S); ctx.stroke();
+    ctx.strokeStyle = c.wall; ctx.lineWidth = 7;
+    wallPaths(S); ctx.stroke();
+    ctx.strokeStyle = c.wallShade; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.rect(OX - 1, OY - 1, S.W * CELL + 2, S.H * CELL + 2);
+    ctx.stroke();
+  }
+  function wallPaths(S){
+    ctx.beginPath();
+    for (let y = 0; y < S.H; y++){
+      for (let x = 0; x < S.W; x++){
+        const w = S.walls[y * S.W + x];
+        const X = OX + x * CELL, Y = OY + y * CELL;
+        if (w & 1){ ctx.moveTo(X, Y); ctx.lineTo(X + CELL, Y); }
+        if (w & 8){ ctx.moveTo(X, Y); ctx.lineTo(X, Y + CELL); }
+        if (x === S.W - 1 && (w & 2)){ ctx.moveTo(X + CELL, Y); ctx.lineTo(X + CELL, Y + CELL); }
+        if (y === S.H - 1 && (w & 4)){ ctx.moveTo(X, Y + CELL); ctx.lineTo(X + CELL, Y + CELL); }
+      }
+    }
+  }
+  function roundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function drawCheese(x, y, k){
+    const c = th(), s = CELL * (.5 + .03 * Math.sin(k * 3));
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = c.cheese;
+    ctx.beginPath();
+    ctx.moveTo(-s * .5, s * .32); ctx.lineTo(s * .55, s * .32); ctx.lineTo(s * .1, -s * .5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c.cheeseShade;
+    ctx.fillRect(-s * .5, s * .32, s * 1.05, s * .12);
+    ctx.fillStyle = c.cheeseHole;
+    ctx.beginPath(); ctx.arc(-s * .05, s * .05, s * .09, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(s * .2, s * .14, s * .07, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+  function drawCatnip(x, y, k){
+    const c = th();
+    ctx.save(); ctx.translate(x, y);
+    for (let i = 0; i < 3; i++){
+      const a = -Math.PI / 2 + (i - 1) * .8 + Math.sin(k * 2 + i) * .06;
+      ctx.save(); ctx.rotate(a);
+      ctx.fillStyle = i === 1 ? c.catnip : c.catnipDark;
+      ctx.beginPath(); ctx.ellipse(0, -CELL * .26, CELL * .1, CELL * .2, 0, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+    ctx.strokeStyle = c.catnipDark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, CELL * .18); ctx.stroke();
+    ctx.restore();
+  }
+  function drawMouse(x, y, dir, k, inv){
+    const c = th();
+    const ang = dir === 1 ? 0 : dir === 2 ? Math.PI : dir === 3 ? Math.PI / 2 : dir === 4 ? -Math.PI / 2 : 0;
+    ctx.save();
+    ctx.translate(x, y);
+    if (inv > 0 && ((k * 9) | 0) % 2 === 0) ctx.globalAlpha = .4;
+    ctx.rotate(ang);
+    ctx.strokeStyle = c.tail; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-CELL * .3, 0);
+    ctx.quadraticCurveTo(-CELL * .5, Math.sin(k * 7) * 6, -CELL * .62, Math.sin(k * 7 + 1) * 9);
+    ctx.stroke();
+    ctx.fillStyle = c.body;
+    ctx.beginPath(); ctx.ellipse(0, 0, CELL * .3, CELL * .21, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c.bodyShade;
+    ctx.beginPath(); ctx.ellipse(-CELL * .06, -CELL * .1, CELL * .22, CELL * .1, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c.belly;
+    ctx.beginPath(); ctx.ellipse(CELL * .04, CELL * .05, CELL * .18, CELL * .1, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c.ear;
+    ctx.beginPath(); ctx.arc(CELL * .1, -CELL * .17, CELL * .1, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(CELL * .2, -CELL * .14, CELL * .08, 0, 7); ctx.fill();
+    ctx.fillStyle = c.inner;
+    ctx.beginPath(); ctx.arc(CELL * .11, -CELL * .165, CELL * .05, 0, 7); ctx.fill();
+    ctx.fillStyle = c.eye;
+    ctx.beginPath(); ctx.arc(CELL * .19, -CELL * .03, CELL * .034, 0, 7); ctx.fill();
+    ctx.fillStyle = c.nose;
+    ctx.beginPath(); ctx.arc(CELL * .3, 0, CELL * .03, 0, 7); ctx.fill();
+    ctx.strokeStyle = c.whisker; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CELL * .26, -.01 * CELL); ctx.lineTo(CELL * .46, -CELL * .08);
+    ctx.moveTo(CELL * .26, .01 * CELL); ctx.lineTo(CELL * .46, CELL * .07);
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+  function drawCat(x, y, dir, k, danger){
+    const c = th();
+    const ang = dir === 1 ? 0 : dir === 2 ? Math.PI : dir === 3 ? Math.PI / 2 : dir === 4 ? -Math.PI / 2 : 0;
+    ctx.save();
+    ctx.translate(x, y);
+    if (danger){
+      const g = ctx.createRadialGradient(0, 0, CELL * .3, 0, 0, CELL * .95);
+      g.addColorStop(0, c.danger); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = .5 + .3 * Math.sin(k * 9);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, CELL * .95, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.rotate(ang);
+    ctx.strokeStyle = c.catShade; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-CELL * .34, 0);
+    ctx.quadraticCurveTo(-CELL * .55, Math.sin(k * 5) * 8 - 4, -CELL * .66, Math.sin(k * 5 + 2) * 10);
+    ctx.stroke();
+    ctx.fillStyle = c.catFur;
+    ctx.beginPath(); ctx.ellipse(0, 0, CELL * .34, CELL * .25, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c.catStripe;
+    for (let i = -1; i <= 1; i++){
+      ctx.beginPath();
+      ctx.ellipse(i * CELL * .12, -CELL * .04, CELL * .028, CELL * .13, 0, 0, 7);
+      ctx.fill();
+    }
+    ctx.fillStyle = c.catMuzzle;
+    ctx.beginPath(); ctx.ellipse(CELL * .2, CELL * .05, CELL * .13, CELL * .09, 0, 0, 7); ctx.fill();
+    // 耳朵
+    ctx.fillStyle = c.catFur;
+    ctx.beginPath();
+    ctx.moveTo(CELL * .1, -CELL * .16); ctx.lineTo(CELL * .16, -CELL * .32); ctx.lineTo(CELL * .24, -CELL * .14);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-CELL * .02, -CELL * .17); ctx.lineTo(CELL * .02, -CELL * .33); ctx.lineTo(CELL * .11, -CELL * .16);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c.eye;
+    ctx.beginPath(); ctx.arc(CELL * .18, -CELL * .02, CELL * .045, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(CELL * .3, -CELL * .01, CELL * .045, 0, 7); ctx.fill();
+    ctx.fillStyle = c.catPupil;
+    ctx.beginPath(); ctx.ellipse(CELL * .18, -CELL * .02, CELL * .015, CELL * .04, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(CELL * .3, -CELL * .01, CELL * .015, CELL * .04, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = c.catNose;
+    ctx.beginPath(); ctx.arc(CELL * .26, CELL * .04, CELL * .028, 0, 7); ctx.fill();
+    ctx.strokeStyle = c.whisker; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CELL * .3, CELL * .05); ctx.lineTo(CELL * .52, CELL * .0);
+    ctx.moveTo(CELL * .3, CELL * .07); ctx.lineTo(CELL * .52, CELL * .12);
+    ctx.stroke();
+    if (danger){
+      ctx.strokeStyle = c.catStripe; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(CELL * .1, -CELL * .12); ctx.lineTo(CELL * .24, -CELL * .06);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawHud(){
+    const c = th(), S = game.S;
+    ctx.fillStyle = c.hud;
+    roundRect(14, 12, CW - 28, 44, 12); ctx.fill();
+    ctx.strokeStyle = c.hudLine; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = c.ink;
+    ctx.font = '700 18px system-ui, "Segoe UI", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText('得分 ' + S.score, 30, 34);
+    ctx.font = '15px system-ui, "Segoe UI", sans-serif';
+    ctx.fillStyle = c.muted;
+    ctx.fillText('🧀 ' + S.got + ' / ' + S.goal + '   ⏱ ' + S.elapsed.toFixed(1) + 's', 30 + 132, 34);
+    if (S.combo >= 2){
+      ctx.fillStyle = c.cheeseShade;
+      ctx.font = '700 14px system-ui, sans-serif';
+      ctx.fillText('连击 ×' + S.combo, 30 + 132 + 160, 34);
+    }
+    // 生命（心心）
+    ctx.textAlign = 'right';
+    ctx.font = '17px system-ui, sans-serif';
+    let hearts = '';
+    for (let i = 0; i < 3; i++) hearts += i < S.lives ? '❤' : '♡';
+    ctx.fillStyle = c.heart;
+    ctx.fillText(hearts, CW - 30, 34);
+    if (S.catnipT > 0){
+      ctx.fillStyle = c.catnip;
+      ctx.textAlign = 'right';
+      ctx.fillText('🌿 ' + S.catnipT.toFixed(1), CW - 30 - 84, 34);
+    }
+    if (S.danger && S.phase === 'play'){
+      ctx.textAlign = 'center';
+      ctx.fillStyle = c.danger;
+      ctx.font = '700 15px system-ui, sans-serif';
+      ctx.fillText('猫来了！', CW / 2, OY - 8 + 2);
+    }
+    if (S.phase === 'caught'){
+      ctx.textAlign = 'center';
+      ctx.fillStyle = c.ink;
+      ctx.font = '700 22px system-ui, sans-serif';
+      ctx.fillText('被抓住了！还剩 ' + Math.max(0, S.lives) + ' 条命', CW / 2, CH / 2 - CELL);
+    }
+    ctx.textAlign = 'left';
+  }
+  function render(k){
+    const S = game.S;
+    drawBackground();
+    drawMaze();
+    const c = th();
+    for (const ch of S.cheese){
+      if (ch.got) continue;
+      const x = OX + (ch.i % S.W + .5) * CELL, y = OY + (Math.floor(ch.i / S.W) + .5) * CELL;
+      drawCheese(x, y, k);
+    }
+    if (S.catnip.i >= 0 && !S.catnip.taken && !S.catnipT){
+      const x = OX + (S.catnip.i % S.W + .5) * CELL, y = OY + (Math.floor(S.catnip.i / S.W) + .5) * CELL;
+      drawCatnip(x, y, k);
+    }
+    const [mx, my] = px(S.mouse);
+    const [cxp, cyp] = px(S.cat);
+    // 猫在前、鼠在后：谁在下面谁压住对方
+    if (my < cyp){ drawMouse(mx, my, S.mouse.dir || S.mouse.want, k, S.inv); drawCat(cxp, cyp, S.cat.dir || S.cat.want, k, S.danger); }
+    else { drawCat(cxp, cyp, S.cat.dir || S.cat.want, k, S.danger); drawMouse(mx, my, S.mouse.dir || S.mouse.want, k, S.inv); }
+    if (S.phase === 'caught'){
+      ctx.fillStyle = c.muted;
+      ctx.globalAlpha = .8;
+      ctx.font = '700 30px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('💢', mx, my - CELL * .5);
+      ctx.textAlign = 'left';
+      ctx.globalAlpha = 1;
+    }
+    drawHud();
+  }
+
+  /* ---------- 状态 -> DOM ---------- */
+  function syncMasks(){
+    const S = game.S;
+    if (els.menu) els.menu.classList.toggle('show', S.phase === 'menu' && !S.result);
+    if (els.pause) els.pause.classList.toggle('show', S.paused && S.phase !== 'over' && S.phase !== 'menu');
+    const over = S.phase === 'over' && S.result;
+    if (els.over) els.over.classList.toggle('show', over);
+    if (over && els.overTitle){
+      if (S.result.won){ els.overTitle.textContent = '🎉 奶酪偷光啦！'; }
+      else { els.overTitle.textContent = '🐱 三只小老鼠都用完了'; }
+    }
+    if (over && els.overText){
+      const S2 = game.S;
+      els.overText.textContent = S2.result.won
+        ? '得分 ' + S2.score + '（用时 ' + S2.elapsed.toFixed(1) + 's，时间 +' + S2.result.timeBonus + '，生命 +' + S2.result.lifeBonus + '）'
+        : '得分 ' + S2.score + '，偷到 ' + S2.got + ' / ' + S2.goal + ' 块奶酪。';
+      try{
+        const store = (typeof window !== 'undefined' && window.localStorage) || null;
+        if (store){
+          const best = Number(store.getItem('catmouse-best') || 0);
+          if (S2.score > best) store.setItem('catmouse-best', String(S2.score));
+        }
+      }catch(e){}
+    }
+    if (els.foot){
+      const d = game.S.DIFF;
+      els.foot.textContent = '15×11 随机迷宫 · ' + game.S.goal + ' 块奶酪 · 猫 ' + d.cat +
+        ' 格/秒（视野 ' + d.vision + ' 格，反应 ' + d.react + 's）· 鼠 3.4 格/秒 · 迷宫 #' + game.S.seed +
+        ' · 难度：' + game.S.diffName + (mode === 'demo' ? ' · AI 表演赛' : '');
+    }
+  }
+
+  /* ---------- 主循环 ---------- */
+  const freeze = qs.get('freeze') === '1';
+  let animT = parseFloat(qs.get('t') || '0') || 0;
+  const motionOn = qs.get('motion') !== 'off';
+  let last = 0;
+  function loop(ts){
+    if (!last) last = ts;
+    const dt = Math.min(.05, (ts - last) / 1000);
+    last = ts;
+    if (motionOn) animT += dt;
+    game.step(dt);
+    drainEvents();
+    render(animT);
+    syncMasks();
+    if (!freeze) requestAnimationFrame(loop);
+  }
+
+  function drainEvents(){
+    const S = game.S;
+    while (S.events.length){
+      const ev = S.events.shift();
+      if (ev.t === 'cheese'){ sfx.cheese(); if (ev.combo >= 3) sfx.combo(ev.combo); if (els.msg) els.msg.textContent = 'cheese'; }
+      else if (ev.t === 'catnip'){ sfx.catnip(); }
+      else if (ev.t === 'caught'){ sfx.caught(); }
+      else if (ev.t === 'win'){ sfx.win(); }
+    }
+  }
+
+  /* ---------- 输入 ---------- */
+  const KEYDIR = {ArrowLeft: 2, ArrowRight: 1, ArrowUp: 4, ArrowDown: 3, KeyA: 2, KeyD: 1, KeyW: 4, KeyS: 3};
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (KEYDIR[e.code] !== undefined){
+      game.setDir(KEYDIR[e.code]);
+      if (e.preventDefault) e.preventDefault();
+      return;
+    }
+    if (k === ' ' || k === 'p' || k === 'P'){
+      game.pause();
+      if (e.preventDefault) e.preventDefault();
+    } else if (k === 'r' || k === 'R'){ startGame(); }
+    else if (k === 't' || k === 'T'){ setTheme(theme === 'dark' ? 'light' : 'dark'); }
+    else if (k === 'm' || k === 'M'){ toggleSound(); }
+    else if (k === 'e' || k === 'E'){ savePNG(); }
+  });
+  let touchStart = null;
+  canvas.addEventListener('pointerdown', (e) => { touchStart = [e.clientX, e.clientY, e.pointerType]; });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!touchStart || touchStart[2] === 'mouse') return;
+    const dx = e.clientX - touchStart[0], dy = e.clientY - touchStart[1];
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 26){
+      game.setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 2) : (dy > 0 ? 3 : 4));
+      touchStart = [e.clientX, e.clientY, touchStart[2]];
+    }
+  });
+  document.addEventListener('pointerup', () => { touchStart = null; });
+
+  function startGame(){
+    const seed = Math.max(1, Math.min(99999, parseInt(els.seed && els.seed.value, 10) || game.S.seed));
+    const d = currentDiff();
+    game = makeGame(seed, mode === 'demo', d);
+    window.__game = game;
+    game.startMatch({mode: mode === 'demo' ? 'demo' : 'single'});
+    game.S.stats.points = 0;
+    initAudio();
+    syncMasks();
+  }
+  function currentDiff(){
+    return diff;
+  }
+  function toggleSound(){
+    soundOn = !soundOn;
+    if (els.sound) els.sound.textContent = soundOn ? '🔊 音效' : '🔇 静音';
+    if (!soundOn) initAudio();
+  }
+  function savePNG(){
+    try{
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cat-mouse-maze-' + game.S.seed + '.png';
+      a.click();
+    }catch(e){}
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn || !btn.dataset) return;
+    if (btn.dataset.mode){
+      mode = btn.dataset.mode;
+      document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    } else if (btn.dataset.diff){
+      diff = btn.dataset.diff;
+      document.querySelectorAll('#diffSeg button').forEach(b => b.classList.toggle('on', b.dataset.diff === diff));
+      if (game.S.phase === 'menu'){ game = makeGame(game.S.seed, false, diff); window.__game = game; syncMasks(); }
+    } else if (btn === els.start || btn === els.menuStart || btn === els.overStart){
+      startGame();
+    } else if (btn === els.pauseBtn){ game.pause(); }
+    else if (btn === els.reset){ game.reset(); syncMasks(); }
+    else if (btn === els.sound){ toggleSound(); }
+    else if (btn === els.theme){ setTheme(theme === 'dark' ? 'light' : 'dark'); }
+    else if (btn === els.exportBtn){ savePNG(); }
+  });
+
+  /* ---------- 初始化 ---------- */
+  setTheme(qs.get('theme') === 'dark' ? 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  if (qs.get('sound') === 'off'){ soundOn = false; if (els.sound) els.sound.textContent = '🔇 静音'; }
+  if (qs.get('ai')) diff = qs.get('ai');
+  if (document.querySelectorAll) document.querySelectorAll('#diffSeg button').forEach(b => b.classList.toggle('on', b.dataset.diff === diff));
+  if (qs.get('demo') === '1' || qs.get('mode') === 'demo') mode = 'demo';
+  if (document.querySelectorAll) document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+
+  game = makeGame(parseInt(qs.get('seed') || '7', 10) || 7, mode === 'demo', diff);
+  window.__game = game;
+  if (qs.get('auto') === '1'){
+    game.startMatch({mode: mode === 'demo' ? 'demo' : 'single'});
+    const ff = parseFloat(qs.get('ff') || '0') || 0;
+    if (ff > 0){ let left = ff; while (left > 1e-6){ const s = Math.min(1 / 60, left); game.step(s); left -= s; } drainEvents(); }
+    if (qs.get('pause') === '1') game.pause(true);
+  }
+  syncMasks();
+  requestAnimationFrame(loop);
+
+  window.catmouse = {
+    state(){
+      const S = game.S;
+      return {phase: S.phase, paused: S.paused, score: S.score, got: S.got, goal: S.goal,
+        lives: S.lives, elapsed: S.elapsed, combo: S.combo, danger: S.danger, catnipT: S.catnipT,
+        mouse: {cx: S.mouse.cx, cy: S.mouse.cy}, cat: {cx: S.cat.cx, cy: S.cat.cy},
+        result: S.result, seed: S.seed, diff: S.diff, demo: S.demo};
+    },
+    go(t){ animT = t; render(t); },
+    ff(sec){ let left = sec; while (left > 1e-6){ const s = Math.min(1 / 60, left); game.step(s); left -= s; } drainEvents(); },
+    setDir(d){ game.setDir(d); },
+    savePNG, runSelftest
+  };
+
+  /* ---------- 页内自检 ---------- */
+  function runSelftest(){
+    const out = [];
+    const push = (name, pass, info) => out.push({name, pass: !!pass, info: info == null ? '' : String(info)});
+    try{
+      const S0 = game.S;
+      push('脚本与画布就绪', !!ctx && CW === 960 && CH === 640, CW + '×' + CH);
+      const g1 = createGame({seed: 4242});
+      const g2 = createGame({seed: 4242});
+      const g3 = createGame({seed: 4243});
+      push('同种子迷宫一致', g1.S.walls.join(',') === g2.S.walls.join(','));
+      push('换种子迷宫改变', g1.S.walls.join(',') !== g3.S.walls.join(','));
+      // 完美迷宫：连通 + 墙对称
+      const S = g1.S, W = S.W, H = S.H;
+      const dmap = S.helpers.distMap(S.helpers.idx(1, 1));
+      let conn = 0, bad = 0;
+      for (let i = 0; i < W * H; i++){ if (dmap[i] >= 0) conn++; }
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){
+        const i = S.helpers.idx(x, y), w = S.walls[i];
+        if (x + 1 < W){ const j = S.helpers.idx(x + 1, y); if (((w & 2) === 0) !== ((S.walls[j] & 8) === 0)) bad++; }
+        if (y + 1 < H){ const j = S.helpers.idx(x, y + 1); if (((w & 4) === 0) !== ((S.walls[j] & 1) === 0)) bad++; }
+      }
+      push('迷宫全部格连通', conn === W * H, conn + '/' + W * H);
+      push('墙体两侧一致', bad === 0, 'bad=' + bad);
+      push('奶酪数量固定', g1.S.goal === Math.floor(15 * 11 / 6), g1.S.goal);
+      push('猫薄荷已布置', g1.S.catnip.i >= 0);
+      g1.startMatch({});
+      const m0 = g1.S.mouse.cx + ',' + g1.S.mouse.cy;
+      g1.setDir(1);
+      for (let i = 0; i < 60; i++) g1.step(1 / 60);
+      push('老鼠会移动', (g1.S.mouse.cx + ',' + g1.S.mouse.cy) !== m0 || g1.S.mouse.prog > 0, m0 + ' -> ' + g1.S.mouse.cx + ',' + g1.S.mouse.cy);
+      const lives0 = g1.S.lives;
+      g1.S.inv = 0;
+      g1.S.cat.cx = g1.S.mouse.cx; g1.S.cat.cy = g1.S.mouse.cy; g1.S.cat.prog = 0; g1.S.cat.fx = 0;
+      g1.step(0.02);
+      let sawCaught = false;
+      while (g1.S.events.length){ const ev = g1.S.events.shift(); if (ev.t === 'caught') sawCaught = true; }
+      push('同格即被抓', sawCaught && g1.S.lives === lives0 - 1, 'lives ' + lives0 + '->' + g1.S.lives);
+      g1.S.catnip.taken = false; g1.S.catnipT = 0;
+      g1.beginCatnip();
+      push('猫薄荷生效 6 秒', g1.S.catnipT === 6);
+      const t0 = g1.S.elapsed;
+      for (let i = 0; i < 60; i++) g1.step(1 / 60);
+      push('猫薄荷期间计时推进', g1.S.elapsed > t0);
+      g1.S.catnipT = 0.05;
+      g1.step(0.1);
+      push('猫薄荷会过期', g1.S.catnipT === 0);
+      g1.pause(true);
+      const e0 = g1.S.elapsed;
+      for (let i = 0; i < 30; i++) g1.step(1 / 60);
+      push('暂停冻结时间', g1.S.elapsed === e0);
+      g1.pause(false);
+      let won = false;
+      for (const c of g1.S.cheese){ if (!c.got){ c.i = S.helpers.idx(g1.S.mouse.cx, g1.S.mouse.cy); } }
+      g1.S.mouse.cx = 1; g1.S.mouse.cy = 1;
+      for (const c of g1.S.cheese) if (!c.got) c.i = S.helpers.idx(1, 1);
+      g1.step(0.05);
+      push('集齐奶酪即获胜', g1.S.phase === 'over' && g1.S.result && g1.S.result.won, JSON.stringify(g1.S.result));
+      const g4 = createGame({seed: 5, mode: 'demo', diff: 'easy'});
+      g4.startMatch({mode: 'demo'});
+      let sim = 0, stallPts = -1, stallAt = 0, demoErr = '';
+      try{ while (g4.S.phase !== 'over' && sim < 240){ g4.step(1 / 60); sim += 1 / 60; if (g4.S.events.length) { while (g4.S.events.length) g4.S.events.shift(); } if (g4.S.got !== stallPts){ stallPts = g4.S.got; stallAt = sim; } else if (sim - stallAt > 40) break; } }
+      catch(err){ demoErr = String(err && err.message); }
+      push('AI 老鼠能偷奶酪', g4.S.got > 0 && !demoErr, 'got ' + g4.S.got + '/' + g4.S.goal + ' t=' + sim.toFixed(0) + 's ' + demoErr);
+      const g5 = createGame({seed: 11, mode: 'demo', diff: 'easy'});
+      g5.startMatch({mode: 'demo'});
+      let t5 = 0;
+      while (g5.S.phase !== 'over' && t5 < 240){ g5.step(1 / 60); t5 += 1 / 60; while (g5.S.events.length) g5.S.events.shift(); }
+      push('演示能打完（胜或负）', g5.S.phase === 'over' && !!g5.S.result, 'phase ' + g5.S.phase);
+      push('结果字段齐备', typeof g5.S.score === 'number' && typeof g5.S.got === 'number');
+      push('API 暴露', !!(window.catmouse && window.catmouse.state && window.catmouse.savePNG));
+      const ids = ['scene', 'menuMask', 'pauseMask', 'overMask', 'startBtn', 'pauseBtn', 'resetBtn', 'soundBtn', 'themeBtn', 'exportBtn', 'seedInp', 'modeSeg', 'diffSeg', 'foot'];
+      push('控件齐备', ids.every(i => !!document.getElementById(i)));
+      push('HUD 无 NaN', !/NaN|undefined/.test(String(game.S.score) + String(game.S.elapsed)), game.S.score + '/' + game.S.elapsed.toFixed(1));
+      // 像素检查：画面不是空白
+      try{
+        render(2.0);
+        const img = ctx.getImageData(0, 0, CW, CH).data;
+        let colors = new Set(), nonBg = 0;
+        for (let p = 0; p < img.length; p += 4 * 97){
+          const key = (img[p] >> 4) + ',' + (img[p + 1] >> 4) + ',' + (img[p + 2] >> 4);
+          colors.add(key);
+          if (img[p] > 10 || img[p + 1] > 10) nonBg++;
+        }
+        push('画布有内容', colors.size >= 8 && nonBg > 50, 'colors=' + colors.size + ' nonDark=' + nonBg);
+        const u = canvas.toDataURL('image/png');
+        push('可导出 PNG', typeof u === 'string' && u.slice(0, 22).includes('data:'));
+      }catch(err){ push('画布有内容', false, String(err && err.message)); }
+      // 溢出
+      const wide = (typeof document.documentElement !== 'undefined' && document.documentElement.scrollWidth > window.innerWidth + 2);
+      push('无横向溢出', !wide, wide ? 'scrollW ' + document.documentElement.scrollWidth : '');
+    }catch(err){
+      push('自检无异常', false, String(err && err.stack ? err.stack.split('\n')[0] : err));
+    }
+    const box = els.selftestBox;
+    if (box){
+      box.hidden = false;
+      const fails = out.filter(r => !r.pass);
+      box.innerHTML = '<b>自检 ' + (out.length - fails.length) + '/' + out.length + ' 通过</b>' +
+        out.map(r => '<div class="' + (r.pass ? 'good' : 'bad') + '">' + (r.pass ? '✔' : '✘') + ' ' + r.name + (r.info ? ' <span>' + r.info + '</span>' : '') + '</div>').join('');
+    }
+    return out;
+  }
+  if (qs.get('selftest') === '1') runSelftest();
+})();
+/* __UI_END__ */
+</script>
+</body>
+</html>

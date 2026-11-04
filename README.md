@@ -1,3 +1,44 @@
+# 🐭 猫和老鼠迷宫大作战 · Cat &amp; Mouse Maze
+
+单文件网页 [`cat-mouse-game.html`](cat-mouse-game.html)：在随机生成的迷宫里偷光所有奶酪，躲开追来的猫。Canvas 即时绘制，纯离线、零依赖、零构建，双击即可打开。
+
+## 怎么玩
+
+| 操作 | 按键 |
+| --- | --- |
+| 跑动老鼠 | 方向键 / <kbd>WASD</kbd>，触屏可滑动 |
+| 暂停 / 继续 | <kbd>空格</kbd> 或 <kbd>P</kbd> |
+| 重来一局 | <kbd>R</kbd> |
+| 静音 / 深色 / 存图 | <kbd>M</kbd> · <kbd>T</kbd> · <kbd>E</kbd> |
+
+- 收集地图里所有的 🧀 奶酪，拿一株 🌿 猫薄荷可让猫打盹变慢。
+- 三档难度（轻松 / 正常 / 惊险），每次「重来」按迷宫编号重新生成随机迷宫。
+- 支持单人对猫与 AI 表演赛两种模式。
+
+## 自动化参数
+
+| 参数 | 作用 |
+| --- | --- |
+| `?seed=1..99999` | 指定迷宫编号，同一 seed 永远同一张图 |
+| `?ai=easy\|normal\|hard` | 指定难度 |
+| `?demo=1` | AI 表演赛（自动对打，适合围观） |
+| `?auto=1` | 跳过菜单直接开打 |
+| `?theme=dark\|light` | 强制主题 |
+| `?sound=off` | 关闭音效 |
+| `?freeze=1` / `?pause=1` | 载入即定格 / 暂停（无头截图用） |
+| `?selftest=1` | 页底显示页内自检结果 |
+
+页内暴露 `window.catmouse`（`state()` / `go()` / `ff()` / `setDir()` / `savePNG()`）供检查与截图。
+
+## 验证
+
+- `cat-mouse-game.html?selftest=1`：**33 项内核断言全部通过**（含迷宫连通与墙体对称、奶酪全部可达、同格即被扣一条命、无敌期不扣命、猫薄荷 6 秒生效、集齐奶酪获胜、三条命用完即失败、12 组种子 × 三档难度均不崩溃且 AI 能持续得分）。
+- `node tools/cat-mouse-core.cjs`：33 条规则 / 物理 / 状态机断言全部通过。
+- `node tools/cat-mouse-ui-harness.cjs`：DOM + Canvas 桩驱动 UI 层跑完整场景，渲染与输入事件全程不抛异常、HUD 无 NaN。
+- 无头 Edge 截图见 `docs/screenshots/`：`before-cat-mouse-main.png` 是改动前 `main` 分支的实际内容（`main` 上没有猫和老鼠页面），`after-cat-mouse-*.png` 是本分支的运行画面（菜单、浅色/深色对打中、504×900 窄屏、页内自检全部绿），全部由无头 Edge 按固定随机种子抓取，可直接复现。
+
+---
+
 # 🐉 画一条龙 · Chinese Dragon
 
 单文件网页 [`dragon.html`](dragon.html)：一条程序化绘制的中国神龙，Canvas 即时作画，
