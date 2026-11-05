@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>一朵花的旅行 · The Journey of a Flower</title>
+<style>
+:root{
+  --ink:#2a2418; --paper:#f9f6ee; --card:#ffffff; --accent:#e0842c; --accent-ink:#fffaf2;
+  --muted:#7c7461; --line:rgba(150,135,105,.30); --leaf:#4f9c68;
+  --char:#d1567a; --pin:#3f8f6f; --shadow:rgba(90,70,30,.14);
+  --sun:#e8a33d; --sun-ink:#a9691a;
+}
+[data-theme="dark"]{
+  --ink:#f0ead9; --paper:#15131a; --card:#211d26; --accent:#f0a44e; --accent-ink:#1a1408;
+  --muted:#b0a68f; --line:rgba(200,185,150,.24); --leaf:#7fd6ab;
+  --char:#ff9fbe; --pin:#7fd6ab; --shadow:rgba(0,0,0,.45);
+  --sun:#f5c25e; --sun-ink:#f0cf8e;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); padding:20px 14px 44px;
+  transition:background .3s,color .3s;
+}
+.wrap{max-width:1000px;margin:0 auto}
+h1{margin:0;font-size:clamp(20px,3.4vw,30px)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
+.scene{position:relative;margin-top:14px;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);background:#e7f2e2}
+#stage{display:block;width:100%;height:auto}
+.pager{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;
+  justify-content:space-between;padding:10px 12px;pointer-events:none}
+.chip{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;
+  background:rgba(30,24,12,.42);color:#fff;border-radius:999px;padding:5px 12px;
+  font-size:13px;backdrop-filter:blur(3px)}
+.chip button{pointer-events:auto;border:none;background:transparent;color:#fff;
+  font:inherit;font-size:17px;line-height:1;padding:0 4px;cursor:pointer;opacity:.85}
+.chip button:disabled{opacity:.3;cursor:not-allowed}
+.dots{pointer-events:auto;display:flex;gap:7px;align-items:center}
+.dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45);
+  cursor:pointer;transition:transform .15s,background .2s}
+.dots i.on{background:#fff;transform:scale(1.25)}
+.bar{position:absolute;left:0;bottom:0;height:3px;background:rgba(255,255,255,.78);
+  width:0;transition:width .1s linear}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:16px 18px;margin-top:14px;box-shadow:0 6px 18px var(--shadow)}
+.read{min-height:118px}
+.zh{font-size:clamp(17px,2.5vw,22px);line-height:1.85;margin:0;font-weight:600}
+.en{margin:10px 0 0;font-size:clamp(14px,2vw,17px);line-height:1.75}
+.pin{margin:9px 0 0;font-size:13.5px;line-height:1.7;color:var(--pin);font-style:italic}
+.learn{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px;
+  padding-top:12px;border-top:1px dashed var(--line)}
+.hanzi{font-size:30px;font-weight:700;color:var(--char);line-height:1;
+  border:2px solid var(--char);border-radius:10px;padding:6px 11px;background:transparent}
+.learn .say{font-size:14px;line-height:1.7}
+.learn .say b{color:var(--char)}
+/* 花的悄悄话：每页一条科学小知识（中英对照） */
+.fact{display:none;margin-top:14px;padding:12px 14px 12px 16px;border-radius:12px;
+  border:1px solid var(--line);border-left:4px solid var(--leaf);
+  background:linear-gradient(90deg,rgba(160,220,170,.20),transparent 62%);}
+.fact h2{margin:0 0 8px;font-size:15px;letter-spacing:.06em;color:var(--sun-ink)}
+.fact h2 small{font-weight:400;font-size:12.5px;color:var(--muted);letter-spacing:0;margin-left:6px}
+.fact p{margin:0;font-size:15px;line-height:1.75}
+.fact p.fact-en{margin-top:6px;font-size:13.5px;line-height:1.65;color:var(--muted)}
+[data-theme="dark"] .fact{background:linear-gradient(90deg,rgba(120,200,140,.14),transparent 62%)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:14px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button.btn{font:inherit;cursor:pointer;border-radius:999px;padding:8px 16px;color:var(--ink);
+  border:1px solid var(--line);background:var(--card);transition:transform .12s,box-shadow .2s}
+button.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px var(--shadow)}
+#flip{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700}
+.seg{display:inline-flex;background:var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{padding:6px 13px;border:none;background:transparent;border-radius:999px;
+  font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.seg button.on{background:var(--card);font-weight:700;box-shadow:0 1px 4px var(--shadow)}
+label.opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+input[type=range]{width:104px;accent-color:var(--accent)}
+.keys{margin:12px 0 0;padding:0;list-style:none;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:6px 18px;font-size:13px;color:var(--muted)}
+.keys kbd{background:var(--line);border-radius:5px;padding:1px 6px;font-family:inherit;font-size:12px;color:var(--ink)}
+.foot{margin:10px 0 0;color:var(--muted);font-size:12.5px;line-height:1.7}
+#report{display:none}
+#report ol{margin:8px 0 0;padding-left:22px;font-size:13px;line-height:1.7}
+#report li.fail{color:#d1493b}
+@media (max-width:560px){ .read{min-height:150px} .chip{font-size:12px;padding:4px 9px}
+  .fact p{font-size:14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌻 一朵花的旅行 · The Journey of a Flower</h1>
+  <p class="sub">一本可以翻页、会生长的中英双语小绘本（5 页 / 6 岁起）：一粒葵花籽怎样喝水、发芽、
+    长高、开花，最后把一千多粒种子交回风和鸟。单文件、纯离线、零依赖。
+    文字、拼音、汉字学习点与 Banana Nano 绘画提示词见 <code>content/flower-book.md</code>。</p>
+
+  <div class="scene">
+    <canvas id="stage" width="960" height="520" aria-label="绘本画面：一朵向日葵从种子到结籽的一生"></canvas>
+    <div class="pager">
+      <span class="chip"><button id="prev" aria-label="上一页">‹</button>
+        <span id="pageNo">1 / 5</span><button id="next" aria-label="下一页">›</button></span>
+      <span class="dots" id="dots"></span>
+    </div>
+    <div class="bar" id="bar"></div>
+  </div>
+
+  <div class="card">
+    <div class="read">
+      <p class="zh" lang="zh-CN" id="zh"></p>
+      <p class="en" lang="en" id="en"></p>
+      <p class="pin" lang="zh-Latn-pinyin" id="pin"></p>
+    </div>
+    <div class="learn">
+      <span class="hanzi" id="hanzi">花</span>
+      <span class="say" id="say"></span>
+    </div>
+  </div>
+
+  <div class="fact" id="factCard" aria-labelledby="factTitle">
+    <h2 id="factTitle">🔬 花的悄悄话 <small>The Flower's Whisper — a true fact</small></h2>
+    <p id="factZh" lang="zh-CN"></p>
+    <p class="fact-en" id="factEn" lang="en"></p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="controls">
+        <button class="btn" id="flip">▶ 自动翻页</button>
+        <button class="btn" id="restart">↺ 回到第 1 页</button>
+        <span class="seg" id="langSeg">
+          <button data-lang="both" class="on">双语</button>
+          <button data-lang="zh">中文</button>
+          <button data-lang="en">English</button>
+        </span>
+        <button class="btn" id="soundBtn">🔊 音效</button>
+        <button class="btn" id="themeBtn">🌙 深色</button>
+      </div>
+      <div class="controls">
+        <label class="opt">时刻
+          <select id="todSel">
+            <option value="dawn">清晨</option><option value="noon" selected>正午</option><option value="dusk">黄昏</option>
+          </select></label>
+        <label class="opt">风
+          <input type="range" id="windRange" min="0" max="100" value="35" aria-label="风的强度"></label>
+        <label class="opt">速度
+          <select id="rateSel">
+            <option value="5.5">慢</option><option value="4" selected>正常</option><option value="2.4">快</option>
+          </select></label>
+      </div>
+    </div>
+    <ul class="keys">
+      <li><kbd>←</kbd> <kbd>→</kbd> — 上一页 / 下一页</li>
+      <li><kbd>空格</kbd> — 自动翻页 开 / 关</li>
+      <li><kbd>1</kbd>–<kbd>5</kbd> — 直接跳到某一页</li>
+      <li><kbd>S</kbd> 换时刻（清晨 / 正午 / 黄昏）· <kbd>W</kbd> 起风 / 停风</li>
+      <li><kbd>R</kbd> 回到第 1 页 · <kbd>M</kbd> 静音 · <kbd>T</kbd> 深色</li>
+      <li>第 4 页的花盘会跟着太阳转，第 5 页会低头散籽 —— 试试换时刻</li>
+    </ul>
+    <p class="foot">五页画面都由 Canvas 现场绘制：同一株向日葵（金黄舌状花瓣、深褐花盘、心形锯齿叶、
+      带细毛的茎），跨页外观一致，只有大小、姿态和表情随生长改变。文字按绘本魔法师模板给出中英与拼音，
+      每页一个汉字学习点和一条经过核对的科学小知识。</p>
+  </div>
+
+  <div class="card" id="report"><b id="reportTitle"></b><ol id="reportList"></ol></div>
+</div>
+
+<script>
+'use strict';
+/* __CORE_START__ ======================================================= */
+/* 绘本内核：文本、状态机、汉字学习点与科学小知识。只用标准数学、不访问 DOM，可整段抽出单测。 */
+
+const BOOK = {
+  title: { zh: '一朵花的旅行', en: 'The Journey of a Flower' },
+  style: 'watercolor', scene: 'meadow（草地，从春雨到秋天）',
+  character: 'one sunflower 向日葵（MODERATE CCLP：只有大小与姿态随生长改变）',
+  age: 6, pages: 5,
+  theme: { zh: '生长与给予 · 一个循环', en: 'Growth and giving — one cycle' },
+  pages: [
+    {
+      id: 'seed',
+      zh: '泥土里睡着一粒花的种子。它喝呀喝，喝得鼓鼓的，然后静静地等，等一点点暖。',
+      en: 'A flower seed sleeps in the soil. It drinks and drinks until it is plump, then waits quietly for a little warmth.',
+      pin: 'Nítǔ lǐ shuì zhe yì lì huā de zhǒnɡzi. Tā hē ya hē, hē de ɡūɡū de, ránhòu jìnɡjìnɡ de děnɡ, děnɡ yìdiǎndiǎn nuǎn.',
+      hanzi: { ch: '种', py: 'zhǒnɡ', en: 'seed' },
+      more: [ { ch: '土', py: 'tǔ', en: 'soil' }, { ch: '水', py: 'shuǐ', en: 'water' } ],
+      scene: 'seed',
+      fact: {
+        zh: '发芽需要的是水分、刚刚好的温度和空气，并不是阳光 —— 种子在黑黑的土里也会开始发芽。',
+        en: 'Germination needs water, the right warmth and air — not sunlight. A seed starts even in dark soil.'
+      }
+    },
+    {
+      id: 'sprout',
+      zh: '过了几天，泥土裂开一个小口，拱出一点白白的芽。它顶开种壳，举起两片圆圆的叶子。',
+      en: 'A few days later the soil cracks open and a pale sprout pushes up. It shrugs off its shell and lifts two round little leaves.',
+      pin: 'Guò le jǐ tiān, nítǔ liè kāi yí ɡè xiǎo kǒu, ɡǒnɡ chū yìdiǎn báibái de yá. Tā dǐnɡkāi zhònɡ ké, jǔ qǐ liǎnɡ piàn yuányuán de yèzi.',
+      hanzi: { ch: '芽', py: 'yá', en: 'sprout' },
+      more: [ { ch: '壳', py: 'ké', en: 'shell' }, { ch: '顶', py: 'dǐnɡ', en: 'to push up' } ],
+      scene: 'sprout',
+      fact: {
+        zh: '最先张开的两片叶子叫「子叶」，它们不是真叶，里面装着种子带来的第一份养分。',
+        en: 'The first two leaves are cotyledons, not true leaves — they carry the seed\'s starter food.'
+      }
+    },
+    {
+      id: 'grow',
+      zh: '太阳天天来，小芽越长越高。它长出心形的真叶，叶边有小锯齿，茎上还披了一层细细的绒毛。',
+      en: 'The sun comes every day and the sprout grows taller. Its true leaves are heart-shaped with tiny teeth, and the stem wears a coat of fine hairs.',
+      pin: 'Tàiyánɡ tiāntiān lái, xiǎo yá yuè zhǎnɡ yuè ɡāo. Tā zhǎnɡchū xīnxínɡ de zhēn yè, yè biān yǒu xiǎoxiǎo de jùchǐ, jīnɡ shànɡ hái pī le yì cánɡ xìxì de rónɡmáo.',
+      hanzi: { ch: '叶', py: 'yè', en: 'leaf' },
+      more: [ { ch: '茎', py: 'jīnɡ', en: 'stem' }, { ch: '高', py: 'ɡāo', en: 'tall' } ],
+      scene: 'grow',
+      fact: {
+        zh: '向日葵的茎和叶上长满细小的毛：它们挡住一部分虫子，也让水分不容易被晒跑。',
+        en: 'Sunflower stems and leaves are covered with tiny hairs that discourage insects and slow water loss.'
+      }
+    },
+    {
+      id: 'bloom',
+      zh: '顶端鼓起一个绿绿的花苞。有天清早，花苞张开，露出金黄的花瓣和深褐色的花盘。小蜜蜂第一个飞来道早安。',
+      en: 'A green bud swells at the top. One morning it opens, showing golden petals and a dark brown disk. The little bee arrives first to say good morning.',
+      pin: 'Dǐnɡduān ɡǔ qǐ yí ɡè lǜlǜ de huā bāo. Yǒu tiān qīnɡzǎo, huā bāo zhānɡkāi, lùchū jīnhuánɡ de huābàn hé shēnhèsè de huāpán. Xiǎo mìfēnɡ dì yī ɡè fēilái, dào zǎo ān.',
+      hanzi: { ch: '花', py: 'huā', en: 'flower' },
+      more: [ { ch: '蜂', py: 'fēnɡ', en: 'bee' }, { ch: '盘', py: 'pán', en: 'disk' } ],
+      scene: 'bloom',
+      fact: {
+        zh: '一个花盘不是一朵花，而是上百朵小花挤在一起，连外圈金黄的「花瓣」也是一朵朵花。年轻的花盘会跟着太阳转，开老之后大多固定朝东。',
+        en: 'A sunflower head is not one flower but hundreds of small ones packed together — even the golden "petals" are flowers. Young heads follow the sun; mature ones mostly stay facing east.'
+      }
+    },
+    {
+      id: 'seeds',
+      zh: '秋天到了，花盘变得又重又满，低着头。风一吹，鸟一啄，黑黑的葵花籽一颗一颗落回泥土：明年，这里会有更多花。',
+      en: 'Autumn comes. The heavy head, full of seeds, bows low. A gust, a peck from a bird — and the black seeds drop back into the soil: next year this meadow will hold many more flowers.',
+      pin: 'Qiūtiān dàole, huāpán biànde yòu zhònɡ yòu mǎn, dīzhe tóu. Fēnɡ yì chuī, niǎo yì zhuó, hēihēi de kuíhuāzǐ yì kē yì kē luò huí nítǔ: mínɡnián, zhèlǐ huì yǒu ɡènɡ duō huā.',
+      hanzi: { ch: '籽', py: 'zǐ', en: 'seed kernel' },
+      more: [ { ch: '秋', py: 'qiū', en: 'autumn' }, { ch: '鸟', py: 'niǎo', en: 'bird' } ],
+      scene: 'seeds',
+      fact: {
+        zh: '一个花盘能结出一千多粒葵花籽。成熟的花头被种子压得低下来，这样种子更容易落回土里，也更容易被鸟叼走、带到远方。',
+        en: 'One head can ripen more than a thousand seeds. The ripe head bows under their weight, so seeds fall back into the ground or get carried far away by birds.'
+      }
+    }
+  ]
+};
+
+/* 自动翻页的节奏：每页停留秒数（一页一句，留给画面慢慢长） */
+const AUTO_PAGE = 4;
+/* 可选时刻：太阳位置不同，第 3、4 页的花盘朝向跟着变 */
+const TODS = ['dawn', 'noon', 'dusk'];
+const SUN_POS = {
+  dawn: { x: 140, y: 150 }, noon: { x: 500, y: 74 }, dusk: { x: 830, y: 168 }
+};
+
+/**
+ * 绘本状态机。与渲染层解耦，只关心「在哪一页、是否自动、语言、时刻、风」。
+ * @param {object} cfg {page, auto, lang, rate, tod, wind}
+ */
+function createBook(cfg){
+  cfg = cfg || {};
+  const n = BOOK.pages.length;
+  const S = {
+    page: clampInt(cfg.page != null ? cfg.page : 0, 0, n - 1),
+    auto: !!cfg.auto,
+    lang: cfg.lang === 'zh' || cfg.lang === 'en' ? cfg.lang : 'both',
+    rate: typeof cfg.rate === 'number' && cfg.rate > 0 ? cfg.rate : AUTO_PAGE,
+    tod: TODS.indexOf(cfg.tod) >= 0 ? cfg.tod : 'noon',
+    wind: clamp01(cfg.wind == null ? 0.35 : cfg.wind),
+    t: 0,                // 本页已停留时间（自动翻页计时）
+    pt: 0,               // 本页生长计时（画面用，翻页归零）
+    elapsed: 0,
+    turns: 0,
+    seen: new Array(n).fill(false),
+    events: []
+  };
+  S.seen[S.page] = true;
+  function clampInt(v, lo, hi){ v = Math.round(+v || 0); return v < lo ? lo : (v > hi ? hi : v); }
+  function clamp01(v){ v = +v || 0; return v < 0 ? 0 : (v > 1 ? 1 : v); }
+  function emit(ev){ S.events.push(ev); }
+  function go(i, how){
+    const to = clampInt(i, 0, n - 1);
+    if (to === S.page) return false;
+    S.page = to; S.t = 0; S.pt = 0; S.turns++; S.seen[to] = true;
+    emit({ t: 'turn', from: to - 1, to, how: how || 'set' });
+    return true;
+  }
+  function step(dt){
+    dt = Math.min(Math.max(+dt || 0, 0), 0.05);
+    S.elapsed += dt; S.pt += dt;
+    if (!S.auto) return false;
+    S.t += dt;
+    if (S.t >= S.rate){                        // 到点翻页；末页则停在那里
+      if (S.page >= n - 1){ S.t = S.rate; return false; }
+      go(S.page + 1, 'auto');
+      return true;
+    }
+    return false;
+  }
+  function progress(){                          // 0..1，自动翻页进度条
+    if (!S.auto) return 0;
+    return Math.min(1, S.t / S.rate);
+  }
+  return {
+    S, go, step, progress, clampInt, clamp01,
+    current(){ return BOOK.pages[S.page]; },
+    count(){ return n; },
+    first(){ return go(0, 'restart'); },
+    last(){ return go(n - 1, 'set'); },
+    next(){ return S.page < n - 1 ? go(S.page + 1, 'next') : false; },
+    prev(){ return S.page > 0 ? go(S.page - 1, 'prev') : false; },
+    setLang(l){ S.lang = (l === 'zh' || l === 'en') ? l : 'both'; emit({ t: 'lang', lang: S.lang }); },
+    setRate(r){ if (+r > 0) S.rate = +r; },
+    setAuto(v){ S.auto = !!v; S.t = 0; emit({ t: 'auto', on: S.auto }); },
+    setTod(v){ if (TODS.indexOf(v) >= 0){ S.tod = v; emit({ t: 'tod', tod: v }); } },
+    cycleTod(){ const i = (TODS.indexOf(S.tod) + 1) % TODS.length; S.tod = TODS[i]; emit({ t: 'tod', tod: S.tod }); },
+    setWind(v){ S.wind = clamp01(v); emit({ t: 'wind', wind: S.wind }); },
+    sun(){ return SUN_POS[S.tod]; },
+    readTime(){                                 // 全部读一遍需要的秒数（按字数估算）
+      let c = 0;
+      for (const p of BOOK.pages) c += p.zh.replace(/[^\u4e00-\u9fa5]/g, '').length;
+      return Math.round(c / 4.2);
+    }
+  };
+}
+
+/* __CORE_END__ ========================================================= */
+
+/* __UI_START__ =========================================================
+   渲染与交互层：把内核状态画成水彩风画面，处理翻页、生长动画、风与日照。 */
+(function(){
+const cvs = document.getElementById('stage');
+const ctx = cvs.getContext('2d');
+const Q = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+
+const G = createBook({
+  page: Q.has('page') ? +Q.get('page') - 1 : 0,
+  auto: Q.get('auto') === '1',
+  lang: Q.get('lang'),
+  rate: Q.get('rate') ? +Q.get('rate') : AUTO_PAGE,
+  tod: Q.get('tod'),
+  wind: Q.has('wind') ? +Q.get('wind') / 100 : undefined
+});
+if (Q.get('theme') === 'dark') document.body.dataset.theme = 'dark';
+
+const W = 960, H = 520;
+let last = 0, frozen = Q.get('freeze') === '1';
+let soundOn = Q.get('sound') !== 'off', actx = null;
+/* 五个场景的键名，自检与渲染共用 */
+const SCENES_LIKE = ['seed', 'sprout', 'grow', 'bloom', 'seeds'];
+
+/* ---------- 调色板：全部是带引号的颜色字符串（自检会校验，防止未加引号的十六进制） ---------- */
+const PAL = {
+  ink: '#3a2f1c',
+  petal: '#f6c032', petalDeep: '#e08a1e', petalPale: '#ffe08a',
+  disk: '#6b4423', diskDeep: '#4b2f18', diskRing: '#d8a13f',
+  face: '#fdf3dd', faceEye: '#3a2a18',
+  stem: '#5aa26b', stemDeep: '#3d7c4d', hair: 'rgba(255,255,255,.55)',
+  leaf: '#54a86a', leafDeep: '#39814c', vein: 'rgba(30,80,45,.45)',
+  soil: '#8b6a45', soilDeep: '#6d5134', soilTop: '#a8845a', pebble: '#b6a894',
+  shell: '#4a3a2c', shellLine: '#d9cbb6',
+  gold: '#ffd76a', sunGlow: 'rgba(255,215,106,.28)',
+  cloud: '#ffffff', hillFar: '#d8e6c4', hillMid: '#c3ddb0', grass: '#8cc57d', grassDark: '#6fae66',
+  daisy: '#f6f3ea', daisyHeart: '#e8a33d', pink: '#ef8fa8', violet: '#c39bf0',
+  beeBody: '#f2c53d', beeStripe: '#3a2f16', beeWing: 'rgba(255,255,255,.62)',
+  bird: '#8a7a63', birdWing: '#6b5c48', beak: '#f0913a',
+  line: 'rgba(58,47,28,.55)', dark: 'rgba(20,16,8,.30)'
+};
+const SKY = {
+  dawn: ['#f7e6c8', '#dceaf4'], noon: ['#bfe6fb', '#f3f8ec'], dusk: ['#f6c9a8', '#cfe0ef'],
+  autumn: ['#f4d6a6', '#e8eee2']
+};
+/* 时刻罩层：整幅画面的光色（半透明，只罩颜色不改形状）。
+   黄昏用暖琥珀、清晨用淡粉金，正午不加 —— 避免罩成灰蒙蒙。 */
+const TOD_WASH = {
+  dawn: { top: 'rgba(255,206,150,.14)', bottom: 'rgba(255,236,214,.07)' },
+  noon: null,
+  dusk: { top: 'rgba(255,146,58,.16)', bottom: 'rgba(255,176,96,.10)' }
+};
+/* 天空本身也跟着时刻走：黄昏直接画落日的橙天，而不是在蓝天上罩一层暖色 */
+function skyForTod(base){
+  const k = G.S.tod;
+  if (k === 'dusk') return base === 'autumn' ? ['#f2b47a', '#e6dcd0'] : SKY.dusk;
+  if (k === 'dawn') return base === 'autumn' ? SKY.autumn : SKY.dawn;
+  return SKY[base] || SKY.noon;
+}
+
+/* ---------- 公共小画法 ---------- */
+function circle(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+function soft(x, y, rx, ry, rot, fill){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.fillStyle = fill;
+  ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 6.2832); ctx.fill(); ctx.restore();
+}
+function sky(g1, g2){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, g1); g.addColorStop(1, g2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function cloud(x, y, s, alpha){
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = PAL.cloud;
+  circle(x, y, 20 * s); circle(x + 23 * s, y + 5 * s, 15 * s);
+  circle(x - 23 * s, y + 6 * s, 13 * s); circle(x + 5 * s, y - 11 * s, 14 * s);
+  ctx.restore();
+}
+function driftingClouds(t, list, alpha){
+  for (const c of list) cloud(((c.x + t * c.v * (0.4 + G.S.wind)) % (W + 260)) - 130, c.y, c.s, alpha);
+}
+function sun(x, y, r, warm){
+  ctx.save(); ctx.fillStyle = warm ? '#ffb45e' : PAL.gold; ctx.globalAlpha = .95; circle(x, y, r);
+  ctx.globalAlpha = .22; circle(x, y, r * 1.75); ctx.restore();
+  ctx.save(); ctx.strokeStyle = warm ? 'rgba(255,180,94,.55)' : 'rgba(255,215,106,.5)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 8; i++){ const a = i / 8 * 6.2832 + t0 * .12;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * (r + 7), y + Math.sin(a) * (r + 7));
+    ctx.lineTo(x + Math.cos(a) * (r + 17), y + Math.sin(a) * (r + 17)); ctx.stroke(); }
+  ctx.restore();
+}
+let t0 = 0;                                     /* 当前帧时间，供太阳光芒旋转用 */
+function hill(y, amp, stepW, fill, phase){
+  ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(0, y + amp);
+  for (let x = 0; x <= W; x += stepW) ctx.quadraticCurveTo(x + stepW / 2, y - amp * Math.sin(x / 90 + phase), x + stepW, y + amp);
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+}
+function grassBlade(x, y, h, sway, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x + sway * 0.4, y - h * 0.6, x + sway, y - h); ctx.stroke();
+}
+function sway(t, phase){ return Math.sin(t * 1.5 + phase) * (2 + G.S.wind * 12); }
+function daisy(x, y, r, petal, heart){
+  ctx.fillStyle = petal;
+  for (let i = 0; i < 5; i++){ const a = i / 5 * 6.2832; circle(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.85); }
+  ctx.fillStyle = heart; circle(x, y, r * 0.7);
+}
+function meadowFlowers(t, y){
+  daisy(86, y + 6, 5, PAL.daisy, PAL.daisyHeart); daisy(214, y + 12, 4.5, PAL.pink, '#fff1c9');
+  daisy(332, y + 2, 5, PAL.violet, PAL.daisyHeart); daisy(566, y + 14, 4.5, PAL.daisy, PAL.daisyHeart);
+  daisy(700, y + 4, 5, PAL.pink, '#fff1c9'); daisy(872, y + 10, 4.5, PAL.violet, PAL.daisyHeart);
+}
+function ground(yTop, t){
+  ctx.fillStyle = PAL.grass; ctx.fillRect(0, yTop, W, H - yTop);
+  ctx.fillStyle = '#a3d493'; ctx.fillRect(0, yTop, W, 20);
+  for (let i = 0; i < 54; i++){
+    const x = (i * 57) % W, y = yTop + 26 + (i % 6) * 16;
+    grassBlade(x, y, 14 + (i % 5) * 4, sway(t, i), i % 3 ? PAL.grassDark : '#a5d291');
+  }
+}
+/* 土壤层：表面松软，能看到小石子与裂缝（不画土里的东西） */
+function soilBand(topY, t){
+  const g = ctx.createLinearGradient(0, topY, 0, H);
+  g.addColorStop(0, PAL.soilTop); g.addColorStop(1, PAL.soilDeep);
+  ctx.fillStyle = g; ctx.fillRect(0, topY, W, H - topY);
+  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 8; i++){
+    const y = topY + 10 + i * ((H - topY) / 8);
+    ctx.beginPath(); ctx.moveTo(0, y);
+    for (let x = 0; x <= W; x += 60) ctx.lineTo(x, y + Math.sin(x / 70 + i) * 2.5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = PAL.pebble;
+  for (let i = 0; i < 12; i++){ const x = (i * 83 + 30) % W, y = topY + 22 + (i % 4) * 26;
+    soft(x, y, 6 + (i % 3) * 2, 3.6, i * 0.4, PAL.pebble); }
+  /* 表面的草茎装饰 */
+  ctx.strokeStyle = PAL.grassDark; ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++){ const x = (i * 71) % W;
+    ctx.beginPath(); ctx.moveTo(x, topY + 4); ctx.lineTo(x + sway(t, i) * .4, topY - 8); ctx.stroke(); }
+}
+/* 雨丝：只落在土壤表面以上，表示种子在喝水 */
+function rain(t, x0, x1, topY){
+  ctx.strokeStyle = 'rgba(150,200,225,.75)'; ctx.lineWidth = 1.6;
+  for (let i = 0; i < 18; i++){
+    const ph = (t * 1.6 + i * 0.19) % 1;
+    const x = x0 + ((i * 37) % (x1 - x0)) + ph * 8;
+    const y = 40 + ph * (topY - 60);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + 12); ctx.stroke();
+  }
+}
+/* 葵花籽：带纵向浅纹的水滴形外壳（跨页一致的标志外观） */
+function seedKernel(x, y, s, rot){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.scale(s, s);
+  ctx.fillStyle = PAL.shell; ctx.beginPath();
+  ctx.moveTo(0, -13); ctx.quadraticCurveTo(10, -6, 8, 6); ctx.quadraticCurveTo(4, 14, 0, 14);
+  ctx.quadraticCurveTo(-4, 14, -8, 6); ctx.quadraticCurveTo(-10, -6, 0, -13); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = PAL.shellLine; ctx.lineWidth = 1.1;
+  for (let i = -1; i <= 1; i++){ ctx.beginPath(); ctx.moveTo(i * 4, -11);
+    ctx.quadraticCurveTo(i * 5.4, 0, i * 3.6, 12); ctx.stroke(); }
+  ctx.restore();
+}
+/* 心形真叶：叶边有小锯齿，叶面带细毛高光 */
+function leaf(x, y, s, ang, t, ph){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+  const fl = Math.sin(t * 1.4 + ph) * (0.03 + G.S.wind * 0.09);
+  ctx.rotate(fl);
+  ctx.fillStyle = PAL.leaf; ctx.strokeStyle = PAL.leafDeep; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(26, -22, 40, -4);
+  ctx.quadraticCurveTo(46, 8, 34, 16);
+  ctx.quadraticCurveTo(16, 24, 0, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* 锯齿边 */
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++){ const a = -0.5 + i * 0.22;
+    ctx.moveTo(20 + Math.cos(a) * 16, -6 + Math.sin(a) * 12);
+    ctx.lineTo(22 + Math.cos(a) * 20, -7 + Math.sin(a) * 15); }
+  ctx.stroke();
+  ctx.strokeStyle = PAL.vein; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(2, 0); ctx.quadraticCurveTo(20, 0, 38, 2); ctx.stroke();
+  for (let i = 0; i < 4; i++){ ctx.beginPath(); ctx.moveTo(9 + i * 8, 0);
+    ctx.lineTo(14 + i * 8, -7 + i); ctx.moveTo(9 + i * 8, 1); ctx.lineTo(14 + i * 8, 8 - i); ctx.stroke(); }
+  /* 细毛 */
+  ctx.strokeStyle = PAL.hair; ctx.lineWidth = .9;
+  for (let i = 0; i < 7; i++){ ctx.beginPath(); ctx.moveTo(10 + i * 4, -8 + i);
+    ctx.lineTo(9 + i * 4, -12 + i); ctx.stroke(); }
+  ctx.restore();
+}
+/* 子叶：圆圆的一片，比真叶小、边缘无锯齿 */
+function cotyledon(x, y, s, ang){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+  ctx.fillStyle = '#7cc48d'; ctx.strokeStyle = PAL.stemDeep; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(14, 0, 14, 9, 0, 0, 6.2832); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(40,110,60,.4)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(26, 0); ctx.stroke();
+  ctx.restore();
+}
+/* 主茎：从地面到指定高度，带细毛 */
+function stem(baseX, groundY, topY, t, ph){
+  const bend = sway(t, ph) * 0.5;
+  ctx.strokeStyle = PAL.stem; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(baseX, groundY);
+  ctx.quadraticCurveTo(baseX + bend * .6, (groundY + topY) / 2, baseX + bend, topY); ctx.stroke();
+  ctx.strokeStyle = PAL.stemDeep; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(baseX + 2.5, groundY);
+  ctx.quadraticCurveTo(baseX + bend * .6 + 2.5, (groundY + topY) / 2, baseX + bend + 2.5, topY); ctx.stroke();
+  ctx.strokeStyle = PAL.hair; ctx.lineWidth = 1;
+  for (let i = 0; i < 9; i++){ const k = i / 8, y = groundY + (topY - groundY) * k,
+    x = baseX + bend * k * k;
+    ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x - 8, y - 3); ctx.stroke(); }
+  ctx.lineWidth = 1; ctx.lineCap = 'butt';
+  return { x: baseX + bend, y: topY };
+}
+/* 花苞：绿色苞片包着的椭圆 */
+function bud(x, y, s, open, t){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const k = G.clamp01(open);
+  ctx.fillStyle = PAL.leafDeep;
+  for (let i = 0; i < 5; i++){ const a = -0.9 + i * 0.45;
+    ctx.save(); ctx.rotate(a * (1 - k * .3)); ctx.beginPath();
+    ctx.ellipse(0, -10 - k * 4, 5.5, 14, 0, 0, 6.2832); ctx.fill(); ctx.restore(); }
+  ctx.fillStyle = PAL.petal;
+  if (k > 0){ ctx.globalAlpha = k;
+    for (let i = 0; i < 12; i++){ const a = i / 12 * 6.2832;
+      ctx.save(); ctx.rotate(a); ctx.beginPath();
+      ctx.ellipse(0, -8 - k * 8, 3, 7 * k + 2, 0, 0, 6.2832); ctx.fill(); ctx.restore(); } }
+  ctx.globalAlpha = 1; ctx.restore();
+}
+/* 花盘上的小花：按黄金角排布，外圈先开 */
+function diskFlorets(r){
+  ctx.fillStyle = PAL.diskRing;
+  for (let i = 0; i < 46; i++){ const a = i * 2.39996, k = Math.sqrt(i / 46);
+    const x = Math.cos(a) * r * k, y = Math.sin(a) * r * k;
+    circle(x, y, Math.max(1.3, r * 0.085 * (1 - k * 0.45))); }
+  ctx.fillStyle = PAL.diskDeep;
+  for (let i = 46; i < 78; i++){ const a = i * 2.39996, k = Math.sqrt(i / 78);
+    circle(Math.cos(a) * r * k, Math.sin(a) * r * k, Math.max(1, r * 0.07)); }
+}
+/* 整朵向日葵：跨页同一个函数、同一套颜色 —— 外观一致，只有大小 / 朝向 / 表情变化 */
+function flowerHead(x, y, s, open, tilt){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); ctx.scale(s, s);
+  const k = G.clamp01(open);
+  /* 舌状花瓣（外围）：两层，越开越舒展 */
+  const n = 18;
+  for (let layer = 0; layer < 2; layer++){
+    ctx.fillStyle = layer ? PAL.petalDeep : PAL.petal;
+    for (let i = 0; i < n; i++){
+      const a = (i + layer * 0.5) / n * 6.2832;
+      const len = 34 * (0.25 + k * 0.75), wid = 7 * (0.5 + k * 0.5);
+      ctx.save(); ctx.rotate(a); ctx.beginPath();
+      ctx.moveTo(0, -20 * k - 6);
+      ctx.quadraticCurveTo(wid, -20 * k - 6 - len * 0.55, 0, -20 * k - 6 - len);
+      ctx.quadraticCurveTo(-wid, -20 * k - 6 - len * 0.55, 0, -20 * k - 6);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  }
+  /* 花盘 */
+  const r = 20 + k * 8;
+  ctx.fillStyle = PAL.disk; circle(0, 0, r);
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r - 1.5, 0, 6.2832); ctx.clip();
+  if (k > .55) diskFlorets(r - 2);
+  ctx.restore();
+  ctx.strokeStyle = PAL.diskDeep; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.2832); ctx.stroke();
+  /* 表情：同一张脸（tinyFace），在深褐花盘上用奶白底才看得清 */
+  const blink = (Math.sin(t0 * 1.1) > 0.985);
+  tinyFace(0, -r * 0.14, r / 13, blink ? 'sleep' : 'open', 'dark');
+  ctx.restore();
+}
+/* 跨页同一张脸：由 tinyFace 统一绘制。
+   surface = 'dark'（深色底：花籽壳、深褐花盘）用奶白底 + 深瞳；
+   surface = 'light'（浅色底：白白的芽）用深色眉眼。
+   mood: 'sleep' | 'open' | 'look' —— 只有表情变，五官位置与比例不变。 */
+function tinyFace(x, y, s, mood, surface){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const light = surface === 'light';
+  const ink = light ? PAL.ink : PAL.face;
+  const pupil = light ? PAL.ink : PAL.faceEye;
+  const eyeR = 2.6, gap = 4.2;
+  if (mood === 'sleep'){
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-gap, 0, eyeR, 0.3, Math.PI - 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(gap, 0, eyeR, 0.3, Math.PI - 0.3); ctx.stroke();
+  } else {
+    ctx.fillStyle = ink; circle(-gap, 0, eyeR); circle(gap, 0, eyeR);
+    ctx.fillStyle = pupil;
+    const lk = mood === 'look' ? -0.9 : 0;
+    circle(-gap + lk, lk * .4, eyeR * 0.52); circle(gap + lk, lk * .4, eyeR * 0.52);
+    ctx.fillStyle = '#fff';
+    circle(-gap + lk + .7, -0.8, eyeR * 0.22); circle(gap + lk + .7, -0.8, eyeR * 0.22);
+  }
+  ctx.strokeStyle = ink; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(0, eyeR * 1.5, 3.4, 0.3, Math.PI - 0.3); ctx.stroke();
+  ctx.lineWidth = 1; ctx.lineCap = 'butt'; ctx.restore();
+}
+function butterfly(x, y, s, t){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const f = Math.sin(t * 7) * 0.5 + 0.5;
+  ctx.fillStyle = '#f2a1c8'; ctx.beginPath();
+  ctx.ellipse(-6, -2, 6, 8 - f * 4, -0.5, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = '#f7c8dd'; ctx.beginPath();
+  ctx.ellipse(6, -2, 6, 8 - f * 4, 0.5, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = PAL.ink; ctx.beginPath(); ctx.ellipse(0, 0, 1.6, 6, 0, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+/* 小蜜蜂：黄黑条纹 + 透明翅（跨页同一只） */
+function bee(x, y, s, t, carry){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const f = Math.abs(Math.sin(t * 11)) * 5;
+  ctx.fillStyle = PAL.beeWing;
+  ctx.beginPath(); ctx.ellipse(-2, -6 - f * 0.3, 6, 3.4, -0.5, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(3, -6 - f * 0.3, 5.5, 3, 0.4, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = PAL.beeBody; ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = PAL.beeStripe; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(-3, -5.4); ctx.lineTo(-3, 5.4); ctx.moveTo(3, -5); ctx.lineTo(3, 5); ctx.stroke();
+  ctx.fillStyle = PAL.ink; circle(-7.5, -1.5, 2.2);
+  ctx.strokeStyle = PAL.beeStripe; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(-2, 9); ctx.stroke();
+  if (carry){ ctx.fillStyle = '#f7d77e'; circle(-11, 2, 2.2); circle(11, 2, 2.2); }
+  ctx.restore();
+}
+/* 小鸟：来啄种子的小麻雀 */
+function sparrow(x, y, s, flap){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const up = Math.sin(flap * 6.2832);
+  ctx.fillStyle = PAL.bird; ctx.beginPath(); ctx.ellipse(0, 0, 15, 10, -0.1, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = PAL.birdWing; ctx.beginPath(); ctx.ellipse(-2, -2, 10, 6, -0.5 - up * 0.5, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = PAL.bird; circle(11, -8, 7);
+  ctx.fillStyle = PAL.beak; ctx.beginPath(); ctx.moveTo(17, -8); ctx.lineTo(26, -6); ctx.lineTo(17, -4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = PAL.ink; circle(13, -10, 1.7);
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-14, 2); ctx.lineTo(-22, 6); ctx.stroke();
+  ctx.restore();
+}
+function sparkle(x, y, r, a){
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fff8d8';
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++){ const ang = i / 8 * 6.2832, rad = i % 2 ? r * 0.4 : r;
+    ctx.lineTo(x + Math.cos(ang) * rad, y + Math.sin(ang) * rad); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function caption(text, st){
+  ctx.save(); ctx.textAlign = 'right';
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = st.dark ? 'rgba(240,232,214,.82)' : 'rgba(58,47,28,.72)';
+  ctx.fillText(text, W - 16, H - 14); ctx.restore();
+}
+/* 花盘朝向：第 3、4 页跟着太阳转（年轻花盘的向阳性），第 5 页低头 */
+function headTiltToSun(sunX, headX, droop){
+  const lean = G.clamp01((sunX - headX) / W + 0.5) - 0.5;   /* -0.5..0.5 */
+  return lean * 0.55 + (droop || 0);
+}
+
+/* ---------- 五个页面场景 ---------- */
+const SCENES = {
+  /* P1 种子躺进松软的土里，喝饱水，静静等 */
+  seed(t, st){
+    sky(SKY.dawn[0], SKY.dawn[1]);
+    const s = G.sun(); sun(Math.min(s.x, 240), 120, 22, true);
+    driftingClouds(t, [{ x: 300, y: 70, s: 1.1, v: 8 }, { x: 640, y: 110, s: .85, v: 11 }], .8);
+    /* 一朵带来春雨的云，雨丝落在土面上 */
+    const rx = 470 + Math.sin(t * .5) * 40;
+    cloud(rx, 108, 1.25, .95); cloud(rx + 58, 116, .9, .85);
+    ctx.save(); ctx.globalAlpha = .55 + .35 * Math.sin(t * .8); rain(t, rx - 90, rx + 100, 350); ctx.restore();
+    hill(330, 22, 150, PAL.hillFar, .4);
+    soilBand(352, t);
+    /* 主角：一粒葵花籽躺在土面，吸水后鼓起来一点 */
+    const plump = 1 + Math.sin(Math.min(t, 10) / 10 * Math.PI) * 0.06;
+    const sx = 452, sy = 386;
+    ctx.save(); ctx.globalAlpha = .18; soft(sx, sy + 12, 22, 5, 0, PAL.dark); ctx.restore();
+    seedKernel(sx, sy, 1.5 * plump, 0.32);
+    /* 同一张脸（tinyFace）：在深色籽壳上安睡 */
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(0.32); ctx.scale(1.15, 1.15);
+    tinyFace(0, -1, 1, 'sleep', 'dark'); ctx.restore();
+    /* 水珠挂在壳上 */
+    for (let i = 0; i < 3; i++) circle(sx - 12 + i * 12, sy - 16 + (i % 2) * 6, 2.2);
+    ctx.fillStyle = 'rgba(190,230,245,.85)';
+    for (let i = 0; i < 3; i++) circle(sx - 12 + i * 12, sy - 16 + (i % 2) * 6, 1.4);
+    /* 周围的伙伴：远处草丛、蜗牛守着看 */
+    grassBlade(360, 366, 22, sway(t, 1) * .5, PAL.grassDark);
+    grassBlade(548, 364, 20, sway(t, 3) * .5, PAL.grassDark);
+    daisy(150, 340, 5, PAL.pink, '#fff1c9'); daisy(820, 344, 5, PAL.daisy, PAL.daisyHeart);
+    /* 小蜗牛（配角：完整锚点，不用泛称） */
+    ctx.save(); ctx.translate(560, 392);
+    ctx.fillStyle = '#e8cfa8'; ctx.beginPath(); ctx.ellipse(0, 4, 16, 6, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#c98b5a'; ctx.beginPath(); ctx.arc(-2, -2, 11, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = '#8d5a34'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(-2, -2, 7, 0, 4.6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-2, -2, 3.4, 0, 4); ctx.stroke();
+    ctx.strokeStyle = '#e8cfa8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(18, -8); ctx.moveTo(9, 0); ctx.lineTo(14, -9); ctx.stroke();
+    ctx.fillStyle = PAL.ink; circle(18, -9, 1.5); circle(14, -10, 1.4);
+    ctx.restore();
+    caption('第一页 · 一颗种子在喝水', st);
+  },
+
+  /* P2 泥土裂开，拱出白白的芽，顶开种壳 */
+  sprout(t, st){
+    sky(SKY.dawn[0], SKY.dawn[1]);
+    const s = G.sun(); sun(Math.max(120, Math.min(s.x, 300)), 108, 26, true);
+    driftingClouds(t, [{ x: 520, y: 76, s: 1.0, v: 9 }, { x: 780, y: 120, s: .7, v: 6 }], .8);
+    hill(300, 22, 150, PAL.hillFar, .5);
+    hill(346, 18, 160, PAL.hillMid, 1.2);
+    soilBand(372, t);
+    /* 裂缝 + 拱出来的芽：白色弯曲的下胚轴，顶端两片圆圆子叶 */
+    const gx = 452, topY = 372 - Math.min(1, t / 3.5) * 44;
+    ctx.strokeStyle = 'rgba(90,60,35,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(gx - 26, 378); ctx.quadraticCurveTo(gx, 372, gx + 24, 380); ctx.stroke();
+    seedKernel(gx - 44, 384, 1.35, -0.5);          /* 被顶开的空壳，留在土面 */
+    seedKernel(gx + 40, 388, 1.05, 0.9);
+    ctx.strokeStyle = '#f2e8cf'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(gx, 374);
+    ctx.quadraticCurveTo(gx + 4 + sway(t, 0) * .3, topY + 26, gx + 2, topY + 6); ctx.stroke();
+    ctx.lineWidth = 1; ctx.lineCap = 'butt';
+    /* 芽尖：一点点白白的钩，还没完全伸直 */
+    ctx.strokeStyle = PAL.stem; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(gx + 2, topY + 8); ctx.quadraticCurveTo(gx + 8, topY, gx + 2, topY - 4); ctx.stroke();
+    ctx.lineWidth = 1; ctx.lineCap = 'butt';
+    const spread = G.clamp01((t - 1.6) / 2.4);
+    cotyledon(gx + 2, topY - 2, 1 + spread * .4, -0.62 - spread * .35);
+    cotyledon(gx + 2, topY - 2, 1 + spread * .4, Math.PI + 0.62 + spread * .35);
+    /* 同一张脸：在浅色的芽尖上，用深色眉眼，使劲往上看 */
+    tinyFace(gx + 3, topY - 1, 1.05, 'look', 'light');
+    /* 露水滴在叶上；瓢虫落在土面看 */
+    ctx.fillStyle = 'rgba(190,230,245,.9)';
+    circle(gx - 16 + sway(t, 2), topY + 12, 2.2); circle(gx + 20, topY + 20, 1.8);
+    ctx.save(); ctx.translate(620, 404);
+    ctx.fillStyle = '#d2493b'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, Math.PI, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#e9d7b6'; ctx.beginPath(); ctx.ellipse(-11, -1, 4, 4, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = PAL.ink; circle(-11, -2, 1.6);
+    ctx.strokeStyle = PAL.ink; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 0); ctx.stroke();
+    ctx.fillStyle = PAL.ink; circle(-5, -5, 1.8); circle(4, -6, 1.8); circle(2, -2, 1.5);
+    ctx.restore();
+    meadowFlowers(t, 366);
+    caption('第二页 · 顶开种壳', st);
+  },
+
+  /* P3 越长越高：心形真叶 + 细毛的茎 + 顶端花苞 */
+  grow(t, st){
+    sky(...skyForTod('noon'));
+    const s = G.sun(); sun(s.x, s.y, 24, false);
+    driftingClouds(t, [{ x: 120, y: 92, s: 1.1, v: 8 }, { x: 520, y: 66, s: .8, v: 12 }, { x: 800, y: 132, s: .7, v: 6 }], .8);
+    hill(286, 22, 150, PAL.hillFar, .6);
+    ground(352, t);
+    const baseX = 300;
+    const h = 148 + Math.min(1, t / 4.5) * 78;
+    const gt = 430;
+    const tp = stem(baseX, gt, gt - h, t, 0);
+    leaf(tp.x - 3, gt - h * 0.32, 1.05, Math.PI - 0.28, t, 0.4);
+    leaf(tp.x + 3, gt - h * 0.32, 1.05, 0.28, t, 1.6);
+    leaf(tp.x - 2, gt - h * 0.62, 0.92, Math.PI - 0.42, t, 2.4);
+    leaf(tp.x + 2, gt - h * 0.62, 0.92, 0.42, t, 3.1);
+    const open = G.clamp01((t - 2.4) / 2.2);
+    bud(tp.x, gt - h - 6, 1.5, open, t);
+    /* 同一张脸画在顶端的「头」上（和第 4、5 页的位置一致），浅绿苞片 → 深色眉眼 */
+    tinyFace(tp.x, gt - h - 8, 1.5, 'look', 'light');
+    /* 蝴蝶绕着新叶飞；远处另一株矮一点的向日葵也已长高 */
+    butterfly(420 + Math.sin(t * .8) * 46, gt - h * 0.7 + Math.sin(t * 1.7) * 22, 1, t);
+    stem(742, gt, gt - 92, t, 1.9);
+    leaf(740, gt - 40, .8, Math.PI - 0.3, t, 1.2); leaf(744, gt - 62, .8, 0.3, t, 2.2);
+    bud(742, gt - 98, 1.15, 0, t);
+    meadowFlowers(t, 392);
+    for (let i = 0; i < 10; i++){ const x = (i * 97 + 40) % W;
+      sparkle(x, 60 + (i * 41) % 120, 2 + (i % 3), 0.25 + 0.25 * Math.sin(t * 2 + i)); }
+    caption('第三页 · 心形的真叶', st);
+  },
+
+  /* P4 开花：金黄花瓣 + 深褐花盘，花盘跟着太阳转；小蜜蜂来道早安 */
+  bloom(t, st){
+    sky(...skyForTod('noon'));
+    const s = G.sun(); sun(s.x, s.y, 26, s.y > 140);
+    driftingClouds(t, [{ x: 90, y: 96, s: 1.2, v: 7 }, { x: 460, y: 60, s: .85, v: 11 }], .82);
+    hill(300, 22, 150, PAL.hillFar, .5);
+    ground(358, t);
+    const baseX = 360, gt = 448, h = 250;
+    const tp = stem(baseX, gt, gt - h, t, 0);
+    leaf(tp.x - 4, gt - h * 0.30, 1.2, Math.PI - 0.26, t, 0.5);
+    leaf(tp.x + 4, gt - h * 0.30, 1.2, 0.26, t, 1.7);
+    leaf(tp.x - 3, gt - h * 0.58, 1.05, Math.PI - 0.40, t, 2.6);
+    leaf(tp.x + 3, gt - h * 0.58, 1.05, 0.40, t, 3.4);
+    const open = G.clamp01((t - 0.4) / 2.6);
+    /* 向阳性：花盘朝向太阳所在的一侧 */
+    const tilt = headTiltToSun(s.x, tp.x, 0);
+    flowerHead(tp.x, gt - h - 4, 1.15, open, tilt);
+    /* 第二株较矮的已经开好，第三株还在苞 —— 同一只蜜蜂在两朵之间采粉 */
+    const tp2 = stem(690, gt, gt - 190, t, 2.1);
+    leaf(tp2.x - 3, gt - 92, .95, Math.PI - 0.32, t, 1.1);
+    leaf(tp2.x + 3, gt - 130, .95, 0.32, t, 2.9);
+    flowerHead(tp2.x, gt - 196, .82, 1, headTiltToSun(s.x, tp2.x, 0.06));
+    bud(168, gt - 158, 1.2, G.clamp01((t - 1.2) / 2.4), t);
+    stem(168, gt, gt - 150, t, 3.4);
+    leaf(166, gt - 66, .8, Math.PI - 0.3, t, 0.9);
+    /* 蜜蜂绕着主花采粉，最后落在花瓣上 */
+    const orbit = (t * 0.55) % (Math.PI * 2);
+    const bx = tp.x + Math.cos(orbit) * (112 + open * 22);
+    const by = gt - h - 4 + Math.sin(orbit) * 74;
+    bee(bx, by, 1.15, t, true);
+    butterfly(840 + Math.sin(t * .6) * 30, 300 + Math.cos(t * 1.3) * 20, .85, t);
+    /* 花粉：可见的金色小点在花盘周围飘 */
+    for (let i = 0; i < 12; i++){
+      const a = t * 0.9 + i, r = 60 + (i % 4) * 22;
+      ctx.fillStyle = 'rgba(247,215,126,.8)';
+      circle(tp.x + Math.cos(a) * r, gt - h - 4 + Math.sin(a * 1.3) * r * .5, 1.8);
+    }
+    meadowFlowers(t, 396);
+    caption('第四页 · 上百朵小花挤成一个花盘', st);
+  },
+
+  /* P5 秋天：花盘低头结满种子，风与鸟把籽送回土里 */
+  seeds(t, st){
+    sky(...skyForTod('autumn'));
+    const s = G.sun(); sun(s.x, 150, 28, true);
+    driftingClouds(t, [{ x: 200, y: 82, s: 1.1, v: 10 }, { x: 660, y: 120, s: .8, v: 14 }], .7);
+    hill(300, 24, 150, '#e3d9bd', .6);
+    /* 秋天的草：偏黄的绿 */
+    ctx.fillStyle = '#c8cc86'; ctx.fillRect(0, 358, W, H - 358);
+    ctx.fillStyle = '#d8d99a'; ctx.fillRect(0, 358, W, 20);
+    for (let i = 0; i < 54; i++){
+      const x = (i * 57) % W, y = 384 + (i % 6) * 16;
+      grassBlade(x, y, 14 + (i % 5) * 4, sway(t, i), i % 3 ? '#a9a86a' : '#c8c47f');
+    }
+    const baseX = 340, gt = 448, h = 236;
+    const tp = stem(baseX, gt, gt - h, t, 0);
+    leaf(tp.x - 4, gt - h * 0.32, 1.05, Math.PI - 0.34, t, 0.6);
+    leaf(tp.x + 4, gt - h * 0.30, 1.05, 0.34, t, 1.8);
+    leaf(tp.x - 3, gt - h * 0.56, .9, Math.PI - 0.5, t, 2.7);
+    /* 低头的花盘：饱满、颜色转深，垂着的角度随成熟缓慢加大 */
+    const droop = 0.42 + Math.min(0.26, t / 26);
+    const tilt = headTiltToSun(s.x, tp.x, droop);
+    flowerHead(tp.x, gt - h - 2, 1.1, 1, tilt);
+    /* 被种子撑满的花盘外沿：一排排成熟的籽 */
+    ctx.save(); ctx.translate(tp.x, gt - h - 2); ctx.rotate(tilt); ctx.scale(1.1, 1.1);
+    for (let i = 0; i < 20; i++){ const a = i / 20 * 6.2832;
+      seedKernel(Math.cos(a) * 27, Math.sin(a) * 27, .42, a + 1.57); }
+    ctx.restore();
+    /* 风把种子吹走：绕一圈弧线落到右侧土面 */
+    const flying = 7;
+    for (let i = 0; i < flying; i++){
+      const ph = (t * (0.28 + G.S.wind * 0.5) + i / flying) % 1;
+      const x = tp.x + ph * (520 - tp.x) + Math.sin(ph * 6 + i) * 26;
+      const y = (gt - h) + Math.sin(ph * Math.PI) * -46 + ph * (gt - (gt - h)) + 18 * Math.sin(ph * 9 + i);
+      seedKernel(x, y, .8 - ph * .2, ph * 6 + i);
+    }
+    /* 落到土面的种子，已经有一颗拱出小芽 —— 循环 */
+    for (let i = 0; i < 4; i++) seedKernel(640 + i * 58, 424 + (i % 2) * 10, .85, 0.4 + i * .3);
+    const nx = 730, ny = 430;
+    ctx.strokeStyle = '#f2e8cf'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(nx, ny); ctx.lineTo(nx + 1, ny - 14); ctx.stroke(); ctx.lineWidth = 1; ctx.lineCap = 'butt';
+    cotyledon(nx + 1, ny - 16, .7, -0.7); cotyledon(nx + 1, ny - 16, .7, Math.PI + 0.7);
+    /* 小鸟来啄籽 */
+    const hop = Math.abs(Math.sin(t * 1.6)) * 8;
+    sparrow(tp.x + 96, gt - h + 34 - hop, 1.05, (t * 1.8) % 1);
+    /* 飘散的绒毛与落叶 */
+    for (let i = 0; i < 16; i++){
+      const ph = (t * (0.16 + G.S.wind * 0.4) + i * 0.07) % 1;
+      const x = ph * (W + 80) - 40, y = 90 + (i * 29) % 240 + Math.sin(ph * 8 + i) * 18;
+      ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = i % 2 ? '#e0c98f' : '#d6b877';
+      ctx.beginPath(); ctx.ellipse(x, y, 5, 2, ph * 6 + i, 0, 6.2832); ctx.fill(); ctx.restore();
+    }
+    daisy(120, 402, 5, PAL.daisy, PAL.daisyHeart); daisy(232, 414, 4.5, PAL.pink, '#fff1c9');
+    caption('第五页 · 把一千粒种子交出去', st);
+  }
+};
+
+/* ---------- 场景元数据（配色 / 是否深色） ---------- */
+const SCENE_META = {
+  seed: { dark: false }, sprout: { dark: false },
+  grow: { dark: false }, bloom: { dark: false }, seeds: { dark: false }
+};
+
+/* ---------- 音效：WebAudio 现场合成，无音频文件 ---------- */
+function tone(freq, dur, type, gain){
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.value = gain || 0.06; o.connect(g); g.connect(actx.destination);
+    const now = actx.currentTime;
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o.start(now); o.stop(now + dur + 0.02);
+  } catch (e) { /* 没有音频设备也不影响阅读 */ }
+}
+function chime(){ tone(520, 0.14, 'triangle', 0.05); setTimeout(() => tone(784, 0.18, 'triangle', 0.045), 110); }
+function puff(){ tone(300, 0.1, 'sine', 0.04); }
+
+/* ---------- UI ---------- */
+const zhEl = $('zh'), enEl = $('en'), pinEl = $('pin'), hanziEl = $('hanzi'),
+  sayEl = $('say'), pageNo = $('pageNo'), dotsEl = $('dots'), bar = $('bar');
+
+function buildDots(){
+  dotsEl.innerHTML = '';
+  for (let i = 0; i < G.count(); i++){
+    const d = document.createElement('i');
+    d.dataset.i = i; d.setAttribute('role', 'button');
+    d.setAttribute('aria-label', '第 ' + (i + 1) + ' 页');
+    d.addEventListener('click', () => { G.go(i, 'dot'); paint(); chime(); });
+    dotsEl.appendChild(d);
+  }
+}
+/* 花的悄悄话：每页一条经过核对的科学小知识 */
+function paintFact(p, lang){
+  const card = $('factCard');
+  card.style.display = 'block';
+  $('factZh').textContent = p.fact.zh;
+  $('factEn').textContent = p.fact.en;
+  const showZh = lang === 'both' || lang === 'zh';
+  const showEn = lang === 'both' || lang === 'en';
+  $('factZh').style.display = showZh ? '' : 'none';
+  $('factEn').style.display = showEn ? '' : 'none';
+}
+function paint(){
+  const p = G.current();
+  zhEl.textContent = p.zh; enEl.textContent = p.en; pinEl.textContent = p.pin;
+  const both = G.S.lang === 'both';
+  zhEl.style.display = (both || G.S.lang === 'zh') ? '' : 'none';
+  enEl.style.display = (both || G.S.lang === 'en') ? '' : 'none';
+  pinEl.style.display = both || G.S.lang === 'zh' ? '' : 'none';
+  hanziEl.textContent = p.hanzi.ch;
+  sayEl.innerHTML = '<b>' + p.hanzi.ch + '</b>（' + p.hanzi.py + '）· ' + p.hanzi.en +
+    p.more.map(m => ' &nbsp;|&nbsp; <b>' + m.ch + '</b>（' + m.py + '）· ' + m.en).join('');
+  pageNo.textContent = (G.S.page + 1) + ' / ' + G.count();
+  $('prev').disabled = G.S.page === 0;
+  $('next').disabled = G.S.page === G.count() - 1;
+  [].forEach.call(dotsEl.children, (d, i) => d.classList.toggle('on', i === G.S.page));
+  $('flip').textContent = G.S.auto ? '⏸ 暂停翻页' : '▶ 自动翻页';
+  $('todSel').value = G.S.tod;
+  paintFact(p, G.S.lang);
+}
+function render(){
+  const p = G.current(), meta = SCENE_META[p.scene] || { dark: false };
+  t0 = G.S.pt;
+  ctx.clearRect(0, 0, W, H);
+  /* 画面用的是「本页时间」：翻到新的一页，生长动画从头演一遍 */
+  SCENES[p.scene](G.S.pt, meta);
+  todWash();
+}
+/* 时刻罩层：清晨偏冷粉、黄昏偏琥珀，正午不加 —— 让「时刻」真的改变整幅光色 */
+function todWash(){
+  const w = TOD_WASH[G.S.tod];
+  if (!w) return;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, w.top); g.addColorStop(1, w.bottom);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function loop(now){
+  requestAnimationFrame(loop);
+  let d = Math.min(0.05, (now - last) / 1000); if (!isFinite(d) || d < 0) d = 0;
+  last = now;
+  if (frozen){ render(); bar.style.width = (G.progress() * 100).toFixed(1) + '%'; return; }
+  const turned = G.step(d);
+  if (turned){ paint(); chime(); }
+  render();
+  bar.style.width = (G.progress() * 100).toFixed(1) + '%';
+}
+
+$('prev').addEventListener('click', () => { G.prev(); paint(); puff(); });
+$('next').addEventListener('click', () => { G.next(); paint(); chime(); });
+$('restart').addEventListener('click', () => { G.first(); paint(); tone(520, 0.08, 'sine', 0.04); });
+$('flip').addEventListener('click', () => { G.setAuto(!G.S.auto); paint(); });
+$('soundBtn').addEventListener('click', () => {
+  soundOn = !soundOn; $('soundBtn').textContent = soundOn ? '🔊 音效' : '🔇 静音'; if (soundOn) chime();
+});
+$('themeBtn').addEventListener('click', () => setTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark'));
+function setTheme(v){
+  document.body.dataset.theme = v;
+  $('themeBtn').textContent = v === 'dark' ? '☀️ 浅色' : '🌙 深色';
+}
+$('rateSel').addEventListener('change', e => G.setRate(+e.target.value));
+$('todSel').addEventListener('change', e => { G.setTod(e.target.value); paint(); tone(660, 0.1, 'sine', 0.04); });
+$('windRange').addEventListener('input', e => G.setWind(+e.target.value / 100));
+[].forEach.call(document.querySelectorAll('#langSeg button'), b => {
+  b.addEventListener('click', () => {
+    G.setLang(b.dataset.lang);
+    [].forEach.call(document.querySelectorAll('#langSeg button'),
+      x => x.classList.toggle('on', x.dataset.lang === G.S.lang));
+    paint();
+  });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') { G.next(); paint(); chime(); }
+  else if (e.key === 'ArrowLeft') { G.prev(); paint(); puff(); }
+  else if (e.code === 'Space') { e.preventDefault(); G.setAuto(!G.S.auto); paint(); }
+  else if (e.key === 'r' || e.key === 'R') { G.first(); paint(); }
+  else if (e.key === 's' || e.key === 'S') { G.cycleTod(); paint(); tone(660, 0.1, 'sine', 0.04); }
+  else if (e.key === 'w' || e.key === 'W') { G.setWind(G.S.wind > 0.05 ? 0 : 0.7);
+    $('windRange').value = Math.round(G.S.wind * 100); }
+  else if (e.key === 'm' || e.key === 'M') { soundOn = !soundOn; $('soundBtn').textContent = soundOn ? '🔊 音效' : '🔇 静音'; }
+  else if (e.key === 't' || e.key === 'T') { setTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark'); }
+  else if (/^[1-5]$/.test(e.key)) { G.go(+e.key - 1, 'key'); paint(); chime(); }
+});
+
+/* ---------- 供自动化检查 / 截图使用 ---------- */
+/* 无头浏览器里 requestAnimationFrame 不被虚拟时间驱动，
+   用 ?ff=秒数 同步推进状态机与画面，验证自动翻页与生长动画真的会走。 */
+function fastForward(seconds){
+  const dt = 1 / 60;
+  let turned = false;
+  for (let i = 0, n = Math.max(0, Math.round((+seconds || 0) / dt)); i < n; i++){
+    if (G.step(dt)) turned = true;
+  }
+  paint(); render();
+  bar.style.width = (G.progress() * 100).toFixed(1) + '%';
+  return turned;
+}
+window.book = {
+  G, state: () => ({ page: G.S.page, auto: G.S.auto, lang: G.S.lang, turns: G.S.turns,
+    seen: G.S.seen.slice(), elapsed: +G.S.elapsed.toFixed(2), pt: +G.S.pt.toFixed(2),
+    rate: G.S.rate, tod: G.S.tod, wind: +G.S.wind.toFixed(2),
+    scene: G.current().scene, readTime: G.readTime() }),
+  go: i => { G.go(i, 'set'); paint(); }, setAuto: v => { G.setAuto(v); paint(); },
+  ff: fastForward,
+  setLang: l => { G.setLang(l); [].forEach.call(document.querySelectorAll('#langSeg button'),
+    x => x.classList.toggle('on', x.dataset.lang === G.S.lang)); paint(); },
+  setTod: v => { G.setTod(v); paint(); }, setWind: v => { G.setWind(v); $('windRange').value = Math.round(G.S.wind * 100); },
+  theme: v => setTheme(v), freeze: v => { frozen = !!v; },
+  /* 定格到「第 idx 页、本页第 sec 秒」，用于可复现截图 */
+  pose: (idx, sec) => {
+    if (idx != null) G.go(idx, 'pose');
+    G.S.pt = +sec || 0; frozen = true; render();
+  }
+};
+
+buildDots();
+paint();
+if (Q.get('lang')) G.setLang(Q.get('lang'));
+[].forEach.call(document.querySelectorAll('#langSeg button'),
+  x => x.classList.toggle('on', x.dataset.lang === G.S.lang));
+if (Q.get('sound') === 'off') $('soundBtn').textContent = '🔇 静音';
+$('windRange').value = Math.round(G.S.wind * 100);   /* URL 给了 ?wind= 时，滑块要跟着显示 */
+if (Q.has('t')) { G.S.pt = +Q.get('t') || 0; }
+if (Q.has('page')) { frozen = Q.get('freeze') === '1' || frozen; }
+if (Q.has('ff')) { fastForward(+Q.get('ff')); }
+
+/* ---------- 页内自检：?selftest=1 时把结果写进 DOM ---------- */
+if (Q.get('selftest') === '1'){
+  const out = [];
+  const ok = (name, cond) => out.push({ name, pass: !!cond });
+  const g = createBook({});
+  const allZh = BOOK.pages.map(p => p.zh).join(' ');
+  const allEn = BOOK.pages.map(p => p.en).join(' ');
+  ok('五页文本齐备', BOOK.pages.every(p => p.zh && p.en && p.pin && p.hanzi && p.scene && SCENES_LIKE.includes(p.scene)));
+  ok('拼音带声调', BOOK.pages.every(p => /[àáâãāǎèéêēěìíîīòóôōùúūǜü]/.test(p.pin)));
+  ok('学习汉字都出现在正文里', BOOK.pages.every(p => p.zh.indexOf(p.hanzi.ch) >= 0));
+  ok('每页都有一条中英科学小知识', BOOK.pages.every(p => p.fact && p.fact.zh.length > 8 && p.fact.en.length > 8));
+  ok('首页是第 1 页（种子）', g.S.page === 0 && g.current().id === 'seed');
+  ok('末页是第 5 页（散籽）', (() => { const b = createBook({}); for (let i = 0; i < 9; i++) b.next(); return b.current().id === 'seeds'; })());
+  ok('next 到末页停在末页', (() => { for (let i = 0; i < 9; i++) g.next(); return g.S.page === 4; })());
+  ok('prev 到首页停在首页', (() => { for (let i = 0; i < 9; i++) g.prev(); return g.S.page === 0; })());
+  ok('go 越界被夹住', (() => { g.go(99); const a = g.S.page; g.go(-9); return a === 4 && g.S.page === 0; })());
+  ok('自动翻页会计数', (() => { const b = createBook({ auto: true, rate: 1 });
+    for (let i = 0; i < 130; i++) b.step(0.05); return b.S.page > 0 && b.S.turns > 0; })());
+  ok('末页不越界', (() => { const b = createBook({ auto: true, rate: 1, page: 4 });
+    for (let i = 0; i < 300; i++) b.step(0.05); return b.S.page === 4; })());
+  ok('暂停后不计时但画面仍生长', (() => { const b = createBook({}); b.setAuto(false);
+    for (let i = 0; i < 50; i++) b.step(0.05); return b.S.t === 0 && b.S.pt > 2; })());
+  ok('翻页归零本页生长计时', (() => { const b = createBook({}); for (let i = 0; i < 50; i++) b.step(0.05);
+    b.go(1, 'test'); return b.S.pt === 0; })());
+  ok('step 的 dt 会被夹住', (() => { const b = createBook({}); b.step(5); return b.S.elapsed <= 0.05 + 1e-9; })());
+  ok('语言模式只有三种', (() => { const b = createBook({}); b.setLang('fr');
+    const a = b.S.lang; b.setLang('en'); return a === 'both' && b.S.lang === 'en'; })());
+  ok('时刻只认三种', (() => { const b = createBook({}); b.setTod('midnight');
+    const a = b.S.tod; b.cycleTod(); b.cycleTod(); b.cycleTod(); return a === 'noon' && b.S.tod === 'noon'; })());
+  ok('风会被夹到 0..1', (() => { const b = createBook({}); b.setWind(9); const a = b.S.wind;
+    b.setWind(-3); return a === 1 && b.S.wind === 0; })());
+  ok('进度条 0..1', (() => { const b = createBook({ auto: true, rate: 2 });
+    b.step(1); const p1 = b.progress(); b.step(10); return p1 > 0 && p1 < 1 && b.progress() <= 1; })());
+  ok('每页画得出来（Canvas 无异常）', (() => {
+    try { for (let i = 0; i < BOOK.pages.length; i++){ G.go(i, 'test'); G.S.pt = 2.5;
+        G.S.elapsed = 2.5 + i; SCENES[BOOK.pages[i].scene](G.S.elapsed, SCENE_META[BOOK.pages[i].scene]); }
+      return true; } catch (e) { return false; }
+  })());
+  ok('颜色都是合法字符串（防未加引号的十六进制）', (() => {
+    const bad = Object.keys(PAL).filter(k => typeof PAL[k] !== 'string' ||
+      !/^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,\s]+\))$/.test(PAL[k]));
+    const badSky = Object.keys(SKY).filter(k => !Array.isArray(SKY[k]) || SKY[k].length !== 2 ||
+      SKY[k].some(c => typeof c !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(c)));
+    return bad.length === 0 && badSky.length === 0; })());
+  ok('花的外观跨页一致（同一函数同一调色板）', (() => {
+    const src = flowerHead.toString(); return /PAL\.petal/.test(src) && /PAL\.disk/.test(src); })());
+  ok('生长画面真的会变（不同本页时刻像素不同）', (() => {
+    const key = () => { try { render(); return cvs.toDataURL().length + ':' + cvs.toDataURL().slice(-40); } catch (e) { return 'x'; } };
+    G.go(3, 'test'); G.S.pt = 0.2; const a = key();
+    G.S.pt = 3.0; const b = key();
+    return a !== b; })());
+  ok('花盘会跟着太阳转（换时刻画面改变）', (() => {
+    G.go(3, 'test'); G.S.pt = 3.2; frozen = true;
+    G.setTod('dawn'); render(); const a = cvs.toDataURL();
+    G.setTod('dusk'); render(); const b = cvs.toDataURL();
+    G.setTod('noon'); frozen = Q.get('freeze') === '1'; return a !== b && a.length > 1000; })());
+  ok('起风会真的改变画面', (() => {
+    G.go(4, 'test'); G.S.pt = 3.2; frozen = true;
+    G.setWind(0); render(); const a = cvs.toDataURL();
+    G.setWind(1); render(); const b = cvs.toDataURL();
+    G.setWind(0.35); frozen = Q.get('freeze') === '1'; return a !== b; })());
+  ok('单语模式会隐藏另一种语言', (() => {
+    G.go(0, 'test'); G.setLang('en'); paint();
+    const enOnly = zhEl.style.display === 'none' && enEl.style.display !== 'none';
+    G.setLang('zh'); paint();
+    const zhOnly = enEl.style.display === 'none' && zhEl.style.display !== 'none';
+    G.setLang('both'); paint();
+    return enOnly && zhOnly && zhEl.style.display !== 'none' && enEl.style.display !== 'none'; })());
+  ok('没有把看不见的东西画成看得见（地下根、活树皮年轮）',
+    !/(看见根|树皮的年轮|土里长着眼睛|see the roots|inside the soil|underground eyes)/i.test(allZh + ' ' + allEn));
+  ok('阅读时长合理', (() => { const s = G.readTime(); return s > 20 && s < 140; })());
+  ok('无横向溢出', document.documentElement.scrollWidth <= (window.innerWidth || 1e9) + 2);
+  G.go(0, 'selftest'); G.S.pt = 0; paint();
+  const box = $('report'), list = $('reportList'), title = $('reportTitle');
+  const fails = out.filter(r => !r.pass).length;
+  box.style.display = 'block';
+  title.textContent = (fails ? '❌ ' : '✅ ') + out.length + ' 项自检，' + fails + ' 项未通过'
+    + '（视口 ' + window.innerWidth + '×' + window.innerHeight + '，文档宽 ' + document.documentElement.scrollWidth + '）';
+  out.forEach(r => { const li = document.createElement('li');
+    li.className = r.pass ? 'pass' : 'fail'; li.textContent = (r.pass ? 'PASS ' : 'FAIL ') + r.name;
+    list.appendChild(li); });
+}
+requestAnimationFrame(n => { last = n; loop(n); });
+})();
+/* __UI_END__ */
+</script>
+</body>
+</html>
