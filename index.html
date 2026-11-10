@@ -100,14 +100,10 @@ footer{margin-top:34px;color:var(--muted);font-size:12.5px;line-height:1.8;text-
 'use strict';
 /* 页面清单：与仓库根目录下的 *.html 一一对应（本页自身除外）。 */
 const PAGES = [
-  { file:'cat-mouse-game.html', emoji:'🐭', name:'猫和老鼠迷宫大作战', en:'Cat & Mouse Maze',
-    desc:'在随机生成的迷宫里偷光所有奶酪，躲开追来的猫。', cat:'play', tags:'迷宫 奶酪 猫 老鼠 休闲' },
   { file:'hunter-bird-game.html', emoji:'🏹', name:'猎人与鸟', en:'Hunter and Bird',
     desc:'三种玩法：猎人打飞鸟、小鸟躲弹丸，还有带图的单词模式。', cat:'play', tags:'射击 鸟 猎人 反应 单词' },
   { file:'pingpong-game.html', emoji:'🏓', name:'乒乓球', en:'Table Tennis',
     desc:'带重力、弹跳、擦网与真实发球规则的俯视角乒乓球，11 分制。', cat:'play', tags:'乒乓球 运动 对战 ai' },
-  { file:'shooting-game.html', emoji:'🎯', name:'靶场射击', en:'Shooting Range',
-    desc:'60 秒限时打靶：连击倍率、S–E 评级与本地最佳纪录。', cat:'play', tags:'射击 靶 连击 计时' },
   { file:'idiom-driving.html', emoji:'🚗', name:'成语大飞车', en:'Idiom Drive',
     desc:'四条车道接住缺的那个字，补全成语并大声读给你听。', cat:'learn', tags:'成语 语文 开车 识字' },
   { file:'english-game.html', emoji:'🎢', name:'英语过山车', en:'English Word Coaster',
@@ -116,8 +112,6 @@ const PAGES = [
     desc:'伊索寓言互动动画：兔子打盹还是抢跑，每局都不一样。', cat:'story', tags:'龟兔赛跑 动画 寓言' },
   { file:'earth-moon-story.html', emoji:'🌍', name:'地球和月球自传', en:'Earth & Moon',
     desc:'两个第一人称声音讲述四十五亿年的共同往事，可播放时间轴。', cat:'story', tags:'地球 月球 宇宙 时间轴 科普' },
-  { file:'bird-story.html', emoji:'🐦', name:'小鸟飞上天', en:'Little Bird Flies Up',
-    desc:'会动的中英双语小绘本：小鸟飞过草地、水潭和稻田回家。', cat:'story', tags:'绘本 双语 小鸟 童话' },
   { file:'word-copy.html', emoji:'📁', name:'Word 文件复制', en:'Word File Copy',
     desc:'填好源/目标两个目录点一下，递归拷走全部 Word 文档，同名自动改名不覆盖。', cat:'tool', tags:'word 复制 文件 目录 工具 docx' }
 ];
