@@ -1,9 +1,9 @@
 'use strict';
-/* 用最小 DOM / Canvas 桩在 Node 中驱动 index.html 的 UI 层，捕捉渲染期异常与明显错误。 */
+/* 用最小 DOM / Canvas 桩在 Node 中驱动 pingpong-game.html 的 UI 层，捕捉渲染期异常与明显错误。 */
 const fs = require('fs');
 const path = require('path');
 
-const file = path.join(__dirname, '..', 'index.html');
+const file = path.join(__dirname, '..', 'pingpong-game.html');
 const html = fs.readFileSync(file, 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 if (!m){ console.error('FAIL  找不到 <script> 块'); process.exit(1); }

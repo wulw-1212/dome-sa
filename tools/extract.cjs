@@ -1,10 +1,10 @@
 'use strict';
-/* 从 index.html 中抽出「规则内核」与「整段脚本」，供语法检查与无头测试使用。 */
+/* 从 pingpong-game.html 中抽出「规则内核」与「整段脚本」，供语法检查与无头测试使用。 */
 const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'pingpong-game.html'), 'utf8');
 const lines = html.split('\n');
 
 function between(startMark, endMark, name){
