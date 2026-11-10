@@ -408,7 +408,7 @@ This line was added to verify the agent flow.
 明天会更好
 ## 页面导航
 
-`index.html` 是仓库的导航首页：汇总下面所有游戏、学习与故事页面，点开任意卡片即可跳转，支持分类筛选、关键词搜索与深色模式。`index.html?selftest=1` 会在页底跑页内自检（清单数量、链接有效性、过滤与搜索）。
+`index.html` 是仓库的导航首页：汇总下面所有游戏、学习、故事与工具页面（含 `word-copy.html`），点开任意卡片即可跳转，支持分类筛选、关键词搜索与深色模式。`index.html?selftest=1` 会在页底跑页内自检（清单数量、链接有效性、过滤与搜索）。
 
 ## 地月自传
 
