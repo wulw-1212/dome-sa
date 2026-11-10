@@ -1,4 +1,4 @@
-# tools/word-copy-shots.ps1
+﻿# tools/word-copy-shots.ps1
 # 用无头 Edge 抓取 word-copy.html 的改前 / 改后对比证据。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-shots.ps1 [-HelperPort 8765]
 # 改前基线 = origin/main 的实际内容（main 上没有这个页面，抓的是当时的 index.html）。
@@ -68,10 +68,11 @@ Set-Content -LiteralPath "$tmpSrc\说明.txt" -Value 'not a word file' -NoNewlin
 
 $fileUrl = 'file:///' + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
 $bad = 0
-if (Test-Path (Join-Path $base 'index.html')) {
-  if (-not (Shot ("file:///" + ((Join-Path $base 'index.html') -replace '\\', '/')) 'word-copy-before-main-index.png' 1280 900)) { $bad++ }
+$baseHtmlPath = Join-Path $base 'index.html'
+if ((Test-Path $baseHtmlPath) -and ((Get-Item $baseHtmlPath).Length -gt 200)) {
+  if (-not (Shot ("file:///" + ($baseHtmlPath -replace '\\', '/')) 'word-copy-before-main-index.png' 1280 900)) { $bad++ }
 } else {
-  Write-Host 'SKIP  没有可用的 origin/main 基线文件，保留已提交的 word-copy-before-main-index.png（不重新截图）'
+  Write-Host 'SKIP  本机拿不到 origin/main 的基线页面（git 不可用），保留已提交的 word-copy-before-main-index.png，不重抓'
 }
 
 # ---- 改后：默认目录、配色、页内自检（file:// 直开，无需助手）----
@@ -79,6 +80,8 @@ if (-not (Shot $fileUrl 'word-copy-after-defaults.png' 1280 1000)) { $bad++ }
 if (-not (Shot "$fileUrl`?theme=dark" 'word-copy-after-dark.png' 1280 1000)) { $bad++ }
 if (-not (Shot "$fileUrl`?selftest=1" 'word-copy-after-selftest.png' 1280 1780)) { $bad++ }
 if (-not (Shot "$fileUrl`?selftest=1" 'word-copy-after-narrow-504x900.png' 504 900)) { $bad++ }
+# 点授权按钮自动跳回上次目录：?demoAuth=1 只展示记忆条与「已跳回」状态，不产生任何写入
+if (-not (Shot "$fileUrl`?demoAuth=1" 'word-copy-after-remember-jump.png' 1280 1250)) { $bad++ }
 
 # ---- 改后：助手在线时的预览与真复制画面（用临时目录，不动真实的 E:\word）----
 $helperOnline = $false
