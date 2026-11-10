@@ -34,17 +34,26 @@ function Shot([string]$url, [string]$png, [int]$w, [int]$h, [int]$budget = 9000)
 
 # ---- 改前基线：origin/main 的实际内容 ----
 $base = Join-Path $shots 'main-baseline'
-Remove-Item $base -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $base -Force | Out-Null
-# git 把进度信息写进 stderr，$ErrorActionPreference=Stop 会误判为错误，这里临时放宽
-$prevEA = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-git -C $root fetch origin 2>$null | Out-Null
-git -C $root show origin/main:word-copy.html 2>$null | Out-Null
-$absent = ($LASTEXITCODE -ne 0)
-$baseHtml = (git -C $root show origin/main:index.html 2>$null) -join "`n"
-$ErrorActionPreference = $prevEA
-[IO.File]::WriteAllText((Join-Path $base 'index.html'), $baseHtml, (New-Object Text.UTF8Encoding($false)))
-Write-Host "确认 word-copy.html 在 origin/main 上不存在：$absent"
+$prevEA0 = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+git -C $root rev-parse --git-dir 2>$null | Out-Null
+$gitOk = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $prevEA0
+if ($gitOk) {
+  Remove-Item $base -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Path $base -Force | Out-Null
+  $prevEA = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  git -C $root fetch origin 2>$null | Out-Null
+  git -C $root show origin/main:word-copy.html 2>$null | Out-Null
+  $absent = ($LASTEXITCODE -ne 0)
+  $baseHtml = (git -C $root show origin/main:index.html 2>$null) -join "`n"
+  $ErrorActionPreference = $prevEA
+  [IO.File]::WriteAllText((Join-Path $base 'index.html'), $baseHtml, (New-Object Text.UTF8Encoding($false)))
+  Write-Host "确认 word-copy.html 在 origin/main 上不存在：$absent"
+} elseif (Test-Path (Join-Path $out 'word-copy-before-main-index.png')) {
+  Write-Host 'SKIP  本机 git 仓库不可用，沿用已有的改前基线截图（word-copy-before-main-index.png）'
+} else {
+  throw '本机 git 仓库不可用，且没有已提交的改前基线截图，无法给出对比证据。'
+}
 
 # ---- 改后：本页运行画面（用临时输出目录，不动真实 E:\word）----
 $tmpSrc = Join-Path $shots 'src'
@@ -59,7 +68,11 @@ Set-Content -LiteralPath "$tmpSrc\说明.txt" -Value 'not a word file' -NoNewlin
 
 $fileUrl = 'file:///' + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
 $bad = 0
-if (-not (Shot ("file:///" + ((Join-Path $base 'index.html') -replace '\\', '/')) 'word-copy-before-main-index.png' 1280 900)) { $bad++ }
+if (Test-Path (Join-Path $base 'index.html')) {
+  if (-not (Shot ("file:///" + ((Join-Path $base 'index.html') -replace '\\', '/')) 'word-copy-before-main-index.png' 1280 900)) { $bad++ }
+} else {
+  Write-Host 'SKIP  没有可用的 origin/main 基线文件，保留已提交的 word-copy-before-main-index.png（不重新截图）'
+}
 
 # ---- 改后：默认目录、配色、页内自检（file:// 直开，无需助手）----
 if (-not (Shot $fileUrl 'word-copy-after-defaults.png' 1280 1000)) { $bad++ }
@@ -81,6 +94,16 @@ if ($helperOnline) {
   if (-not (Shot $q2 'word-copy-after-done.png' 1280 1150 24000)) { $bad++ }
   if (-not (Shot ($q2 + '&overwrite=0') 'word-copy-after-no-overwrite.png' 1280 1150 24000)) { $bad++ }
   Write-Host ('真复制后目标目录内容：' + ((Get-ChildItem $tmpDst -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ', '))
+
+  # 免授权主路径：直接 file:// 双击页面，助手在线，两个默认目录已填好、无需授权。
+  # 注意：仓库是公开的，所以这张不跑真实源目录的结果表，只证明「助手在线 + 默认路径 + 不要求授权」。
+  $fileUrl2 = 'file:///' + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
+  $qn = $fileUrl2 + '?helper=http://127.0.0.1:' + $HelperPort
+  if (-not (Shot $qn 'word-copy-after-no-auth-defaults.png' 1280 1250 20000)) { $bad++ }
+
+  # 助手离线时的免授权提示（双击 bat / 一条命令 / 重新探测）
+  $qo = $fileUrl2 + '?helper=http://127.0.0.1:1&preview=1'
+  if (-not (Shot $qo 'word-copy-after-helper-offline-hint.png' 1280 1250 20000)) { $bad++ }
 
   # 页面默认目录（用户指定的两个路径）+ 生成的复制命令。
   # 注意：仓库是公开的，所以不抓取真实源目录的文件清单，只展示两个默认路径本身。

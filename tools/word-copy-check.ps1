@@ -1,4 +1,4 @@
-# tools/word-copy-check.ps1
+﻿# tools/word-copy-check.ps1
 # Word 复制页的无头验证：助手复制逻辑断言 +（可选）HTTP 接口 + 无头 Edge 页内自检与全链路。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1
 #   不带参数：跑「助手复制逻辑」全部断言；若本机 127.0.0.1:8765 有助手在跑，再跑 HTTP 与 Edge 阶段。
@@ -89,6 +89,16 @@ catch { Check '同源同目标报错' ($_.Exception.Message -like '*同一个*')
 try { Invoke-CopyApi (Req @{ src = ''; dst = $dst }) | Out-Null; Check '缺源目录报错' $false }
 catch { Check '缺源目录报错' ($_.Exception.Message -like '*源目录*') }
 
+# ---------- 1b) 免授权启动器 word-copy.bat（静态检查） ----------
+$bat = Join-Path $root 'word-copy.bat'
+Check 'word-copy.bat 存在' (Test-Path -LiteralPath $bat)
+$batBytes = [IO.File]::ReadAllBytes($bat)
+Check 'word-copy.bat 纯 ASCII（cmd 默认代码页下不会被截断）' (@($batBytes | Where-Object { $_ -gt 127 }).Count -eq 0)
+$batText = [Text.Encoding]::ASCII.GetString($batBytes)
+Check 'bat 用 -File 且给 -Port' ($batText -match '-File\s+"tools\\word-copy-server\.ps1"' -and $batText -match '-Port')
+Check 'bat 助手已在跑时不重复启动' ($batText -match 'exit 7' -and $batText -match 'word-copy-helper')
+Check 'bat 先等助手绑端口再开浏览器' ($batText -match 'Start-Sleep' -and $batText -match 'start ""')
+
 # ---------- 2) HTTP 接口（需要一个已在运行的助手；没有就 SKIP） ----------
 function Probe-Helper([int]$p) {
   try { $s = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/status" -TimeoutSec 3; return ($s.app -eq 'word-copy-helper') } catch { return $false }
@@ -135,6 +145,20 @@ if (-not $Port) {
     Check '浏览器全链路：状态报完成 4 个' ($dom2 -match '完成：复制 4 个')
     Check '浏览器全链路：磁盘上确有 4 个平铺文件' (@(Get-ChildItem $dst -File -ErrorAction SilentlyContinue).Count -eq 4)
     Check '浏览器全链路：默认源目录写进输入框' ($dom2 -like '*DeepTutor*')
+
+    # 免授权主路径：直接双击 word-copy.html（file://），助手在线时用两个默认目录，只要预览
+    $fileUrl = "file:///" + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
+    $dom3 = Edge-Dom ($fileUrl + '?helper=http://127.0.0.1:' + $Port + '&preview=1&autocopy=1') 1280 1300 26000
+    Check '免授权（file:// 双击）：检测到本地助手' ($dom3 -like '*本地助手在线*')
+    Check '免授权：用默认目录给出计划，不要求授权' ($dom3 -match '个 Word 文件待复制到 E:\\word' -and $dom3 -notmatch '请分别授权')
+    Check '免授权：授权按钮已隐藏' ($dom3 -match 'id="pickSrc"[^>]*display: *none')
+    Check '免授权：助手在线时不显示启动提示' (([regex]::Match($dom3, '<div class="helper-hint" id="helperHint"([^>]*)>')).Groups[1].Value -match 'hidden')
+
+    # 助手离线时：页面给出免授权的启动办法（双击 bat / 一条命令 / 重新探测）
+    $dom4 = Edge-Dom ($fileUrl + '?helper=http://127.0.0.1:1&preview=1') 1280 1300 20000
+    Check '助手离线：显示免授权启动提示' ($dom4 -like '*不需要授权任何文件夹*')
+    Check '助手离线：提示里给出 word-copy.bat 路径' ($dom4 -match 'word-copy\.bat')
+    Check '助手离线：提供重新探测按钮' ($dom4 -like '*重新探测助手*')
   }
 }
 

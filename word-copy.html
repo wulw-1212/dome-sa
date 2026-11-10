@@ -70,6 +70,14 @@ details{margin-top:12px;font-size:12.8px;color:var(--muted);line-height:1.75}
 summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
 code{background:rgba(127,127,127,.14);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .hint{font-size:11.8px;color:var(--muted);margin-top:5px;line-height:1.6}
+.helper-hint{margin-top:12px;border:1px solid var(--warn);border-radius:12px;padding:12px 14px;
+  background:rgba(178,106,0,.06);font-size:12.8px;color:var(--ink);line-height:1.8}
+[data-theme="dark"] .helper-hint{background:rgba(224,178,104,.08)}
+.helper-hint .ht{font-weight:700;color:var(--warn)}
+.helper-hint ol{margin:6px 0 0;padding-left:22px}
+.helper-hint li{margin:4px 0}
+.cmdline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.cmdline code{flex:1 1 340px;min-width:0;word-break:break-all}
 footer{margin-top:18px;font-size:11.8px;color:var(--muted);line-height:1.8}
 a{color:var(--accent)}
 #selftest{margin-top:16px;font-size:12.5px;line-height:1.8}
@@ -89,7 +97,8 @@ a{color:var(--accent)}
       <p class="sub">填好两个目录，点 <b>文件复制</b>，程序会<b>递归查找源目录及其所有子目录</b>里的 Word 文档
         （<code>.docx</code> / <code>.doc</code>），全部拷贝到目标目录。<b>只复制文件，不复制目录结构</b>：
         所有文件平铺放进目标目录；不同子目录里的同名文件自动改名，互不覆盖。
-        浏览器出于安全不能直接读写任意本地文件夹，所以本页提供两种后端，见右上角状态条。</p>
+        默认路径已按需求填好；<b>免授权用法</b>是双击仓库里的 <code>word-copy.bat</code>（自动起本机助手并打开本页），
+        直接点「文件复制」即可。浏览器出于安全不能凭空读写任意本地文件夹，所以页面会自动选择后端，见右上角状态条。</p>
     </div>
     <div class="row" style="gap:8px">
       <span class="pill" id="backend"><b>检测中…</b></span>
@@ -130,6 +139,18 @@ a{color:var(--accent)}
 
     <div class="status" id="status">等待操作。</div>
 
+    <div class="helper-hint" id="helperHint" hidden>
+      <div class="ht" id="hintTitle">未检测到本地助手：</div>
+      <ol>
+        <li>双击 <code id="hintBat">word-copy.bat</code>（会自动起助手并打开本页，<b>不需要授权任何文件夹</b>）；</li>
+        <li>或在 PowerShell 里跑一行：
+          <div class="cmdline"><code id="hintCmd">powershell -ExecutionPolicy Bypass -File tools\word-copy-server.ps1</code>
+            <button class="ghost" id="hintCopy">复制</button></div></li>
+        <li>助手起来后点 <button class="ghost" id="hintRetry">重新探测助手</button>，或直接刷新本页。</li>
+      </ol>
+      <div class="hint">助手只监听 127.0.0.1，只做「递归列出 Word 文件」和「平铺复制到目标目录」两件事，不删除任何东西，关掉窗口即停止。</div>
+    </div>
+
     <div id="result"></div>
     <div id="cmd" hidden>
       <label style="margin-top:14px">可直接粘贴到 PowerShell 的复制命令</label>
@@ -140,9 +161,11 @@ a{color:var(--accent)}
 
   <details class="card" style="margin-top:14px">
     <summary>两种后端说明 / 本地助手怎么用</summary>
-    <p><b>① 本地助手（推荐，用真实文件夹路径）</b>：在本仓库目录打开 PowerShell 运行
+    <p><b>① 本地助手（推荐，免授权，用真实文件夹路径）</b>：双击仓库里的 <code>word-copy.bat</code> 最省事 ——
+      它会自动启动助手并打开本页；也可以手动运行
       <code>tools\word-copy-server.ps1</code>，然后访问 <code>http://127.0.0.1:8765/</code>（或直接双击本页，
-      页面会自动探测本机助手）。助手只监听 <code>127.0.0.1</code>，只做「递归列出源目录及子目录里的 Word 文件」和
+      页面会自动探测本机助手）。两种打开方式都不用授权任何文件夹：两个默认目录已经填好，直接点「文件复制」。
+      助手只监听 <code>127.0.0.1</code>，只做「递归列出源目录及子目录里的 Word 文件」和
       「把文件平铺复制到目标目录」两件事：不建子目录、不删除任何东西，关掉窗口即停止。</p>
     <p><b>② 浏览器授权（无需助手）</b>：点「授权源目录 / 授权目标目录」，在系统选择器里授权两个文件夹，
       页面用 File System Access API 逐份复制。限制：必须由你亲手授权，输入框里手打的路径无法被网页读取。</p>
@@ -369,10 +392,35 @@ function detectBackend(tries){
     if (!on && tries > 1) return setTimeout(function(){ detectBackend(tries - 1); }, 400);
     state.mode = on ? 'helper' : (window.showDirectoryPicker ? 'browser' : 'none');
     setBackend();
-    if (state.mode === 'browser') setStatus('未检测到本地助手，已改用浏览器授权模式：请分别授权源目录和目标目录，再点「文件复制」。');
-    else if (state.mode === 'none') setStatus('未检测到本地助手，当前浏览器也不支持目录授权（或以 file:// 打开）。可以点「生成复制命令」，在 PowerShell 里执行同样的操作。');
+    if (state.mode === 'browser') showHelperHint('未检测到本地助手，才让你去授权文件夹。其实不用授权：');
+    else if (state.mode === 'none') showHelperHint('未检测到本地助手，当前浏览器也不支持目录授权。不用授权的用法：');
+    else hideHelperHint();
     if (Q.get('autocopy')) run();
   });
+}
+
+/* 助手不在线时给出「免授权」的启动办法：双击 word-copy.bat，或粘一条命令 */
+function batPath(){
+  /* 从当前页面地址推出发起的仓库目录，拼出 word-copy.bat 的绝对路径 */
+  try {
+    var p = decodeURIComponent(location.pathname);
+    if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);          /* file:///D:/... 去掉开头斜杠 */
+    var dir = p.replace(/[\\/][^\\/]*$/, '');               /* 去掉 word-copy.html */
+    var win = /^[A-Za-z]:/.test(dir) || /^\\\\/.test(dir.replace(/\//g, '\\'));
+    return win ? dir.replace(/\//g, '\\') + '\\word-copy.bat' : dir.replace(/\\/g, '/') + '/word-copy.bat';
+  } catch (e) { return 'word-copy.bat'; }
+}
+function showHelperHint(title){
+  var box = $('helperHint');
+  $('hintTitle').textContent = title;
+  $('hintBat').textContent = batPath();
+  box.hidden = false;
+}
+function hideHelperHint(){ $('helperHint').hidden = true; }
+function retryDetect(){
+  setStatus('正在重新探测本机助手…');
+  state.mode = 'detect'; setBackend();
+  detectBackend(5);
 }
 
 /* ---------- 浏览器授权模式（递归查找 Word 文件，平铺复制） ---------- */
@@ -470,10 +518,14 @@ function run(){
     setStatus('助手模式需要绝对路径，例如 D:\\资料\\合同 或 /home/me/docs。', true); return;
   }
   if (state.mode === 'browser' && (!state.srcHandle || !state.dstHandle)){
-    setStatus('浏览器授权模式需要先分别授权源目录和目标目录。', true); return;
+    setStatus('输入框里的路径浏览器读不到，所以这一版才要授权。想直接用默认路径、不授权，就启动本机助手（见下方提示）。', true);
+    showHelperHint('要用默认路径直接复制、跳过授权，请先启动本机助手：');
+    return;
   }
   if (state.mode === 'none' || state.mode === 'detect'){
-    setStatus('当前环境无法直接复制文件。请运行 tools\\word-copy-server.ps1，或点「生成复制命令」。', true); return;
+    setStatus('本机助手没在运行，浏览器也读不到手打的路径。启动助手即可免授权用默认路径复制：', true);
+    showHelperHint('未检测到本地助手，用下面任一方式启动后即可免授权复制：');
+    return;
   }
   state.busy = true; $('run').disabled = true;
   setStatus(o.preview ? '正在预览…' : '正在复制…');
@@ -510,6 +562,14 @@ function pickDir(which){
 }
 $('pickSrc').addEventListener('click', function(){ pickDir('src'); });
 $('pickDst').addEventListener('click', function(){ pickDir('dst'); });
+$('hintRetry').addEventListener('click', retryDetect);
+$('hintCopy').addEventListener('click', function(){
+  var txt = 'powershell -ExecutionPolicy Bypass -File "' + batPath().replace(/word-copy\.bat$/, 'tools\\word-copy-server.ps1') + '"';
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ setStatus('助手启动命令已复制到剪贴板，粘到 PowerShell 回车即可。'); },
+      function(){ $('hintCmd').textContent = txt; setStatus('自动复制被拒绝，请手动选中上面那行命令。'); });
+  } else { $('hintCmd').textContent = txt; setStatus('请手动选中上面那行命令复制。'); }
+});
 $('cmdBtn').addEventListener('click', function(){
   var o = currentOpts();
   var v = validate(o.src, o.dst, EXTS);
@@ -617,6 +677,10 @@ function selftest(){
   T('Unix 命令递归 find + cp 平铺', /find .* -type f/.test(buildCommand('/a', '/b', { exts: EXTS, unix: true })) &&
     buildCommand('/a', '/b', { exts: EXTS, unix: true }).indexOf('-maxdepth') < 0);
   T('界面控件齐备', ['src', 'dst', 'run', 'overwrite', 'preview', 'result', 'status', 'exts'].every(function(id){ return !!$(id); }));
+  T('免授权提示控件齐备', ['helperHint', 'hintTitle', 'hintBat', 'hintCmd', 'hintCopy', 'hintRetry'].every(function(id){ return !!$(id); }));
+  T('bat 路径可推导', typeof batPath === 'function' && /word-copy\.bat$/.test(batPath()));
+  T('提示默认隐藏', $('helperHint').hidden === true);
+  T('助手探测会重试', detectBackend.length === 1);
   T('按钮文案是文件复制', $('run').textContent.trim() === '文件复制');
   T('两个目录输入框存在', $('src').type === 'text' && $('dst').type === 'text');
   T('源目录默认值正确', $('src').value === DEFAULT_SRC && DEFAULT_SRC === 'D:\\Programs Data\\DeepTutor\\data\\user\\workspaces');
@@ -624,6 +688,7 @@ function selftest(){
   T('默认值都是绝对路径', isAbsolute(DEFAULT_SRC) && isAbsolute(DEFAULT_DST));
   T('已无「含子目录」勾选框', !$('recursive'));
   T('范围文字写明递归与不复制目录', $('exts').textContent.indexOf('子目录') >= 0);
+  T('顶部说明给出免授权用法', document.querySelector('.sub').textContent.indexOf('word-copy.bat') >= 0);
   T('预览用词与实复制不同', PREVIEW_LABEL.copy === '待复制' && ACTION_LABEL.copy === '已复制' &&
     PREVIEW_LABEL.overwrite === '待覆盖' && PREVIEW_LABEL['skip-exist'].indexOf('将') === 0);
   T('助手地址去掉尾部斜杠', HELPER.slice(-1) !== '/');

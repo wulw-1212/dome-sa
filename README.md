@@ -6,11 +6,18 @@
 
 ## 怎么用
 
+**免授权用法**：双击仓库里的 `word-copy.bat` —— 它自动启动本机助手并打开页面，
+两个默认目录已经填好，直接点 **文件复制** 就行，不需要授权任何文件夹。
+
 | 步骤 | 说明 |
 | --- | --- |
-| 1 | 打开页面。两个框已按需求填好默认值：源目录 `D:\Programs Data\DeepTutor\data\user\workspaces`、目标目录 `E:\word` |
+| 1 | 双击 `word-copy.bat`（或先跑助手、再打开 `word-copy.html`）。页面打开时两个框已按需求填好默认值：源目录 `D:\Programs Data\DeepTutor\data\user\workspaces`、目标目录 `E:\word` |
 | 2 | 点 **文件复制** |
 | 3 | 看结果表：每个文件从哪儿来、在目标目录里叫什么、是复制 / 覆盖 / 跳过 / 失败 |
+
+助手没在跑的时候，页面不会只丢一句「请先授权文件夹」，而是直接给出三种免授权启动办法：
+双击 `word-copy.bat`（提示里带出它的实际路径）、粘一条启动助手的 PowerShell 命令、
+点「重新探测助手」。探测还会自动重试几次，避免助手刚起来时抢跑。
 
 - **只复制 Word 文档**：`.rtf`、`.odt`、`.wps`、`.pdf`、`.txt`、图片等一律不动；Word 打开时产生的
   `~$` 临时锁文件和隐藏文件也自动排除。
@@ -25,7 +32,7 @@
 
 | 后端 | 怎么开 | 能力 |
 | --- | --- | --- |
-| ① 本地助手（推荐） | `powershell -ExecutionPolicy Bypass -File tools\word-copy-server.ps1` 后访问 `http://127.0.0.1:8765/` | 认输入框里的真实路径，递归 + 平铺复制；只监听 `127.0.0.1`，只做「列 Word 文件」和「复制文件」两件事，不删除任何东西，关窗口即停 |
+| ① 本地助手（推荐，**免授权**） | 双击 `word-copy.bat`（自动起助手 + 打开页面），或 `powershell -ExecutionPolicy Bypass -File tools\word-copy-server.ps1` 后访问 `http://127.0.0.1:8765/` | 认输入框里的真实路径，递归 + 平铺复制；只监听 `127.0.0.1`，只做「列 Word 文件」和「复制文件」两件事，不删除任何东西，关窗口即停 |
 | ② 浏览器授权 | 点「授权源目录 / 授权目标目录」亲手挑两个文件夹（Chrome / Edge 的 File System Access API） | 无需助手，但必须由用户授权，手打路径读不到 |
 | ③ 生成复制命令 | 点「生成复制命令」，粘到 PowerShell 执行 | 兜底：同样递归、同样只拷 Word、同样平铺；区别是不同子目录里的同名文件会互相覆盖（一条命令没法改名），要保留两份请用助手或授权模式 |
 
@@ -46,19 +53,22 @@
 | `?overwrite=0` | 取消「同名则覆盖」 |
 | `?cmd=1` | 打开时直接展开生成的复制命令 |
 | `?theme=dark` | 深色启动 |
-| `?selftest=1` | 页底列出 49 项自检结果 |
+| `?selftest=1` | 页底列出 54 项自检结果 |
 
 页内暴露 `window.wordcopy`（`state` / `core` / `setPaths()` / `run()` / `ping()` / `selftest()`）供检查。
 
 ## 验证
 
-- `powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1`：**32 项断言全部通过**
+- `powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1`：**44 项断言全部通过**
   （递归只取 `.docx`/`.doc`、排除 `~$` 与隐藏文件、平铺且目标不产生子目录、同名不同目录自动改名不覆盖、
   重复拷贝跳过、内容有差才覆盖、不勾选覆盖时一律跳过、预览不落盘不建目录、目标缺失时自动创建、
   四类入参校验报错，以及助手 HTTP 的 `/api/status` / `/api/copy` / 400 错误通道；
-  最后用无头 Edge 跑页内自检与「浏览器 → 助手 → 磁盘」全链路，确认状态报完成且磁盘上确有 4 个平铺文件）。
-- `word-copy.html?selftest=1`：**49 项页内断言全部通过**（含内核 14 个函数齐备、递归清单与平铺改名规则、
-  默认目录值、预览用词与实复制用词区分、控件齐备与文案）。
+  外加 `word-copy.bat` 免授权启动器的静态校验（纯 ASCII、带 `-Port`、助手已在跑时不重复启动、先绑端口再开浏览器）；
+  最后用无头 Edge 跑页内自检与「浏览器 → 助手 → 磁盘」全链路，确认状态报完成且磁盘上确有 4 个平铺文件，
+  并单独验证**免授权主路径**：直接 `file://` 双击页面时助手在线、用两个默认目录给出计划、授权按钮隐藏、
+  不出现「请分别授权」，以及助手离线时页面给出免授权启动办法）。
+- `word-copy.html?selftest=1`：**54 项页内断言全部通过**（含内核 15 个函数齐备、递归清单与平铺改名规则、
+  默认目录值、预览用词与实复制用词区分、免授权提示控件与 `word-copy.bat` 路径推导、控件齐备与文案）。
 - 助手 `tools\word-copy-server.ps1` 与检查脚本都是纯 PowerShell，不需要 Node、不需要安装任何东西。
 
 ## 截图
@@ -67,7 +77,10 @@
 （`main` 上没有这个页面，`git cat-file -e origin/main:word-copy.html` 报
 *exists on disk, but not in 'origin/main'*），`word-copy-after-*.png` 是本分支的运行画面：
 默认目录与范围说明、深色配色、页内自检全绿、504×900 窄屏、助手在线的预览画面、真复制完成画面
-（4 个文件平铺进目标目录，其中两个同名 `deep.docx` 自动改名）、取消覆盖时的跳过画面、生成的复制命令。
+（4 个文件平铺进目标目录，其中两个同名 `deep.docx` 自动改名）、取消覆盖时的跳过画面、生成的复制命令，
+以及**免授权**两张：`word-copy-after-no-auth-defaults.png`（直接 `file://` 双击页面，助手在线、
+两个默认目录已填好、不要求授权）与 `word-copy-after-helper-offline-hint.png`（助手离线时页面给出的
+免授权启动办法：双击 `word-copy.bat` / 一条 PowerShell 命令 / 重新探测助手）。
 预览/真复制两张取的是仓库内的临时目录（`.verify/shots/src → dst`），不读写真实的 `E:\word`。
 全部可用 `powershell -ExecutionPolicy Bypass -File tools\word-copy-shots.ps1` 复现。
 窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。

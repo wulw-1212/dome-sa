@@ -1,4 +1,4 @@
-# tools/word-copy-server.ps1
+﻿# tools/word-copy-server.ps1
 # Word 文件复制页的本地助手：只监听 127.0.0.1 的极简 HTTP 服务。
 # 它只做三件事：提供 word-copy.html 页面、报告状态、递归找出源目录及所有子目录里的
 # Word 文档（.docx/.doc），并把文件**平铺**复制到目标目录（不复制目录结构）。
