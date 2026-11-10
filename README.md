@@ -318,9 +318,13 @@ node tools/english-game-ui.cjs     # 用 DOM + Canvas 桩驱动 UI 层打完一�
 This line was added to verify the agent flow.
 
 明天会更好
+## 页面导航
+
+`index.html` 是仓库的导航首页：汇总下面所有游戏、学习与故事页面，点开任意卡片即可跳转，支持分类筛选、关键词搜索与深色模式。`index.html?selftest=1` 会在页底跑页内自检（清单数量、链接有效性、过滤与搜索）。
+
 ## 地月自传
 
-`index.html` 是一个可直接双击打开的单文件页面：《地月自传 · 四十五亿年，由我们俩轮流讲给你听》。
+`earth-moon-story.html` 是一个可直接双击打开的单文件页面：《地月自传 · 四十五亿年，由我们俩轮流讲给你听》。
 
 - **两个第一人称声音**：十二个时代里，地球与月球各讲一段，月球只说得到月球才说得着的事。
 - **可播放的自传**：点「播放讲述」按时间轴自动推进，可 1× / 2× 变速，也可拖动滑块或点任何一幕直接跳转。
@@ -329,14 +333,14 @@ This line was added to verify the agent flow.
 - **两种配色**：夜空 / 晨昏；桌面与手机都可用。
 - 键盘：`←` `→` 切换时代，`空格` 播放/暂停，`Home` 回到星云，`End` 跳至未来。
 
-文案来源见 `content/story.md`（含数据契约与时代清单）。页面内置自检：打开 `index.html?selftest=1` 会校验十二个时代、双声部文案、播放控件与窄屏溢出，并在页面底部输出结果。
+文案来源见 `content/story.md`（含数据契约与时代清单）。页面内置自检：打开 `earth-moon-story.html?selftest=1` 会校验十二个时代、双声部文案、播放控件与窄屏溢出，并在页面底部输出结果。
 # 小兔和乌龟赛跑 🐢🐰
 
 伊索寓言《龟兔赛跑》的单文件 HTML 互动动画。
 
 ## 怎么玩
 
-用浏览器直接打开 `index.html` 即可，无需安装任何东西，也没有网络依赖和构建步骤。
+用浏览器直接打开 `tortoise-hare-race.html` 即可，无需安装任何东西，也没有网络依赖和构建步骤。
 
 - **空格** 或 `▶ 开始比赛`：开始 / 暂停
 - **R**：重置比赛
@@ -382,7 +386,7 @@ This line was added to verify the agent flow.
 
 ## 怎么玩
 
-用浏览器打开 `index.html` 即可（也支持手机浏览器）。
+用浏览器打开 `pingpong-game.html` 即可（也支持手机浏览器）。
 
 | 操作 | 按键 |
 | --- | --- |
@@ -434,7 +438,7 @@ This line was added to verify the agent flow.
 
 ## 代码结构
 
-整个游戏在一个 `index.html` 里，分成两块：
+整个游戏在一个 `pingpong-game.html` 里，分成两块：
 
 - `__CORE_START__ … __CORE_END__`：**规则与物理内核**，只用标准数学、不访问 DOM，
   因此可以抽出来在 Node 里直接跑单元测试。对外暴露 `createGame(cfg)`。
@@ -449,7 +453,7 @@ This line was added to verify the agent flow.
 内核与 UI 都有可重复运行的无头检查（需要 Node，游戏本身不需要）：
 
 ```
-node tools/extract.cjs        # 从 index.html 抽出内核与整段脚本
+node tools/extract.cjs        # 从 pingpong-game.html 抽出内核与整段脚本
 node tools/check-syntax.cjs   # 语法检查
 node tools/harness.cjs        # 44 项规则 / 物理 / 状态机断言
 node tools/ui-harness.cjs     # 用 DOM + Canvas 桩驱动 UI 层跑完整场比赛
