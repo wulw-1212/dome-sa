@@ -74,7 +74,7 @@ footer{margin-top:34px;color:var(--muted);font-size:12.5px;line-height:1.8;text-
   <header>
     <div>
       <h1>🗂 页面导航<span class="dot"> · </span>dome-sa</h1>
-      <p class="sub">这里汇总了本仓库所有的单文件页面：游戏、学习乐园和故事绘本。点开任意卡片即可跳转，全部离线可玩、零依赖。</p>
+      <p class="sub">这里汇总了本仓库所有的单文件页面：游戏、学习乐园、故事绘本和实用工具。点开任意卡片即可跳转，全部离线可玩、零依赖。</p>
     </div>
     <div class="tools">
       <span class="search"><span>🔍</span><input id="q" type="search" placeholder="搜索页面…" aria-label="搜索页面"></span>
@@ -83,6 +83,7 @@ footer{margin-top:34px;color:var(--muted);font-size:12.5px;line-height:1.8;text-
         <button data-f="play">游戏</button>
         <button data-f="learn">学习</button>
         <button data-f="story">故事·动画</button>
+        <button data-f="tool">工具</button>
       </span>
       <button id="themeBtn">🌙 深色</button>
     </div>
@@ -116,13 +117,16 @@ const PAGES = [
   { file:'earth-moon-story.html', emoji:'🌍', name:'地球和月球自传', en:'Earth & Moon',
     desc:'两个第一人称声音讲述四十五亿年的共同往事，可播放时间轴。', cat:'story', tags:'地球 月球 宇宙 时间轴 科普' },
   { file:'bird-story.html', emoji:'🐦', name:'小鸟飞上天', en:'Little Bird Flies Up',
-    desc:'会动的中英双语小绘本：小鸟飞过草地、水潭和稻田回家。', cat:'story', tags:'绘本 双语 小鸟 童话' }
+    desc:'会动的中英双语小绘本：小鸟飞过草地、水潭和稻田回家。', cat:'story', tags:'绘本 双语 小鸟 童话' },
+  { file:'word-copy.html', emoji:'📁', name:'Word 文件复制', en:'Word File Copy',
+    desc:'填好源/目标两个目录点一下，递归拷走全部 Word 文档，同名自动改名不覆盖。', cat:'tool', tags:'word 复制 文件 目录 工具 docx' }
 ];
 
 const GROUPS = {
   play:  { title:'🎮 小游戏',       color:'var(--play)',  hint:'点开即玩，全部纯离线' },
   learn: { title:'📚 学习乐园',     color:'var(--learn)', hint:'边玩边学：成语与英语单词' },
-  story: { title:'📖 故事 · 动画',  color:'var(--story)', hint:'可以播放、可以翻阅的故事' }
+  story: { title:'📖 故事 · 动画',  color:'var(--story)', hint:'可以播放、可以翻阅的故事' },
+  tool:  { title:'🧰 实用工具',     color:'var(--accent)', hint:'配合本机助手的小工具页面' }
 };
 
 const $ = id => document.getElementById(id);
@@ -147,7 +151,7 @@ function card(p){
 }
 function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-for (const key of ['play','learn','story']){
+for (const key of ['play','learn','story','tool']){
   const g = document.createElement('section');
   g.className = 'group'; g.dataset.group = key;
   g.innerHTML = '<h2><span class="bar" style="background:' + GROUPS[key].color + '"></span>' +
@@ -208,6 +212,10 @@ if (qs.get('selftest') === '1'){
   filterCat = 'play'; applyFilter();
   T(main.querySelectorAll('a.card:not([style*="none"])').length ===
     PAGES.filter(p => p.cat === 'play').length, '按「游戏」过滤数量正确');
+  filterCat = 'tool'; applyFilter();
+  T(main.querySelectorAll('a.card:not([style*="none"])').length ===
+    PAGES.filter(p => p.cat === 'tool').length, '按「工具」过滤数量正确');
+  filterCat = 'all';
   $('q').value = '乒乓'; applyFilter();
   T(main.querySelectorAll('a.card:not([style*="none"])').length === 1, '关键词「乒乓」只命中 1 个');
   $('q').value = 'zzzz不存在'; applyFilter();
