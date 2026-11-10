@@ -33,10 +33,16 @@ New-Fixture
 
 $script:bad = 0
 function Edge-Dom([string]$url, [int]$w, [int]$h, [int]$budget) {
-  # Edge 把无关警告写进 stderr；ErrorActionPreference=Stop 会把它当错误中断脚本，这里临时放宽
+  # Edge 会往 stderr 写无关警告；Windows PowerShell 5.1 下 2>$null 会把 stdout 一起吞掉，
+  # 所以走 cmd 的 2>nul 重定向，并用临时文件接 stdout。
   $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-  try { (& $edge --headless --disable-gpu --no-first-run "--window-size=$w,$h" "--virtual-time-budget=$budget" --dump-dom $url 2>$null | Out-String) }
-  finally { $ErrorActionPreference = $prev }
+  $outFile = Join-Path $env:TEMP ("wc-edge-" + [guid]::NewGuid().ToString('N') + ".html")
+  try {
+    $a = '"' + $edge + '" --headless --disable-gpu --no-first-run --window-size=' + $w + ',' + $h +
+         ' --virtual-time-budget=' + $budget + ' --dump-dom "' + $url + '"'
+    cmd /c ("$a 2>nul > `"" + $outFile + "`"") | Out-Null
+    if (Test-Path $outFile) { [IO.File]::ReadAllText($outFile, [Text.Encoding]::UTF8) } else { '' }
+  } finally { Remove-Item $outFile -Force -ErrorAction SilentlyContinue; $ErrorActionPreference = $prev }
 }
 function Check([string]$name, [bool]$cond) {
   if ($cond) { Write-Host "ok    $name" } else { Write-Host "FAIL  $name"; $script:bad++ }
@@ -62,7 +68,12 @@ Check '两份 deep.docx 内容各归其主' (((Get-Content -Raw (Join-Path $dst 
 Check 'job.target 全部平铺在目标目录下' (@($r.jobs | Where-Object { (Split-Path -Parent $_.target) -ne $dst }).Count -eq 0)
 
 $r2 = Invoke-CopyApi (Req @{ src = $src; dst = $dst; overwrite = $true })
-Check '再跑一次 -> 全部跳过（同大小同时间）' ($r2.summary.skip -eq 4 -and $r2.summary.copy -eq 0)
+Check '再跑一次 -> 全部跳过（文件没有修改，不重复写入）' ($r2.summary.skip -eq 4 -and $r2.summary.copy -eq 0)
+Check '跳过原因写明不重复写入' (@($r2.jobs | Where-Object { $_.reason -like '*不重复写入*' }).Count -eq 4)
+$before = (Get-Item (Join-Path $dst 'report.docx')).LastWriteTimeUtc
+Start-Sleep -Milliseconds 300
+$r2b = Invoke-CopyApi (Req @{ src = $src; dst = $dst; overwrite = $true })
+Check '跳过时不触碰目标文件（时间戳不变）' ((Get-Item (Join-Path $dst 'report.docx')).LastWriteTimeUtc -eq $before -and $r2b.summary.copy -eq 0)
 
 Set-Content -LiteralPath (Join-Path $src 'report.docx') -Value ('A' * 7000) -NoNewline
 $r3 = Invoke-CopyApi (Req @{ src = $src; dst = $dst; overwrite = $true })
@@ -159,6 +170,15 @@ if (-not $Port) {
     Check '助手离线：显示免授权启动提示' ($dom4 -like '*不需要授权任何文件夹*')
     Check '助手离线：提示里给出 word-copy.bat 路径' ($dom4 -match 'word-copy\.bat')
     Check '助手离线：提供重新探测按钮' ($dom4 -like '*重新探测助手*')
+
+    # 点授权按钮自动跳回上次目录（页内假句柄异步断言已在 selftest 里，这里核对展示态与说明文案）
+    $dom5 = Edge-Dom ($fileUrl + '?demoAuth=1') 1280 1250 20000
+    Check '跳回展示态：记忆条已显示' (([regex]::Match($dom5, '<div class="remembered"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
+    Check '跳回展示态：记忆条显示两个目录名' ($dom5 -match 'id="memSrc">源：workspaces' -and $dom5 -match 'id="memDst">目标：word')
+    Check '跳回展示态：状态条提示不用再选文件夹' ($dom5 -like '*已自动跳回上次授权的源目录与目标目录*')
+    Check '授权按钮提示写明自动跳回' ($dom5 -like '*记住后下次自动跳回*')
+    Check '说明写明不重复写入与自动跳回' ($dom5 -like '*文件没有修改就不重复写入*' -and $dom5 -like '*会自动跳到对应目录*')
+    Check '覆盖选项写明不重复写入' ($dom5 -like '*没改过的仍不重复写入*')
   }
 }
 

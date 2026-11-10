@@ -89,7 +89,7 @@ function Invoke-CopyApi([string]$jsonBody) {
       $ti = Get-Item -LiteralPath $target
       if (-not $overwrite) { $action = 'skip-exist'; $reason = '目标已存在同名文件（未勾选覆盖）' }
       elseif ($ti.Length -eq $f.Length -and (UnixSeconds $ti.LastWriteTimeUtc) -eq (UnixSeconds $f.LastWriteTimeUtc)) {
-        $action = 'skip-same'; $reason = '大小与修改时间都相同，无需重复拷贝'
+        $action = 'skip-same'; $reason = '文件没有修改（大小与修改时间都相同），不重复写入'
       } else { $action = 'overwrite' }
     }
     if (-not $preview -and ($action -eq 'copy' -or $action -eq 'overwrite')) {
