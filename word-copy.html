@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Word 文件复制页：填写源目录与目标目录，点「文件复制」把源目录里的 Word 文档（.docx/.doc）平铺拷贝到目标目录，不复制目录结构。">
+<title>Word 文件复制 · 源目录 → 目标目录</title>
+<style>
+:root{
+  --bg:#f5f7fb; --bg2:#e8eef7; --card:#ffffff; --ink:#17243a; --muted:#5f7089;
+  --line:rgba(90,115,150,.28); --accent:#1f6f5c; --accent-ink:#ffffff; --warn:#b26a00;
+  --ok:#1f7a4d; --bad:#c0392b; --skip:#7b8798; --shadow:0 14px 34px rgba(23,36,58,.10);
+}
+[data-theme="dark"]{
+  --bg:#0d1420; --bg2:#131d2c; --card:#182333; --ink:#e6eefb; --muted:#93a4bd;
+  --line:rgba(150,175,205,.24); --accent:#4fc7a7; --accent-ink:#07130f; --warn:#e0b268;
+  --ok:#5fd39a; --bad:#ff8a7a; --skip:#8b9bb2; --shadow:0 18px 40px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Segoe UI",system-ui,sans-serif;
+  background:linear-gradient(160deg,var(--bg2),var(--bg) 55%); color:var(--ink);
+  padding:22px 16px 40px; min-height:100vh; transition:background .3s,color .3s;
+}
+.wrap{max-width:960px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font-size:clamp(20px,3.2vw,30px);letter-spacing:.02em}
+h1 .dot{color:var(--accent)}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.75;max-width:74ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+  padding:18px;margin-top:16px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{flex:1 1 320px;min-width:0}
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;font-weight:600}
+input[type=text],textarea{width:100%;font:inherit;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:transparent;color:var(--ink)}
+input[type=text]:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+textarea{resize:vertical;min-height:74px;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.6}
+button{font:inherit;cursor:pointer;border-radius:10px;padding:10px 16px;border:1px solid var(--line);
+  background:transparent;color:var(--ink);font-weight:600;transition:transform .12s,opacity .2s,background .2s}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;padding:11px 26px}
+button.ghost{font-size:12.5px;padding:7px 12px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.opts{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.opts label{display:inline-flex;gap:6px;align-items:center;font-weight:500;margin:0;color:var(--ink)}
+.scope{margin-top:14px;font-size:12.5px;color:var(--muted);line-height:1.8}
+.scope code{margin:0 2px}
+.pill{display:inline-flex;gap:7px;align-items:center;font-size:12px;border-radius:999px;padding:4px 12px;
+  border:1px solid var(--line);color:var(--muted)}
+.pill b{font-weight:700}
+.pill.online{border-color:var(--ok);color:var(--ok)}
+.pill.offline{border-color:var(--warn);color:var(--warn)}
+.status{margin-top:12px;font-size:13px;color:var(--muted);line-height:1.7}
+.status.err{color:var(--bad)}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12.8px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.name{word-break:break-all}
+.st-copy{color:var(--ok);font-weight:700}
+.st-overwrite{color:var(--warn);font-weight:700}
+.st-skip{color:var(--skip)}
+.st-fail{color:var(--bad);font-weight:700}
+.summary{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.summary b{color:var(--ink);font-variant-numeric:tabular-nums}
+details{margin-top:12px;font-size:12.8px;color:var(--muted);line-height:1.75}
+summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
+code{background:rgba(127,127,127,.14);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.hint{font-size:11.8px;color:var(--muted);margin-top:5px;line-height:1.6}
+.helper-hint{margin-top:12px;border:1px solid var(--warn);border-radius:12px;padding:12px 14px;
+  background:rgba(178,106,0,.06);font-size:12.8px;color:var(--ink);line-height:1.8}
+[data-theme="dark"] .helper-hint{background:rgba(224,178,104,.08)}
+.helper-hint .ht{font-weight:700;color:var(--warn)}
+.helper-hint ol{margin:6px 0 0;padding-left:22px}
+.helper-hint li{margin:4px 0}
+.cmdline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.cmdline code{flex:1 1 340px;min-width:0;word-break:break-all}
+footer{margin-top:18px;font-size:11.8px;color:var(--muted);line-height:1.8}
+a{color:var(--accent)}
+#selftest{margin-top:16px;font-size:12.5px;line-height:1.8}
+#selftest li{list-style:none;padding-left:22px;position:relative}
+#selftest li::before{content:"·";position:absolute;left:8px;font-weight:700}
+#selftest li.pass::before{content:"✓";color:var(--ok)}
+#selftest li.fail::before{content:"✗";color:var(--bad);font-weight:700}
+#selftest h3{margin:0 0 6px;font-size:14px}
+@media (max-width:620px){ .actions button{flex:1 1 auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Word 文件复制<span class="dot"> · </span>源目录 → 目标目录</h1>
+      <p class="sub">填好两个目录，点 <b>文件复制</b>，程序会<b>递归查找源目录及其所有子目录</b>里的 Word 文档
+        （<code>.docx</code> / <code>.doc</code>），全部拷贝到目标目录。<b>只复制文件，不复制目录结构</b>：
+        所有文件平铺放进目标目录；不同子目录里的同名文件自动改名，互不覆盖。
+        默认路径已按需求填好；<b>免授权用法</b>是双击仓库里的 <code>word-copy.bat</code>（自动起本机助手并打开本页），
+        直接点「文件复制」即可。浏览器出于安全不能凭空读写任意本地文件夹，所以页面会自动选择后端，见右上角状态条。</p>
+    </div>
+    <div class="row" style="gap:8px">
+      <span class="pill" id="backend"><b>检测中…</b></span>
+      <button class="ghost" id="themeBtn" title="深浅色（T）">🌓 深色</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="src">源目录（从这里复制）</label>
+        <input type="text" id="src" value="D:\Programs Data\DeepTutor\data\user\workspaces" placeholder="D:\资料\合同" spellcheck="false" autocomplete="off">
+        <div class="hint">输入绝对路径；也可以点右边的「授权源目录」直接挑文件夹。</div>
+      </div>
+      <button class="ghost" id="pickSrc" title="用系统选择器授权源目录">📁 授权源目录</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="field">
+        <label for="dst">目标目录（复制到这里）</label>
+        <input type="text" id="dst" value="E:\word" placeholder="E:\备份\合同" spellcheck="false" autocomplete="off">
+        <div class="hint">不存在会自动创建（助手模式）。所有文件都直接落在这个目录里。</div>
+      </div>
+      <button class="ghost" id="pickDst" title="用系统选择器授权目标目录">📁 授权目标目录</button>
+    </div>
+
+    <div class="scope" id="exts">复制范围：<code>.docx</code><code>.doc</code>
+      <span class="hint">递归查找源目录与所有子目录；只复制 Word 文档，其它文件（<code>.rtf</code>、<code>.odt</code>、<code>.wps</code>、<code>.pdf</code>、<code>.txt</code> 等）不动。</span></div>
+
+    <div class="opts">
+      <label><input type="checkbox" id="overwrite" checked> 同名则覆盖</label>
+      <label><input type="checkbox" id="preview"> 只预览，不实际复制</label>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="run">文件复制</button>
+      <button class="ghost" id="cmdBtn">生成复制命令</button>
+    </div>
+
+    <div class="status" id="status">等待操作。</div>
+
+    <div class="helper-hint" id="helperHint" hidden>
+      <div class="ht" id="hintTitle">未检测到本地助手：</div>
+      <ol>
+        <li>双击 <code id="hintBat">word-copy.bat</code>（会自动起助手并打开本页，<b>不需要授权任何文件夹</b>）；</li>
+        <li>或在 PowerShell 里跑一行：
+          <div class="cmdline"><code id="hintCmd">powershell -ExecutionPolicy Bypass -File tools\word-copy-server.ps1</code>
+            <button class="ghost" id="hintCopy">复制</button></div></li>
+        <li>助手起来后点 <button class="ghost" id="hintRetry">重新探测助手</button>，或直接刷新本页。</li>
+      </ol>
+      <div class="hint">助手只监听 127.0.0.1，只做「递归列出 Word 文件」和「平铺复制到目标目录」两件事，不删除任何东西，关掉窗口即停止。</div>
+    </div>
+
+    <div id="result"></div>
+    <div id="cmd" hidden>
+      <label style="margin-top:14px">可直接粘贴到 PowerShell 的复制命令</label>
+      <textarea id="cmdText" readonly spellcheck="false"></textarea>
+      <div class="actions"><button class="ghost" id="copyCmd">📋 复制命令</button></div>
+    </div>
+  </section>
+
+  <details class="card" style="margin-top:14px">
+    <summary>两种后端说明 / 本地助手怎么用</summary>
+    <p><b>① 本地助手（推荐，免授权，用真实文件夹路径）</b>：双击仓库里的 <code>word-copy.bat</code> 最省事 ——
+      它会自动启动助手并打开本页；也可以手动运行
+      <code>tools\word-copy-server.ps1</code>，然后访问 <code>http://127.0.0.1:8765/</code>（或直接双击本页，
+      页面会自动探测本机助手）。两种打开方式都不用授权任何文件夹：两个默认目录已经填好，直接点「文件复制」。
+      助手只监听 <code>127.0.0.1</code>，只做「递归列出源目录及子目录里的 Word 文件」和
+      「把文件平铺复制到目标目录」两件事：不建子目录、不删除任何东西，关掉窗口即停止。</p>
+    <p><b>② 浏览器授权（无需助手）</b>：点「授权源目录 / 授权目标目录」，在系统选择器里授权两个文件夹，
+      页面用 File System Access API 逐份复制。限制：必须由你亲手授权，输入框里手打的路径无法被网页读取。</p>
+    <p><b>③ 兜底</b>：两者都不可用时，点「生成复制命令」，把命令粘贴到 PowerShell 执行。
+      同样递归、同样只拷 Word、同样平铺；区别是一条命令没法给同名文件改名，
+      不同子目录里的同名 Word 文件会互相覆盖 —— 要保留两份请用助手或授权模式。</p>
+    <p>同名文件在「不覆盖」时跳过；大小与修改时间都相同的自动跳过，避免重复拷贝。</p>
+  </details>
+
+  <footer>本页零依赖、零构建，可离线双击打开。自检：<a href="?selftest=1">?selftest=1</a>。
+    指定助手地址：<a href="?helper=http://127.0.0.1:8765">?helper=…</a>；自动执行：<code>?src=…&amp;dst=…&amp;autocopy=1</code>。</footer>
+
+  <ol id="selftest" hidden></ol>
+</div>
+
+<script>
+'use strict';
+/* __CORE_START__ */
+/* 规则内核：纯函数，不访问 DOM、不发网络请求，可在任何环境里直接断言。
+ * 本页约定：只复制 Word 文档（.docx/.doc）；递归查找源目录及所有子目录；
+ * 但只复制文件本身——全部平铺放进目标目录，不复制目录结构。 */
+
+var WORD_EXTS = ['.docx', '.doc'];
+
+function normPath(p){
+  return String(p == null ? '' : p).trim().replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+}
+/* 是否像绝对路径：Windows 盘符、UNC、或以 / 开头 */
+function isAbsolute(p){
+  var s = normPath(p);
+  return /^[A-Za-z]:\//.test(s) || /^\/\//.test(s) || /^\/(?!\/)/.test(s);
+}
+function extOf(name){
+  var s = String(name == null ? '' : name), i = s.lastIndexOf('.');
+  return i < 0 ? '' : s.slice(i).toLowerCase();
+}
+/* 归一化扩展名：'.docx' / 'docx' / 'DOCX ' 都收，去重去空 */
+function normalizeExts(list){
+  var out = [];
+  (Array.isArray(list) ? list : []).forEach(function(e){
+    var s = String(e == null ? '' : e).trim().toLowerCase().replace(/^[.\s]+/, '').replace(/[.\s]+$/g, '');
+    if (s && out.indexOf('.' + s) < 0) out.push('.' + s);
+  });
+  return out;
+}
+function isWordFile(name, exts){
+  return normalizeExts(exts && exts.length ? exts : WORD_EXTS).indexOf(extOf(name)) >= 0;
+}
+/* 递归清单里挑 Word 文档：rel 是相对源目录的路径（可含 /），保留文件、丢掉目录条目，
+   排除 Word 打开时的 ~$ 临时锁文件和隐藏文件 */
+function pickWordFiles(entries, exts){
+  var e = normalizeExts(exts && exts.length ? exts : WORD_EXTS), out = [];
+  (Array.isArray(entries) ? entries : []).forEach(function(it){
+    if (!it) return;
+    if (it.kind === 'dir' || it.isDirectory === true) return;  /* 目录本身永不入选 */
+    var rel = String(it.name == null ? '' : it.name).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (!rel) return;
+    var base = rel.split('/').pop();
+    if (base.charAt(0) === '.' || base.indexOf('~$') === 0) return;
+    if (isWordFile(base, e)) out.push({ rel: rel, name: base, size: Number(it.size) || 0, mtime: Number(it.mtime) || 0 });
+  });
+  return out;
+}
+/* 平铺目标名：默认就用文件名；不同子目录里的同名 Word 文件自动改名（用上级目录名做前缀），
+   保证「所有的 word 文件都复制」且不互相覆盖 */
+function flatNames(picked){
+  var used = {};
+  return picked.map(function(f){
+    var name = f.name.toLowerCase();
+    if (!used[name]) { used[name] = 1; return { rel: f.rel, name: f.name, size: f.size, mtime: f.mtime }; }
+    used[name]++;
+    var parts = f.rel.split('/'), parent = parts.length > 1 ? parts[parts.length - 2] : '';
+    var dot = f.name.lastIndexOf('.'), stem = dot < 0 ? f.name : f.name.slice(0, dot), ext = dot < 0 ? '' : f.name.slice(dot);
+    var cand = (parent ? parent + '_' : '') + stem + ext, i = 2;
+    while (used[cand.toLowerCase()]) cand = (parent ? parent + '_' : '') + stem + '_' + (i++) + ext;
+    used[cand.toLowerCase()] = 1;
+    return { rel: f.rel, name: cand, size: f.size, mtime: f.mtime };
+  });
+}
+/* 平铺目标路径：目标目录 + 文件名，绝不拼出子目录 */
+function joinTarget(dst, name, sep){
+  var s = sep || '/';
+  return normPath(dst).split('/').concat([String(name == null ? '' : name)]).join(s);
+}
+/* 单条决策：目标已存在与否 -> 动作 */
+function decide(job, existing, opts){
+  var o = opts || {};
+  if (existing == null) return { action: 'copy' };
+  if (!o.overwrite) return { action: 'skip-exist', reason: '目标已存在同名文件（未勾选覆盖）' };
+  if (o.skipSame && Number(existing.size) === Number(job.size) && Number(existing.mtime) === Number(job.mtime))
+    return { action: 'skip-same', reason: '大小与修改时间都相同，无需重复拷贝' };
+  return { action: 'overwrite' };
+}
+/* 整批计划：递归清单 + 目标已有文件（按平铺名索引） -> jobs / summary */
+function planCopy(entries, existingMap, opts){
+  var o = opts || {}, ex = existingMap || {};
+  var jobs = [];
+  flatNames(pickWordFiles(entries, o.exts)).forEach(function(f){
+    var k = f.name.toLowerCase();
+    var have = Object.prototype.hasOwnProperty.call(ex, k) ? ex[k] : null;
+    var d = decide(f, have, o);
+    jobs.push({
+      rel: f.rel, name: f.name, size: f.size, mtime: f.mtime,
+      target: joinTarget(o.dst, f.name, o.sep), action: d.action, reason: d.reason || ''
+    });
+  });
+  return { jobs: jobs, summary: tally(jobs) };
+}
+/* 计数：按 jobs 的 action 汇总 */
+function tally(jobs){
+  var list = Array.isArray(jobs) ? jobs : [], sum = { total: list.length, copy: 0, overwrite: 0, skip: 0, fail: 0, bytes: 0 };
+  list.forEach(function(j){
+    if (j.action === 'copy') { sum.copy++; sum.bytes += Number(j.size) || 0; }
+    else if (j.action === 'overwrite') { sum.overwrite++; sum.bytes += Number(j.size) || 0; }
+    else if (j.action === 'fail') sum.fail++;
+    else sum.skip++;
+  });
+  return sum;
+}
+/* 校验表单：返回 {ok, error} */
+function validate(src, dst, exts){
+  if (!String(src || '').trim()) return { ok: false, error: '请填写源目录。' };
+  if (!String(dst || '').trim()) return { ok: false, error: '请填写目标目录。' };
+  if (normPath(src).toLowerCase() === normPath(dst).toLowerCase())
+    return { ok: false, error: '源目录和目标目录是同一个，无需复制。' };
+  if (!normalizeExts(exts).length) return { ok: false, error: '复制范围不能为空（至少保留 .docx 或 .doc）。' };
+  return { ok: true };
+}
+function formatBytes(n){
+  var x = Number(n) || 0, u = ['B', 'KB', 'MB', 'GB'];
+  for (var i = u.length - 1; i > 0; i--) if (x >= Math.pow(1024, i)) return (x / Math.pow(1024, i)).toFixed(i ? 1 : 0) + ' ' + u[i];
+  return x + ' B';
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+/* 兜底命令：递归找出所有 Word 文件，平铺复制到目标目录 */
+function buildCommand(src, dst, opts){
+  var o = opts || {}, exts = normalizeExts(o.exts && o.exts.length ? o.exts : WORD_EXTS);
+  var inc = exts.map(function(e){ return "'" + e + "'"; }).join(', ');
+  var s = String(src || '').replace(/[\\/]+$/, ''), d = String(dst || '').replace(/[\\/]+$/, '');
+  if (o.unix) {
+    return 'find "' + s + '" -type f \\(' +
+      exts.map(function(e){ return '-name "*' + e + '"'; }).join(' -o ') +
+      '\\) -exec cp {} "' + d + '" \\;';
+  }
+  return 'Get-ChildItem -LiteralPath "' + s + '" -Recurse -File | Where-Object { $_.Extension -in @(' + inc +
+    ') } | Copy-Item -Destination "' + d + '" -Force';
+}
+/* __CORE_END__ */
+
+/* __UI_START__ */
+var $ = function(id){ return document.getElementById(id); };
+var Q = new URLSearchParams(location.search);
+var HELPER = (Q.get('helper') || 'http://127.0.0.1:8765').replace(/\/+$/, '');
+var EXTS = WORD_EXTS.slice();
+
+var state = {
+  mode: 'detect',                 /* detect | helper | browser | none */
+  srcHandle: null, dstHandle: null,
+  busy: false
+};
+
+function setStatus(msg, isErr){
+  var s = $('status');
+  s.textContent = msg;
+  s.className = 'status' + (isErr ? ' err' : '');
+}
+function setBackend(){
+  var t = {
+    detect: '检测后端…',
+    helper: '<b>本地助手在线</b> · 真实路径复制',
+    browser: '<b>浏览器授权</b> · 需亲手挑两个文件夹',
+    none: '<b>无助手</b> · 手打路径读不到，见底部'
+  }[state.mode];
+  var p = $('backend');
+  p.innerHTML = t;
+  p.className = 'pill ' + (state.mode === 'helper' ? 'online' : state.mode === 'none' ? 'offline' : '');
+  var show = state.mode === 'helper' ? 'none' : '';
+  $('pickSrc').style.display = show;
+  $('pickDst').style.display = show;
+}
+var ACTION_LABEL = {
+  copy: '已复制', overwrite: '已覆盖', 'skip-exist': '跳过（已存在）',
+  'skip-same': '跳过（内容相同）', fail: '失败'
+};
+var PREVIEW_LABEL = {
+  copy: '待复制', overwrite: '待覆盖', 'skip-exist': '将跳过（已存在）',
+  'skip-same': '将跳过（内容相同）', fail: '失败'
+};
+function renderResult(jobs, summary, preview){
+  var box = $('result');
+  if (!jobs || !jobs.length){ box.innerHTML = ''; return; }
+  var labels = preview ? PREVIEW_LABEL : ACTION_LABEL;
+  var rows = jobs.slice(0, 300).map(function(j){
+    var cls = j.action === 'fail' ? 'st-fail' : j.action === 'copy' ? 'st-copy' :
+      j.action === 'overwrite' ? 'st-overwrite' : 'st-skip';
+    return '<tr><td class="name">' + esc(j.rel) + '</td><td class="name">' + esc(j.name) +
+      '</td><td class="num">' + esc(formatBytes(j.size)) +
+      '</td><td class="' + cls + '">' + esc(labels[j.action] || j.action) +
+      '</td><td class="name">' + esc(j.reason || '') + '</td></tr>';
+  }).join('');
+  box.innerHTML =
+    '<div class="summary"><span>' + (preview ? '计划写入 <b>' : '写入 <b>') + (summary.copy + summary.overwrite) + '</b> 个</span>' +
+    '<span>覆盖 <b>' + summary.overwrite + '</b></span><span>跳过 <b>' + summary.skip + '</b></span>' +
+    '<span>失败 <b>' + summary.fail + '</b></span><span>合计 <b>' + formatBytes(summary.bytes) + '</b></span></div>' +
+    '<table><thead><tr><th>源（相对源目录）</th><th>' + (preview ? '将复制到目标目录的文件名' : '复制到目标目录的文件名') +
+    '</th><th class="num">大小</th><th>结果</th><th>说明</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>' +
+    (jobs.length > 300 ? '<div class="hint">仅显示前 300 行，共 ' + jobs.length + ' 行。</div>' : '');
+}
+
+/* ---------- 后端探测 ---------- */
+function helperPing(){
+  return fetch(HELPER + '/api/status', { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ return !!(j && j.app === 'word-copy-helper'); })
+    .catch(function(){ return false; });
+}
+function detectBackend(tries){
+  helperPing().then(function(on){
+    if (!on && tries > 1) return setTimeout(function(){ detectBackend(tries - 1); }, 400);
+    state.mode = on ? 'helper' : (window.showDirectoryPicker ? 'browser' : 'none');
+    setBackend();
+    if (state.mode === 'browser') showHelperHint('未检测到本地助手，才让你去授权文件夹。其实不用授权：');
+    else if (state.mode === 'none') showHelperHint('未检测到本地助手，当前浏览器也不支持目录授权。不用授权的用法：');
+    else hideHelperHint();
+    if (Q.get('autocopy')) run();
+  });
+}
+
+/* 助手不在线时给出「免授权」的启动办法：双击 word-copy.bat，或粘一条命令 */
+function batPath(){
+  /* 从当前页面地址推出发起的仓库目录，拼出 word-copy.bat 的绝对路径 */
+  try {
+    var p = decodeURIComponent(location.pathname);
+    if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);          /* file:///D:/... 去掉开头斜杠 */
+    var dir = p.replace(/[\\/][^\\/]*$/, '');               /* 去掉 word-copy.html */
+    var win = /^[A-Za-z]:/.test(dir) || /^\\\\/.test(dir.replace(/\//g, '\\'));
+    return win ? dir.replace(/\//g, '\\') + '\\word-copy.bat' : dir.replace(/\\/g, '/') + '/word-copy.bat';
+  } catch (e) { return 'word-copy.bat'; }
+}
+function showHelperHint(title){
+  var box = $('helperHint');
+  $('hintTitle').textContent = title;
+  $('hintBat').textContent = batPath();
+  box.hidden = false;
+}
+function hideHelperHint(){ $('helperHint').hidden = true; }
+function retryDetect(){
+  setStatus('正在重新探测本机助手…');
+  state.mode = 'detect'; setBackend();
+  detectBackend(5);
+}
+
+/* ---------- 浏览器授权模式（递归查找 Word 文件，平铺复制） ---------- */
+function listWordFilesDeep(dirHandle, prefix, out, depth){
+  if (depth > 30) return Promise.resolve(out);
+  var it = dirHandle.entries(), pending = [];
+  function step(){
+    return it.next().then(function(r){
+      if (r.done) return Promise.all(pending).then(function(){ return out; });
+      var entry = r.value[1];
+      var rel = prefix ? prefix + '/' + entry.name : entry.name;
+      if (entry.kind === 'file') pending.push(entry.getFile().then(function(f){
+        out.push({ name: rel, size: f.size, mtime: Math.round(f.lastModified / 1000) });
+      }));
+      else pending.push(listWordFilesDeep(entry, rel, out, depth + 1));
+      return step();
+    });
+  }
+  return step();
+}
+function namesInDst(dstHandle){
+  var it = dstHandle.entries(), map = {};
+  function step(){
+    return it.next().then(function(r){
+      if (r.done) return map;
+      var entry = r.value[1];
+      if (entry.kind === 'file') map[entry.name.toLowerCase()] = { size: 0, mtime: 0 };
+      return step();
+    });
+  }
+  return step();
+}
+function srcFileByRel(rootHandle, rel){
+  var parts = rel.split('/');
+  var dir = Promise.resolve(rootHandle);
+  parts.slice(0, -1).forEach(function(seg){ dir = dir.then(function(h){ return h.getDirectoryHandle(seg); }); });
+  return dir.then(function(h){ return h.getFileHandle(parts[parts.length - 1]); })
+    .then(function(fh){ return fh.getFile(); });
+}
+function browserCopy(o){
+  var files = [];
+  return listWordFilesDeep(state.srcHandle, '', files, 0).then(function(fs){
+    files = fs;
+    return o.overwrite ? {} : namesInDst(state.dstHandle);
+  }).then(function(ex){
+    var plan = planCopy(files, ex, { exts: EXTS, dst: '', overwrite: o.overwrite, skipSame: false });
+    if (o.preview) return plan;
+    var chain = Promise.resolve();
+    plan.jobs.filter(function(j){ return j.action === 'copy' || j.action === 'overwrite'; })
+      .forEach(function(j){
+        chain = chain.then(function(){
+          return srcFileByRel(state.srcHandle, j.rel)
+            .then(function(f){
+              return state.dstHandle.getFileHandle(j.name, { create: true })
+                .then(function(w){ return w.createWritable(); })
+                .then(function(wr){ return wr.write(f).then(function(){ return wr.close(); }); });
+            })
+            .catch(function(err){ j.action = 'fail'; j.reason = (err && err.message) || String(err); });
+        });
+      });
+    return chain.then(function(){ plan.summary = tally(plan.jobs); return plan; });
+  });
+}
+
+/* ---------- 助手模式 ---------- */
+function helperCopy(o){
+  return fetch(HELPER + '/api/copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ src: o.src, dst: o.dst, exts: EXTS, flat: true, overwrite: !!o.overwrite, preview: !!o.preview })
+  }).then(function(r){ return r.json().then(function(j){ return { http: r.status, body: j }; }); })
+    .then(function(res){
+      if (!res.body || res.body.ok !== true)
+        throw new Error((res.body && res.body.error) || ('助手返回 HTTP ' + res.http));
+      var jobs = res.body.jobs || [];
+      return { jobs: jobs, summary: res.body.summary || tally(jobs) };
+    });
+}
+
+/* ---------- 主控 ---------- */
+function currentOpts(){
+  var d = $('dst').value;
+  return {
+    src: $('src').value.trim(), dst: d.trim(),
+    overwrite: $('overwrite').checked, preview: $('preview').checked,
+    sep: /\\/.test(d) || /^[A-Za-z]:/.test(d.trim()) ? '\\' : '/'
+  };
+}
+function run(){
+  if (state.busy) return;
+  var o = currentOpts();
+  var v = validate(o.src, o.dst, EXTS);
+  if (!v.ok){ setStatus(v.error, true); return; }
+  if (state.mode === 'helper' && !isAbsolute(o.src)){
+    setStatus('助手模式需要绝对路径，例如 D:\\资料\\合同 或 /home/me/docs。', true); return;
+  }
+  if (state.mode === 'browser' && (!state.srcHandle || !state.dstHandle)){
+    setStatus('输入框里的路径浏览器读不到，所以这一版才要授权。想直接用默认路径、不授权，就启动本机助手（见下方提示）。', true);
+    showHelperHint('要用默认路径直接复制、跳过授权，请先启动本机助手：');
+    return;
+  }
+  if (state.mode === 'none' || state.mode === 'detect'){
+    setStatus('本机助手没在运行，浏览器也读不到手打的路径。启动助手即可免授权用默认路径复制：', true);
+    showHelperHint('未检测到本地助手，用下面任一方式启动后即可免授权复制：');
+    return;
+  }
+  state.busy = true; $('run').disabled = true;
+  setStatus(o.preview ? '正在预览…' : '正在复制…');
+  $('result').innerHTML = '';
+
+  var p = state.mode === 'helper' ? helperCopy(o) : browserCopy(o);
+  p.then(function(res){
+    renderResult(res.jobs, res.summary, o.preview);
+    var s = res.summary;
+    if (o.preview) setStatus('预览：' + (s.copy + s.overwrite) + ' 个 Word 文件待复制到 ' + o.dst +
+      '（其中覆盖 ' + s.overwrite + ' 个），' + s.skip + ' 个将跳过。取消勾选「只预览」即真正执行。');
+    else if (s.fail) setStatus('完成，但有 ' + s.fail + ' 个文件失败，详见下表。', true);
+    else setStatus('完成：复制 ' + s.copy + ' 个、覆盖 ' + s.overwrite + ' 个、跳过 ' + s.skip +
+      ' 个，共 ' + formatBytes(s.bytes) + '，全部平铺在目标目录 ' + o.dst + '。');
+  }).catch(function(err){
+    setStatus('失败：' + (err && err.message ? err.message : err), true);
+  }).then(function(){
+    state.busy = false; $('run').disabled = false;
+  });
+}
+
+/* ---------- 事件 ---------- */
+$('run').addEventListener('click', run);
+$('overwrite').addEventListener('change', function(){ if ($('preview').checked) run(); });
+/* 勾上「只预览」时顺手重算一次计划；取消勾选不会自动真的复制 */
+$('preview').addEventListener('change', function(){ if ($('preview').checked && !state.busy && $('src').value && $('dst').value) run(); });
+function pickDir(which){
+  if (!window.showDirectoryPicker){ setStatus('当前浏览器不支持目录授权（需要 Chrome / Edge 等）。', true); return; }
+  window.showDirectoryPicker({ id: 'wc-' + which, mode: which === 'dst' ? 'readwrite' : 'read' }).then(function(h){
+    state[which + 'Handle'] = h;
+    $(which).value = '📁 已授权：' + (h.name || '所选文件夹');
+    setStatus('已授权' + (which === 'src' ? '源' : '目标') + '目录：' + (h.name || '') + '，现在可以点「文件复制」。');
+  }).catch(function(e){ if (e && e.name !== 'AbortError') setStatus('授权失败：' + e.message, true); });
+}
+$('pickSrc').addEventListener('click', function(){ pickDir('src'); });
+$('pickDst').addEventListener('click', function(){ pickDir('dst'); });
+$('hintRetry').addEventListener('click', retryDetect);
+$('hintCopy').addEventListener('click', function(){
+  var txt = 'powershell -ExecutionPolicy Bypass -File "' + batPath().replace(/word-copy\.bat$/, 'tools\\word-copy-server.ps1') + '"';
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ setStatus('助手启动命令已复制到剪贴板，粘到 PowerShell 回车即可。'); },
+      function(){ $('hintCmd').textContent = txt; setStatus('自动复制被拒绝，请手动选中上面那行命令。'); });
+  } else { $('hintCmd').textContent = txt; setStatus('请手动选中上面那行命令复制。'); }
+});
+$('cmdBtn').addEventListener('click', function(){
+  var o = currentOpts();
+  var v = validate(o.src, o.dst, EXTS);
+  if (!v.ok){ setStatus(v.error, true); return; }
+  var unix = normPath(o.src).charAt(0) === '/';
+  $('cmdText').value = unix
+    ? buildCommand(normPath(o.src), normPath(o.dst), { exts: EXTS, unix: true })
+    : buildCommand(o.src.replace(/[\/]+$/, ''), o.dst, { exts: EXTS });
+  $('cmd').hidden = false;
+  setStatus('已生成命令：递归找出所有 .docx/.doc 并平铺复制到目标目录。粘贴到 PowerShell 回车即可。');
+});
+$('copyCmd').addEventListener('click', function(){
+  var t = $('cmdText');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t.value).then(function(){ setStatus('命令已复制到剪贴板。'); },
+      function(){ t.select(); setStatus('自动复制被拒绝，请手动选中复制。'); });
+  } else { t.select(); setStatus('请手动选中命令复制。'); }
+});
+
+function toggleTheme(){
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  $('themeBtn').textContent = dark ? '🌓 深色' : '☀️ 浅色';
+  try { localStorage.setItem('wc-theme', dark ? 'light' : 'dark'); } catch (e) {}
+}
+$('themeBtn').addEventListener('click', toggleTheme);
+document.addEventListener('keydown', function(e){
+  var tag = (e.target.tagName || '').toLowerCase();
+  if ((e.key === 't' || e.key === 'T') && tag !== 'input' && tag !== 'textarea') toggleTheme();
+  if (e.key === 'Enter' && tag === 'input') run();
+});
+
+/* ---------- 页内自检 ---------- */
+function selftest(){
+  var out = [], ok = 0;
+  function T(name, cond){ out.push({ name: name, pass: !!cond }); if (cond) ok++; }
+  var top = [
+    { name: '合同A.docx', size: 100, mtime: 1 },
+    { name: '说明.doc', size: 200, mtime: 2 },
+    { name: 'photo.png', size: 300, mtime: 3 },
+    { name: 'notes.txt', size: 40, mtime: 4 },
+    { name: '~$合同A.docx', size: 2, mtime: 5 },
+    { name: '.hidden.docx', size: 9, mtime: 6 },
+    { name: '备份.rtf', size: 80, mtime: 7 },
+    { name: '手册.odt', size: 81, mtime: 8 },
+    { name: '笔记.wps', size: 82, mtime: 9 },
+    { name: '子目录1/会议纪要.docx', size: 5, mtime: 10 },
+    { name: '子目录2/会议纪要.docx', size: 6, mtime: 11 },
+    { name: 'a/b/c/deep.doc', size: 7, mtime: 12 },
+    { name: '子目录3/~$临时.docx', size: 1, mtime: 13 }
+  ];
+  var fn = [normPath, isAbsolute, extOf, normalizeExts, isWordFile, pickWordFiles, flatNames, joinTarget,
+    decide, planCopy, tally, validate, formatBytes, esc, buildCommand];
+  T('内核函数齐备（' + fn.length + ' 个）', fn.every(function(f){ return typeof f === 'function'; }));
+  T('Word 范围只有 .docx/.doc', JSON.stringify(WORD_EXTS) === '["' + '.docx' + '","' + '.doc' + '"]');
+  T('扩展名归一化去重', JSON.stringify(normalizeExts(['DOCX', '.docx', ' doc ', '', null])) === '[".docx",".doc"]');
+  T('认 docx/doc 大写', isWordFile('a.DOCX') && isWordFile('b.Doc'));
+  T('非 Word 不认', !isWordFile('a.png') && !isWordFile('a.pdf') && !isWordFile('README'));
+  T('rtf/odt/wps 都不算 Word', !isWordFile('x.rtf') && !isWordFile('x.odt') && !isWordFile('x.wps'));
+  var picked = pickWordFiles(top);
+  T('递归挑出 5 个 Word 文件', picked.length === 5 &&
+    picked.map(function(f){ return f.rel; }).join(',') === '合同A.docx,说明.doc,子目录1/会议纪要.docx,子目录2/会议纪要.docx,a/b/c/deep.doc');
+  T('排除 ~$ 锁文件（含子目录里的）', picked.every(function(f){ return f.name.indexOf('~$') !== 0; }));
+  T('排除隐藏文件', picked.every(function(f){ return f.name.charAt(0) !== '.'; }));
+  T('目录条目不入选', pickWordFiles([{ rel: 'd', name: 'd', kind: 'dir' }, { name: 'b.doc', size: 1 }]).length === 1);
+  T('深路径保留 rel 但只取文件名判定', picked.some(function(f){ return f.rel === 'a/b/c/deep.doc' && f.name === 'deep.doc'; }));
+  var flat = flatNames(picked);
+  T('平铺名唯一', flat.map(function(f){ return f.name.toLowerCase(); }).sort().join('|') ===
+    Array.from(new Set(flat.map(function(f){ return f.name.toLowerCase(); }))).sort().join('|'));
+  T('同名不同目录不互相覆盖', flat.filter(function(f){ return f.name.indexOf('会议纪要') >= 0; }).length === 2 &&
+    flat.filter(function(f){ return f.name.indexOf('会议纪要') >= 0; }).map(function(f){ return f.name; }).join(',') === '会议纪要.docx,子目录2_会议纪要.docx');
+  T('平铺名仍是 Word 扩展名', flat.every(function(f){ return /\.(docx|doc)$/.test(f.name); }));
+  T('绝对路径 Windows', isAbsolute('D:\\资料') === true);
+  T('绝对路径 Unix', isAbsolute('/home/me') === true);
+  T('绝对路径 UNC', isAbsolute('\\\\srv\\share') === true);
+  T('相对路径不是绝对', isAbsolute('资料/sub') === false);
+  T('joinTarget 平铺不留子目录', joinTarget('E:\\bak', 'x.docx', '\\') === 'E:\\bak\\x.docx');
+  T('joinTarget 去多余斜杠', normPath(joinTarget('E:/bak/', 'a.docx')) === 'E:/bak/a.docx');
+  var p1 = planCopy(top, {}, { dst: 'E:\\bak', sep: '\\' });
+  T('计划 5 个待复制', p1.summary.copy === 5 && p1.summary.total === 5);
+  T('计划字节合计=318', p1.summary.bytes === 318);
+  T('每条 job 的 target 平铺在目标目录下', p1.jobs.every(function(j){
+    return j.target.indexOf('E:\\bak\\') === 0 && j.target.indexOf('\\', 7) < 0;
+  }));
+  var p2 = planCopy(top, { '合同a.docx': { size: 999, mtime: 9 } }, { dst: 'E:\\bak', overwrite: false });
+  T('已存在且未覆盖 -> 跳过', p2.jobs.some(function(j){ return j.name === '合同A.docx' && j.action === 'skip-exist'; }));
+  var p3 = planCopy(top, { '合同a.docx': { size: 100, mtime: 1 } }, { dst: 'E:\\bak', overwrite: true, skipSame: true });
+  T('同大小同时间 -> 跳过', p3.jobs.some(function(j){ return j.name === '合同A.docx' && j.action === 'skip-same'; }));
+  var p4 = planCopy(top, { '合同a.docx': { size: 100, mtime: 2 } }, { dst: 'E:\\bak', overwrite: true, skipSame: true });
+  T('内容有差 -> 覆盖', p4.jobs.some(function(j){ return j.name === '合同A.docx' && j.action === 'overwrite'; }));
+  var t = tally([{ action: 'copy', size: 1 }, { action: 'fail' }, { action: 'skip-same' }, { action: 'overwrite', size: 2 }]);
+  T('tally 四类计数正确', t.copy === 1 && t.fail === 1 && t.skip === 1 && t.overwrite === 1 && t.bytes === 3);
+  T('tally 空数组不炸', JSON.stringify(tally([])) === '{"total":0,"copy":0,"overwrite":0,"skip":0,"fail":0,"bytes":0}');
+  T('缺源目录报错', validate('', 'E:\\b', EXTS).ok === false);
+  T('缺目标目录报错', validate('D:\\a', '', EXTS).ok === false);
+  T('同源同目标报错', validate('D:\\a', 'd:/a/', EXTS).ok === false);
+  T('空范围报错', validate('D:\\a', 'E:\\b', []).ok === false);
+  T('合法入参通过', validate('D:\\a', 'E:\\b', EXTS).ok === true);
+  T('formatBytes 三档', formatBytes(0) === '0 B' && formatBytes(2048) === '2.0 KB' && formatBytes(5 * 1048576) === '5.0 MB');
+  T('esc 转义防注入', esc('<b>&"') === '&lt;b&gt;&amp;&quot;');
+  var cmd = buildCommand('D:\\a', 'E:\\b', { exts: EXTS });
+  T('命令含 -Recurse（递归查找）', cmd.indexOf('-Recurse') >= 0 && cmd.indexOf('Copy-Item') >= 0);
+  T('命令不含子目录输出路径', cmd.indexOf('E:\\b\\sub') < 0);
+  T('命令只含 docx/doc', cmd.indexOf('.docx') >= 0 && cmd.indexOf('.rtf') < 0 && cmd.indexOf('.wps') < 0);
+  T('Unix 命令递归 find + cp 平铺', /find .* -type f/.test(buildCommand('/a', '/b', { exts: EXTS, unix: true })) &&
+    buildCommand('/a', '/b', { exts: EXTS, unix: true }).indexOf('-maxdepth') < 0);
+  T('界面控件齐备', ['src', 'dst', 'run', 'overwrite', 'preview', 'result', 'status', 'exts'].every(function(id){ return !!$(id); }));
+  T('免授权提示控件齐备', ['helperHint', 'hintTitle', 'hintBat', 'hintCmd', 'hintCopy', 'hintRetry'].every(function(id){ return !!$(id); }));
+  T('bat 路径可推导', typeof batPath === 'function' && /word-copy\.bat$/.test(batPath()));
+  T('提示默认隐藏', $('helperHint').hidden === true);
+  T('助手探测会重试', detectBackend.length === 1);
+  T('按钮文案是文件复制', $('run').textContent.trim() === '文件复制');
+  T('两个目录输入框存在', $('src').type === 'text' && $('dst').type === 'text');
+  T('源目录默认值正确', $('src').value === DEFAULT_SRC && DEFAULT_SRC === 'D:\\Programs Data\\DeepTutor\\data\\user\\workspaces');
+  T('目标目录默认值正确', $('dst').value === DEFAULT_DST && DEFAULT_DST === 'E:\\word');
+  T('默认值都是绝对路径', isAbsolute(DEFAULT_SRC) && isAbsolute(DEFAULT_DST));
+  T('已无「含子目录」勾选框', !$('recursive'));
+  T('范围文字写明递归与不复制目录', $('exts').textContent.indexOf('子目录') >= 0);
+  T('顶部说明给出免授权用法', document.querySelector('.sub').textContent.indexOf('word-copy.bat') >= 0);
+  T('预览用词与实复制不同', PREVIEW_LABEL.copy === '待复制' && ACTION_LABEL.copy === '已复制' &&
+    PREVIEW_LABEL.overwrite === '待覆盖' && PREVIEW_LABEL['skip-exist'].indexOf('将') === 0);
+  T('助手地址去掉尾部斜杠', HELPER.slice(-1) !== '/');
+  var ol = $('selftest'); ol.hidden = false;
+  ol.innerHTML = '<h3>页内自检：' + ok + '/' + out.length + ' 通过</h3>' +
+    out.map(function(r){ return '<li class="' + (r.pass ? 'pass' : 'fail') + '">' + esc(r.name) + '</li>'; }).join('');
+  window.wordcopySelftest = { ok: ok, total: out.length, failed: out.filter(function(r){ return !r.pass; }) };
+  console.log('selftest ' + ok + '/' + out.length);
+  return ok === out.length;
+}
+
+/* ---------- 对外 API + 启动 ---------- */
+/* 默认目录（可用 ?src= / ?dst= 覆盖） */
+var DEFAULT_SRC = 'D:\\Programs Data\\DeepTutor\\data\\user\\workspaces';
+var DEFAULT_DST = 'E:\\word';
+
+window.wordcopy = {
+  state: state, exts: EXTS,
+  core: { normPath: normPath, isWordFile: isWordFile, pickWordFiles: pickWordFiles, planCopy: planCopy,
+    decide: decide, tally: tally, validate: validate, buildCommand: buildCommand, formatBytes: formatBytes },
+  setPaths: function(s, d){ $('src').value = s; $('dst').value = d; },
+  setPreview: function(on){ $('preview').checked = !!on; },
+  setOverwrite: function(on){ $('overwrite').checked = !!on; },
+  opts: currentOpts, run: run, ping: helperPing, selftest: selftest
+};
+
+(function boot(){
+  setBackend();
+  $('src').value = DEFAULT_SRC;
+  $('dst').value = DEFAULT_DST;
+  try {
+    var th = Q.get('theme') || localStorage.getItem('wc-theme');
+    var wantDark = th === 'dark' ? true : th === 'light' ? false
+      : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (wantDark !== (document.documentElement.getAttribute('data-theme') === 'dark')) toggleTheme();
+    if (Q.get('theme')) { try { localStorage.setItem('wc-theme', Q.get('theme')); } catch (e) {} }
+  } catch (e) {}
+  if (Q.get('src')) $('src').value = Q.get('src');
+  if (Q.get('dst')) $('dst').value = Q.get('dst');
+  if (Q.get('preview') === '1') $('preview').checked = true;
+  if (Q.get('overwrite') === '0') $('overwrite').checked = false;
+  detectBackend(4);
+  if (Q.get('cmd') === '1') setTimeout(function(){ $('cmdBtn').click(); }, 300);
+  if (Q.get('selftest') === '1') setTimeout(selftest, 150);
+})();
+/* __UI_END__ */
+</script>
+</body>
+</html>
