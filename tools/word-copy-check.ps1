@@ -186,12 +186,15 @@ if (-not $Port) {
     Check '说明写明不重复写入与直接打开默认目录' ($dom5 -like '*文件没有修改就不重复写入*' -and $dom5 -like '*点授权按钮直接打开默认目录*')
     Check '覆盖选项写明不重复写入' ($dom5 -like '*没改过的仍不重复写入*')
 
-    # 从没授权过时点授权按钮：不直接弹选择框，先说明默认目录 + 免授权一步做法 + 手动选择入口
+    # 没授权过时点授权按钮：立刻弹选择器（点击必有反应），同时说明默认目录 + 免授权一步做法；
+    # file:// 下 IndexedDB 可能永远不回调，界面更新绝不等待存储（页内 85 项断言里有专门的回归防线）
     $dom6 = Edge-Dom ($fileUrl + '?demoNotice=1') 1280 1300 20000
     Check '未授权说明态：给出默认源目录' ($dom6 -like '*D:\\Programs Data\\DeepTutor\\data\\user\\workspaces*')
-    Check '未授权说明态：说明浏览器不能按路径直接打开' ($dom6 -like '*浏览器不允许网页按路径打开文件夹*')
+    Check '未授权说明态：写明系统选择器已打开' ($dom6 -like '*系统选择器已打开*')
     Check '未授权说明态：指向 word-copy.bat 一步免授权' ($dom6 -like '*word-copy.bat*')
-    Check '未授权说明态：手动选择入口已显示' (([regex]::Match($dom6, '<button class="ghost" id="hintManual"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
+    Check '未授权说明态：重选入口已显示' (([regex]::Match($dom6, '<button class="ghost" id="hintManual"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
+    Check '存储链路带超时（file:// 卡住也不白点）' ((Get-Content -Raw (Join-Path $root 'word-copy.html')) -match 'IDB_TIMEOUT = 1200')
+    Check '选完目录先更新界面再写存储' ((Get-Content -Raw (Join-Path $root 'word-copy.html')) -match '界面先更新：file:// 下 IndexedDB 可能不回调')
   }
 }
 
