@@ -893,3 +893,82 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
   单词模式的 Grade 1 / Grade 2 / Grade 3 / Grade 4 / 命中瞬间、窄屏 504×900、菜单与页内自检。
   窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。
 
+---
+
+# 🎲 随机计算 · Random Math
+
+一个随机出题的口算练习页：[`random-math.html`](random-math.html)，中文界面，双击即可离线运行，
+零依赖、无构建、不联网（没有任何 CDN、字体或图片请求）。
+
+## 玩什么
+
+- **四个年级难度**（一年级 – 四年级）：一年级做 20 以内加减法；二年级做 100 以内加减与乘法口诀；
+  三年级加入乘除与两位数加减；四年级是四则混合与括号。任何难度都不出现负结果，除法一定整除、
+  除数不为 0。
+- **两种玩法**：默认**固定题数**（一 / 二年级各 10 题，三 / 四年级各 12 题），也可以选
+  **限时挑战**（一 / 二年级 60 秒、三年级 75 秒、四年级 90 秒），时间到或答完题数就结算。
+- **即时判分**：提交后立刻给出反馈（答对 `✔ 答对了 +N`；答错 `✘ 正确答案是 N`）；
+  答对加分（连击越高、答得越快分越高），答错不得分并清空连击。HUD 实时显示得分 / 连击 /
+  进度或剩余时间 / 正确率，下面还有一条计时条。
+- **结算与记录**：结算页给出得分、正确率、最佳成绩、平均每题耗时、答对 / 答错、最长连击
+  与 0–3 星（正确率 ≥90% 三星、≥70% 两星、≥40% 一星）；刷新纪录时显示 `🎉 新纪录！`。
+  最佳成绩按「难度 + 玩法」分别记在本机 localStorage 里，菜单上就能看到当前难度 / 玩法的最佳分。
+
+## 操作
+
+| 操作 | 方式 |
+| --- | --- |
+| 选难度 / 玩法 | 菜单里点 `一年级`–`四年级`、`固定题数` / `限时挑战`，或按 <kbd>1</kbd>–<kbd>4</kbd> 选难度 |
+| 开始 | `开始计算 ▶`，或 <kbd>Enter</kbd> |
+| 输入答案 | 点屏幕数字键盘，或直接用键盘打数字（输入框只收数字与 `-`，最多 6 位） |
+| 提交 / 下一题 | 屏幕 `✓`，或 <kbd>Enter</kbd> |
+| 退格 | 屏幕 `⌫`，或 <kbd>Backspace</kbd> |
+| 重开一局 | 结算页 / 游玩中按 <kbd>R</kbd>，或结算页 `再来一局` |
+| 回菜单 | 游玩中按 <kbd>Esc</kbd>，或结算页 `换难度` |
+| 深浅色 · 音效 | 右上角 `🌙/☀️` · `🔊/🔇`，或按 <kbd>T</kbd> · <kbd>M</kbd> |
+
+数字键盘以外的快捷键（<kbd>R</kbd> <kbd>T</kbd> <kbd>M</kbd> 与菜单里的 <kbd>1</kbd>–<kbd>4</kbd>）
+在答案输入框没有聚焦时生效，这样正在打数字时按键不会被抢走。
+
+## 自动化参数
+
+| 参数 | 作用 |
+| --- | --- |
+| `?level=1..4` | 起始难度 |
+| `?mode=time\|count` | 限时 / 固定题数 |
+| `?count=N` | 固定题数模式的题数（4–50） |
+| `?seed=N` | 固定出题序列（同 seed 永远同一套题） |
+| `?auto=1` | 跳过菜单直接开局 |
+| `?solve=N` | 无人值守连答对 N 题（每题按模拟作答耗时推进，最后一题的反馈不自动推进） |
+| `?miss=K` | 前 K 题故意答错（配合 `solve`） |
+| `?theme=dark\|light` | 强制深浅色主题 |
+| `?sound=off` | 关音效 |
+| `?ff=SEC` | 载入后同步快进 SEC 秒（不依赖 rAF） |
+| `?freeze=1` | 快进后定格，停掉计时与动画（无头截图用） |
+| `?selftest=1` | 页底列出页内自检结果 |
+
+自动化顺序是固定的：先按 `level/mode/count/seed` 开局 → 无人值守作答 `solve + miss` 题
+（每题之间模拟真实作答耗时，**最后一次的反馈不自动推进**）→ `ff` 同步快进 → `freeze` 定格。
+所以 `?auto=1&level=2&solve=1&freeze=1` 停在答对反馈，`?auto=1&level=2&miss=1&freeze=1`
+停在答错反馈，`?auto=1&level=3&mode=count&count=8&solve=8&ff=4&freeze=1` 直接停在结算页。
+
+页内暴露 `window.randommath`（`state()` / `start(cfg)` / `submit(v)` / `ff(sec)` / `selftest()` /
+`core` / `api`）供检查与自动化。
+
+## 验证
+
+- `random-math.html?selftest=1`：**页内自检 46 项全部通过**，覆盖各难度各 seed 的题目合法性、
+  同 seed 复现与不同 seed 不同、除法整除、计分与星级单调、输入归一化与判定、状态机
+  （答对加分、答错清连击、题数/时间到结束、结算数值有限）、控件齐备、窄屏无横向溢出、
+  无外部请求。
+- 无头 Edge 截图见 `docs/screenshots/`：`before-random-math-main-index.png` 是改动前
+  `origin/main` 的真实首页 —— 那时没有这张卡片（`random-math.html` 在 `origin/main` 上不存在，
+  截图脚本会断言这一点）；`after-random-math-index-nav.png` 是加卡片后的本分支首页，
+  两张同视口（1280×1000）同主题，可直接对比。`after-random-math-menu.png`、
+  `after-random-math-play-time.png`（限时挑战答题中）、`after-random-math-correct.png`（答对反馈）、
+  `after-random-math-wrong.png`（答错反馈）、`after-random-math-result.png`（结算：星级与最佳成绩）、
+  `after-random-math-dark.png`（深色主题）、`after-random-math-narrow-504x900.png`（504×900 窄屏）、
+  `after-random-math-selftest.png`（页内自检全绿）是本页的运行画面，全部由
+  `tools/random-math-shots.ps1` 按上表参数复现（本机没有 Node，所以是 PowerShell + 无头 Edge）。
+  窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。
+
