@@ -1,4 +1,4 @@
-﻿# tools/word-copy-shots.ps1
+# tools/word-copy-shots.ps1
 # 用无头 Edge 抓取 word-copy.html 的改前 / 改后对比证据。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-shots.ps1 [-HelperPort 8765]
 # 改前基线 = origin/main 的实际内容（main 上没有这个页面，抓的是当时的 index.html）。
@@ -33,6 +33,8 @@ function Shot([string]$url, [string]$png, [int]$w, [int]$h, [int]$budget = 9000)
 }
 
 # ---- 改前基线：origin/main 的实际内容 ----
+# main 上现在已有 word-copy.html（PR #20/#23 已合并），所以改前基线取 main 那份页面；
+# 没有 word-copy.html 时（早期基线）退回抓 main 的 index.html。
 $base = Join-Path $shots 'main-baseline'
 $prevEA0 = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
 git -C $root rev-parse --git-dir 2>$null | Out-Null
@@ -43,12 +45,19 @@ if ($gitOk) {
   New-Item -ItemType Directory -Path $base -Force | Out-Null
   $prevEA = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   git -C $root fetch origin 2>$null | Out-Null
-  git -C $root show origin/main:word-copy.html 2>$null | Out-Null
-  $absent = ($LASTEXITCODE -ne 0)
-  $baseHtml = (git -C $root show origin/main:index.html 2>$null) -join "`n"
+  $baseHtml = (git -C $root show origin/main:word-copy.html 2>$null) -join "`n"
+  $onMain = ($LASTEXITCODE -eq 0) -and $baseHtml
+  $baseFile = 'word-copy.html'
+  if (-not $onMain) {
+    $baseHtml = (git -C $root show origin/main:index.html 2>$null) -join "`n"
+    $baseFile = 'index.html'
+    Write-Host 'word-copy.html 在 origin/main 上不存在，改前基线取 main 的 index.html'
+  } else {
+    Write-Host '改前基线 = origin/main:word-copy.html'
+  }
   $ErrorActionPreference = $prevEA
-  [IO.File]::WriteAllText((Join-Path $base 'index.html'), $baseHtml, (New-Object Text.UTF8Encoding($false)))
-  Write-Host "确认 word-copy.html 在 origin/main 上不存在：$absent"
+  [IO.File]::WriteAllText((Join-Path $base $baseFile), $baseHtml, (New-Object Text.UTF8Encoding($false)))
+  Set-Content -LiteralPath (Join-Path $base 'which.txt') -Value $baseFile -Encoding ascii
 } elseif (Test-Path (Join-Path $out 'word-copy-before-main-index.png')) {
   Write-Host 'SKIP  本机 git 仓库不可用，沿用已有的改前基线截图（word-copy-before-main-index.png）'
 } else {
@@ -68,9 +77,15 @@ Set-Content -LiteralPath "$tmpSrc\说明.txt" -Value 'not a word file' -NoNewlin
 
 $fileUrl = 'file:///' + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
 $bad = 0
-$baseHtmlPath = Join-Path $base 'index.html'
+$baseName = 'index.html'
+if (Test-Path (Join-Path $base 'which.txt')) { $baseName = (Get-Content -Raw (Join-Path $base 'which.txt')).Trim() }
+$baseHtmlPath = Join-Path $base $baseName
 if ((Test-Path $baseHtmlPath) -and ((Get-Item $baseHtmlPath).Length -gt 200)) {
   if (-not (Shot ("file:///" + ($baseHtmlPath -replace '\\', '/')) 'word-copy-before-main-index.png' 1280 900)) { $bad++ }
+  # 改前：点授权按钮「跳回上次目录」的画面（main 上的页面，同一 ?demoAuth=1 演示态、同一视口）
+  if ($baseName -eq 'word-copy.html') {
+    if (-not (Shot ("file:///" + ($baseHtmlPath -replace '\\', '/') + '?demoAuth=1') 'word-copy-before-default-open.png' 1280 1250)) { $bad++ }
+  }
 } else {
   Write-Host 'SKIP  本机拿不到 origin/main 的基线页面（git 不可用），保留已提交的 word-copy-before-main-index.png，不重抓'
 }
@@ -80,8 +95,10 @@ if (-not (Shot $fileUrl 'word-copy-after-defaults.png' 1280 1000)) { $bad++ }
 if (-not (Shot "$fileUrl`?theme=dark" 'word-copy-after-dark.png' 1280 1000)) { $bad++ }
 if (-not (Shot "$fileUrl`?selftest=1" 'word-copy-after-selftest.png' 1280 1780)) { $bad++ }
 if (-not (Shot "$fileUrl`?selftest=1" 'word-copy-after-narrow-504x900.png' 504 900)) { $bad++ }
-# 点授权按钮自动跳回上次目录：?demoAuth=1 只展示记忆条与「已跳回」状态，不产生任何写入
+# 点授权按钮直接打开默认目录：?demoAuth=1 展示已记住时输入框保留完整默认路径的状态，不产生任何写入
 if (-not (Shot "$fileUrl`?demoAuth=1" 'word-copy-after-remember-jump.png' 1280 1250)) { $bad++ }
+# 从没授权过时点授权按钮的说明态：?demoNotice=1 展示默认目录 + 免授权一步做法 + 手动选择入口，不弹选择框
+if (-not (Shot "$fileUrl`?demoNotice=1" 'word-copy-after-default-notice.png' 1280 1300)) { $bad++ }
 
 # ---- 改后：助手在线时的预览与真复制画面（用临时目录，不动真实的 E:\word）----
 $helperOnline = $false
