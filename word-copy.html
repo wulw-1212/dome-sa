@@ -117,9 +117,9 @@ a{color:var(--accent)}
       <div class="field">
         <label for="src">源目录（从这里复制）</label>
         <input type="text" id="src" value="D:\Programs Data\DeepTutor\data\user\workspaces" placeholder="D:\资料\合同" spellcheck="false" autocomplete="off">
-        <div class="hint">输入绝对路径；也可以点右边的按钮直接挑文件夹 —— <b>点一次记住后，以后再点会自动跳回这个目录</b>。</div>
+        <div class="hint">输入绝对路径；也可以点右边的按钮 —— <b>已经授权过的目录，再点就直接打开默认目录</b>，不用一层层找。</div>
       </div>
-      <button class="ghost" id="pickSrc" title="授权源目录（记住后下次自动跳回）">📁 授权源目录</button>
+      <button class="ghost" id="pickSrc" title="授权源目录：点一下直接打开默认目录">📁 授权源目录</button>
     </div>
     <div class="row" style="margin-top:12px">
       <div class="field">
@@ -127,10 +127,10 @@ a{color:var(--accent)}
         <input type="text" id="dst" value="E:\word" placeholder="E:\备份\合同" spellcheck="false" autocomplete="off">
         <div class="hint">不存在会自动创建（助手模式）。所有文件都直接落在这个目录里。</div>
       </div>
-      <button class="ghost" id="pickDst" title="授权目标目录（记住后下次自动跳回）">📁 授权目标目录</button>
+      <button class="ghost" id="pickDst" title="授权目标目录：点一下直接打开默认目录">📁 授权目标目录</button>
     </div>
     <div class="remembered" id="remembered" hidden>
-      <span class="rt">已记住上次授权的目录，点按钮会直接跳回，不用再一层层找：</span>
+      <span class="rt">已记住上次授权的目录，点按钮会直接打开默认目录，不用再一层层找：</span>
       <span class="rcol"><span class="chip" id="memSrc">源：—</span><span class="chip" id="memDst">目标：—</span>
       <button class="ghost" id="memClear">清除记忆</button></span>
     </div>
@@ -159,6 +159,9 @@ a{color:var(--accent)}
             <button class="ghost" id="hintCopy">复制</button></div></li>
         <li>助手起来后点 <button class="ghost" id="hintRetry">重新探测助手</button>，或直接刷新本页。</li>
       </ol>
+      <div class="actions" style="margin-top:10px">
+        <button class="ghost" id="hintManual" hidden>仍然手动选择文件夹</button>
+      </div>
       <div class="hint">助手只监听 127.0.0.1，只做「递归列出 Word 文件」和「平铺复制到目标目录」两件事，不删除任何东西，关掉窗口即停止。</div>
     </div>
 
@@ -186,8 +189,10 @@ a{color:var(--accent)}
     <p><b>文件没有修改就不重复写入</b>：目标里已有同名且内容没再改过的文件直接跳过，也不会碰它的写入时间。
       助手模式按「大小相同 + 修改时间相同」判定；浏览器授权模式写入后目标时间会变成「刚才」，
       所以改用「大小相同 + 目标不比源旧」。取消「同名则覆盖」后同名文件一律跳过。</p>
-    <p><b>点授权按钮会自动跳到对应目录</b>：第一次授权后目录会被记住（存在浏览器 IndexedDB），
-      以后再点同一个按钮直接跳回上次那个目录，不再弹选择器；输入框里填的是它下面的子目录时还会自动进到那一层。
+    <p><b>点授权按钮直接打开默认目录</b>：已经授权过的目录会被记住（存在浏览器 IndexedDB 里），
+      以后再点同一个按钮<b>直接打开默认目录</b>（就是输入框里那个路径，或它下面的子目录），不再弹选择器。
+      还没授权过时，浏览器不允许网页按路径直接打开本地文件夹 —— 页面会先把两个默认目录和「一步免授权」的做法摆出来
+      （双击 <code>word-copy.bat</code>），手动选择入口也留在提示里，不让你被直接丢进系统选择框。
       记住的目录被移动或权限被收回，会自动退回系统选择器重选一次。想主动换目录：按住 <kbd>Shift</kbd> 再点按钮，
       或点记忆条上的「清除记忆」。</p>
   </details>
@@ -354,6 +359,7 @@ var state = {
   srcHandle: null, dstHandle: null,
   remembered: { src: null, dst: null },   /* 上次授权过的目录句柄（存 IndexedDB） */
   forcePick: { src: false, dst: false },  /* 按住 Shift 点按钮 = 换别的目录 */
+  pendingPick: 'src',                     /* 提示里「仍然手动选择文件夹」针对哪个目录 */
   busy: false
 };
 
@@ -414,7 +420,7 @@ function helperPing(){
     .catch(function(){ return false; });
 }
 function detectBackend(tries){
-  if (Q.get('demoAuth') === '1') return;      /* 演示模式固定停在授权档，不做探测 */
+  if (Q.get('demoAuth') === '1' || Q.get('demoNotice') === '1') return;   /* 演示态：固定停在浏览器授权档，不做探测 */
   helperPing().then(function(on){
     if (!on && tries > 1) return setTimeout(function(){ detectBackend(tries - 1); }, 400);
     state.mode = on ? 'helper' : (window.showDirectoryPicker ? 'browser' : 'none');
@@ -523,24 +529,65 @@ function descendTo(rootHandle, wanted){
 function pickDir(which){
   if (!window.showDirectoryPicker){ setStatus('当前浏览器不支持目录授权（需要 Chrome / Edge 等）。', true); return; }
   var mode = which === 'dst' ? 'readwrite' : 'read';
+  var want = targetDirFor(which);
   var remembered = state.remembered[which];
   if (remembered && remembered.__demo) remembered = null;   /* 演示句柄不算真授权 */
-  /* 已经记住并仍被允许访问：直接跳回那个目录，不再弹选择器 */
-  if (remembered && !state.forcePick[which]){
+  var force = state.forcePick[which];
+  state.forcePick[which] = false;                            /* 用完即清，下一次普通点击仍是「直接打开」 */
+  /* 按住 Shift / 点记忆条 = 主动换目录：直接弹选择器，并从上次那个目录开始 */
+  if (remembered && force) return openPicker(which, mode, remembered);
+  /* 已经记住并仍被允许访问：直接打开默认目录，不再弹选择器 */
+  if (remembered){
     return askPermission(remembered, mode).then(function(p){
       if (p !== 'granted') throw new Error('permission-denied');
-      state[which + 'Handle'] = remembered;
-      return descendTo(remembered, $(which).value).then(function(h){
+      return descendTo(remembered, want).then(function(h){
         state[which + 'Handle'] = h;
-        $(which).value = '📁 已跳回：' + (h.name || '上次授权的文件夹') + (h === remembered ? '' : '（按输入路径进到子目录）');
-        setStatus('已自动跳回上次授权的' + (which === 'src' ? '源' : '目标') + '目录：' + (h.name || '') + '，现在可以点「文件复制」。想换别的目录，按住 Shift 再点这个按钮。');
+        if (handleReachesDefault(remembered, want)){
+          /* 记住的目录就是默认目录（或它的上层）：直接把默认目录打开、路径留在输入框里 */
+          $(which).value = want;
+          setStatus('已直接打开' + fieldLabel(which) + '目录：' + want + '（默认目录，已记住，不用再选），直接点「文件复制」即可。' +
+            '想换别的目录，按住 Shift 再点这个按钮。');
+        } else {
+          $(which).value = '📁 已跳回：' + (h.name || '上次授权的文件夹');
+          setStatus('已自动跳回上次授权的' + fieldLabel(which) + '目录：' + (h.name || '') +
+            '（记的不是默认目录，按输入路径进不去），现在可以点「文件复制」。想换别的目录，按住 Shift 再点这个按钮。');
+        }
       });
     }).catch(function(){
       setStatus('上次记的目录已经不可用（被移动或权限被收回），重新选一个。');
       return openPicker(which, mode, null);
     });
   }
-  return openPicker(which, mode, remembered);
+  /* 还没授权过：浏览器不能按路径直接打开本地文件夹（安全限制），
+     先把默认目录与「一步免授权」的做法说清楚，手动选择入口留在提示里。 */
+  showDefaultNotice(which, want);
+  return Promise.resolve();
+}
+/* 默认目录：?src= / ?dst= 覆盖，否则用页面内置的默认值 */
+function defaultDirFor(which){ return Q.get(which) || (which === 'src' ? DEFAULT_SRC : DEFAULT_DST); }
+/* 点按钮要打开的目录：输入框里已经是绝对路径就尊重它（只去掉「📁 …」那种占位文字），否则用默认目录 */
+function targetDirFor(which){
+  var v = String($(which).value || '').trim();
+  if (v && v.charAt(0) !== '📁' && isAbsolute(v)) return v;
+  return defaultDirFor(which);
+}
+function fieldLabel(which){ return which === 'src' ? '源' : '目标'; }
+/* 授权过的目录是不是默认目录本身、或者它的上层：名字能在默认路径里接上（与 descendTo 同一套接法） */
+function handleReachesDefault(handle, want){
+  var name = handle && handle.name;
+  if (!name) return false;
+  return normPath(want).split('/').some(function(seg){ return seg.toLowerCase() === String(name).toLowerCase(); });
+}
+/* 没授权过时点授权按钮：不直接弹系统选择框，先说明默认目录与免授权一步做法，手选入口放在提示里 */
+function showDefaultNotice(which, want){
+  state.pendingPick = which;
+  showHelperHint('浏览器不能直接按路径打开本地文件夹；先启动本机助手就能直接用默认目录：');
+  $('hintManual').hidden = false;
+  $('hintManual').textContent = '仍然手动选择' + fieldLabel(which) + '文件夹';
+  setStatus('默认' + fieldLabel(which) + '目录：' + want + '。浏览器不允许网页按路径打开文件夹；' +
+    '双击上面的 word-copy.bat（或先启动本机助手）后，再点这个按钮就会直接用默认目录 —— 不授权、不弹选择框。' +
+    '想现在就手选，点提示里的「仍然手动选择' + fieldLabel(which) + '文件夹」。');
+  try { $('helperHint').scrollIntoView({ block: 'nearest' }); } catch (e) {}
 }
 function openPicker(which, mode, startHandle){
   var opt = { id: 'wc-' + which, mode: mode };
@@ -548,8 +595,10 @@ function openPicker(which, mode, startHandle){
   return window.showDirectoryPicker(opt).then(function(h){
     state[which + 'Handle'] = h;
     return remember(which, h).then(function(){
+      $('hintManual').hidden = true;
       $(which).value = '📁 已授权：' + (h.name || '所选文件夹');
-      setStatus('已授权' + (which === 'src' ? '源' : '目标') + '目录：' + (h.name || '') + '，已记住，下次点这个按钮会自动跳回来。');
+      setStatus('已授权' + (which === 'src' ? '源' : '目标') + '目录：' + (h.name || '') +
+        '，已记住，下次点这个按钮会直接打开它（默认目录就是它时，输入框会保留完整路径）。');
     });
   }).catch(function(e){
     if (e && e.name !== 'AbortError') setStatus('授权失败：' + e.message, true);
@@ -722,6 +771,13 @@ $('memClear').addEventListener('click', function(){
 });
 $('memSrc').addEventListener('click', function(){ state.forcePick.src = true; pickDir('src'); });
 $('memDst').addEventListener('click', function(){ state.forcePick.dst = true; pickDir('dst'); });
+/* 没授权过时点授权按钮只给说明，手选入口在这里 */
+$('hintManual').addEventListener('click', function(){
+  var which = state.pendingPick || 'src';
+  var remembered = state.remembered[which];
+  if (remembered && remembered.__demo) remembered = null;
+  return openPicker(which, which === 'dst' ? 'readwrite' : 'read', remembered);
+});
 $('hintRetry').addEventListener('click', retryDetect);
 $('hintCopy').addEventListener('click', function(){
   var txt = 'powershell -ExecutionPolicy Bypass -File "' + batPath().replace(/word-copy\.bat$/, 'tools\\word-copy-server.ps1') + '"';
@@ -872,10 +928,19 @@ function selftest(){
     { overwrite: true, skipSame: true }).reason.indexOf('不重复写入') >= 0);
   T('记住目录控件齐备', ['remembered', 'memSrc', 'memDst', 'memClear'].every(function(id){ return !!$(id); }));
   T('覆盖选项写明不重复写入', document.querySelector('#overwrite').parentNode.textContent.indexOf('不重复写入') >= 0);
-  T('授权按钮提示写明自动跳回', $('pickSrc').title.indexOf('自动跳回') >= 0 && $('pickDst').title.indexOf('自动跳回') >= 0);
+  T('授权按钮提示写明直接打开默认目录', $('pickSrc').title.indexOf('直接打开默认目录') >= 0 && $('pickDst').title.indexOf('直接打开默认目录') >= 0);
+  T('默认目录取值正确', defaultDirFor('src') === DEFAULT_SRC && defaultDirFor('dst') === DEFAULT_DST);
+  var keepSrc = $('src').value, keepDst = $('dst').value;
+  $('src').value = DEFAULT_SRC; $('dst').value = '📁 已授权：word';
+  T('点按钮打开的目录：输入框已是绝对路径就尊重它', targetDirFor('src') === DEFAULT_SRC);
+  T('点按钮打开的目录：占位文字/相对路径时回落到默认目录', targetDirFor('dst') === DEFAULT_DST);
+  $('src').value = keepSrc; $('dst').value = keepDst;
+  T('默认目录判定：句柄名字能在路径里接上才算直达', handleReachesDefault({ name: 'workspaces' }, DEFAULT_SRC) === true &&
+    handleReachesDefault({ name: 'word' }, DEFAULT_DST) === true && handleReachesDefault({ name: '合同' }, DEFAULT_DST) === false);
+  T('手动选择按钮齐备且初始隐藏', !!$('hintManual') && $('hintManual').hidden === true);
   T('记忆区初始隐藏', $('remembered').hidden === true);
 
-  /* 异步断言：descendTo 与「点授权按钮自动跳到对应目录」（用假句柄，无头环境弹不出真选择器） */
+  /* 异步断言：descendTo 与「点授权按钮直接打开默认目录」（用假句柄，无头环境弹不出真选择器） */
   var out2 = [];
   function Ta(name, promise){
     return promise.then(function(v){ out2.push({ name: name, pass: !!v }); },
@@ -909,21 +974,61 @@ function selftest(){
   .then(function(){
     state.remembered.dst = granted; state.forcePick.dst = false; $('dst').value = DEFAULT_DST;
     pickedCalled = 0;
-    return Ta('已记住且仍可用时点按钮不再弹选择器', pickDir('dst').then(function(){ return pickedCalled === 0; }));
+    return Ta('记住的就是默认目录时点按钮不弹选择器', pickDir('dst').then(function(){ return pickedCalled === 0; }));
   })
   .then(function(){
-    return Ta('自动跳回上次目录并写进输入框', Promise.resolve().then(function(){
-      return $('dst').value.indexOf('已跳回') >= 0 && state.dstHandle === granted;
+    return Ta('直接打开默认目录：输入框保留默认路径', Promise.resolve().then(function(){
+      return $('dst').value === DEFAULT_DST && state.dstHandle === granted;
     }));
   })
   .then(function(){
-    return Ta('跳回后状态条提示可直接点复制', Promise.resolve().then(function(){
-      return $('status').textContent.indexOf('自动跳回') >= 0;
+    return Ta('直接打开默认目录：状态条写明已打开', Promise.resolve().then(function(){
+      return $('status').textContent.indexOf('已直接打开') >= 0 && $('status').textContent.indexOf(DEFAULT_DST) >= 0;
     }));
   })
   .then(function(){
     return Ta('记忆区在记住后显示', Promise.resolve().then(function(){
       renderRemembered(); return $('remembered').hidden === false;
+    }));
+  })
+  .then(function(){
+    var other = { name: '合同', kind: 'dir', queryPermission: function(){ return Promise.resolve('granted'); } };
+    state.remembered.dst = other; state.forcePick.dst = false; $('dst').value = DEFAULT_DST;
+    pickedCalled = 0;
+    return Ta('记住的目录不是默认目录时仍按老规矩跳回', pickDir('dst').then(function(){ return pickedCalled === 0; }));
+  })
+  .then(function(){
+    return Ta('跳回时写明跳回的是哪个目录', Promise.resolve().then(function(){
+      return $('dst').value.indexOf('已跳回') >= 0 && $('status').textContent.indexOf('自动跳回') >= 0 &&
+        $('status').textContent.indexOf('不是默认目录') >= 0;
+    }));
+  })
+  .then(function(){
+    state.remembered.dst = null; state.dstHandle = null; state.forcePick.src = false;
+    state.remembered.src = null; state.srcHandle = null; $('src').value = DEFAULT_SRC;
+    hideHelperHint(); $('hintManual').hidden = true; pickedCalled = 0;
+    return Ta('没授权过时点授权按钮不直接弹选择框', pickDir('src').then(function(){ return pickedCalled === 0; }));
+  })
+  .then(function(){
+    return Ta('没授权过时说明默认目录与免授权一步做法', Promise.resolve().then(function(){
+      var s = $('status').textContent;
+      return s.indexOf(DEFAULT_SRC) >= 0 && s.indexOf('word-copy.bat') >= 0 && state.pendingPick === 'src';
+    }));
+  })
+  .then(function(){
+    return Ta('说明里给出手动选择入口', Promise.resolve().then(function(){
+      return $('hintManual').hidden === false && $('hintManual').textContent.indexOf('源') >= 0;
+    }));
+  })
+  .then(function(){
+    return Ta('点手动选择入口才弹系统选择框', Promise.resolve().then(function(){
+      pickedCalled = 0; $('hintManual').click(); return pickedCalled === 1;
+    }));
+  })
+  .then(function(){
+    return Ta('主动换目录（Shift / 点记忆条）时直接弹选择器', Promise.resolve().then(function(){
+      state.remembered.dst = granted; state.dstHandle = null; state.forcePick.dst = true; pickedCalled = 0;
+      pickDir('dst'); return pickedCalled === 1 && state.forcePick.dst === false;
     }));
   })
   .then(function(){
@@ -936,6 +1041,7 @@ function selftest(){
   .then(function(){
     state.srcHandle = null; state.remembered.src = null; state.remembered.dst = null;
     window.showDirectoryPicker = hadPicker;
+    hideHelperHint(); $('hintManual').hidden = true;
     renderRemembered();
     return Promise.all(out2);
   })
@@ -994,9 +1100,14 @@ window.wordcopy = {
     var mk = function(n){ return { name: n, kind: 'dir', __demo: true, queryPermission: function(){ return Promise.resolve('granted'); } }; };
     state.remembered.src = mk('workspaces'); state.remembered.dst = mk('word');
     renderRemembered();
-    $('src').value = '📁 已跳回：workspaces';
-    $('dst').value = '📁 已跳回：word';
-    setStatus('已自动跳回上次授权的源目录与目标目录，直接点「文件复制」即可，不用再选文件夹。（演示状态 ?demoAuth=1，非真实授权）');
+    $('src').value = DEFAULT_SRC;
+    $('dst').value = DEFAULT_DST;
+    setStatus('已直接打开两个默认目录（' + DEFAULT_SRC + ' → ' + DEFAULT_DST + '），不用再选文件夹，直接点「文件复制」即可。（演示状态 ?demoAuth=1，非真实授权）');
+  }, 300);
+  /* ?demoNotice=1：展示「还没授权过、点授权按钮」时的说明态（不探测助手、不弹选择框、不写入） */
+  if (Q.get('demoNotice') === '1') setTimeout(function(){
+    state.mode = 'browser'; setBackend();
+    showDefaultNotice('src', defaultDirFor('src'));
   }, 300);
   if (Q.get('cmd') === '1') setTimeout(function(){ $('cmdBtn').click(); }, 300);
   if (Q.get('selftest') === '1') setTimeout(selftest, 150);

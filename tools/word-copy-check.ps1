@@ -1,4 +1,4 @@
-﻿# tools/word-copy-check.ps1
+# tools/word-copy-check.ps1
 # Word 复制页的无头验证：助手复制逻辑断言 +（可选）HTTP 接口 + 无头 Edge 页内自检与全链路。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1
 #   不带参数：跑「助手复制逻辑」全部断言；若本机 127.0.0.1:8765 有助手在跑，再跑 HTTP 与 Edge 阶段。
@@ -41,7 +41,13 @@ function Edge-Dom([string]$url, [int]$w, [int]$h, [int]$budget) {
     $a = '"' + $edge + '" --headless --disable-gpu --no-first-run --window-size=' + $w + ',' + $h +
          ' --virtual-time-budget=' + $budget + ' --dump-dom "' + $url + '"'
     cmd /c ("$a 2>nul > `"" + $outFile + "`"") | Out-Null
-    if (Test-Path $outFile) { [IO.File]::ReadAllText($outFile, [Text.Encoding]::UTF8) } else { '' }
+    # 无头 Edge 的子进程可能还握着这个重定向文件的句柄，读到「being used by another process」时重试几次
+    $text = ''
+    for ($try = 0; $try -lt 20; $try++) {
+      try { if (Test-Path $outFile) { $text = [IO.File]::ReadAllText($outFile, [Text.Encoding]::UTF8) }; break }
+      catch { Start-Sleep -Milliseconds 250 }
+    }
+    $text
   } finally { Remove-Item $outFile -Force -ErrorAction SilentlyContinue; $ErrorActionPreference = $prev }
 }
 function Check([string]$name, [bool]$cond) {
@@ -171,14 +177,21 @@ if (-not $Port) {
     Check '助手离线：提示里给出 word-copy.bat 路径' ($dom4 -match 'word-copy\.bat')
     Check '助手离线：提供重新探测按钮' ($dom4 -like '*重新探测助手*')
 
-    # 点授权按钮自动跳回上次目录（页内假句柄异步断言已在 selftest 里，这里核对展示态与说明文案）
+    # 点授权按钮直接打开默认目录：已记住时输入框保留完整默认路径（?demoAuth=1 展示态）
     $dom5 = Edge-Dom ($fileUrl + '?demoAuth=1') 1280 1250 20000
-    Check '跳回展示态：记忆条已显示' (([regex]::Match($dom5, '<div class="remembered"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
-    Check '跳回展示态：记忆条显示两个目录名' ($dom5 -match 'id="memSrc">源：workspaces' -and $dom5 -match 'id="memDst">目标：word')
-    Check '跳回展示态：状态条提示不用再选文件夹' ($dom5 -like '*已自动跳回上次授权的源目录与目标目录*')
-    Check '授权按钮提示写明自动跳回' ($dom5 -like '*记住后下次自动跳回*')
-    Check '说明写明不重复写入与自动跳回' ($dom5 -like '*文件没有修改就不重复写入*' -and $dom5 -like '*会自动跳到对应目录*')
+    Check '直达展示态：记忆条已显示' (([regex]::Match($dom5, '<div class="remembered"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
+    Check '直达展示态：输入框保留完整默认路径' ($dom5 -match 'value="D:\\Programs Data\\DeepTutor\\data\\user\\workspaces"' -and $dom5 -match 'value="E:\\word"')
+    Check '直达展示态：状态条写明已直接打开两个默认目录' ($dom5 -like '*已直接打开两个默认目录*')
+    Check '授权按钮提示写明直接打开默认目录' ($dom5 -like '*点一下直接打开默认目录*')
+    Check '说明写明不重复写入与直接打开默认目录' ($dom5 -like '*文件没有修改就不重复写入*' -and $dom5 -like '*点授权按钮直接打开默认目录*')
     Check '覆盖选项写明不重复写入' ($dom5 -like '*没改过的仍不重复写入*')
+
+    # 从没授权过时点授权按钮：不直接弹选择框，先说明默认目录 + 免授权一步做法 + 手动选择入口
+    $dom6 = Edge-Dom ($fileUrl + '?demoNotice=1') 1280 1300 20000
+    Check '未授权说明态：给出默认源目录' ($dom6 -like '*D:\\Programs Data\\DeepTutor\\data\\user\\workspaces*')
+    Check '未授权说明态：说明浏览器不能按路径直接打开' ($dom6 -like '*浏览器不允许网页按路径打开文件夹*')
+    Check '未授权说明态：指向 word-copy.bat 一步免授权' ($dom6 -like '*word-copy.bat*')
+    Check '未授权说明态：手动选择入口已显示' (([regex]::Match($dom6, '<button class="ghost" id="hintManual"([^>]*)>')).Groups[1].Value -notmatch 'hidden')
   }
 }
 
