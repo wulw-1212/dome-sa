@@ -70,14 +70,6 @@ details{margin-top:12px;font-size:12.8px;color:var(--muted);line-height:1.75}
 summary{cursor:pointer;color:var(--ink);font-weight:600;font-size:13px}
 code{background:rgba(127,127,127,.14);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .hint{font-size:11.8px;color:var(--muted);margin-top:5px;line-height:1.6}
-.helper-hint{margin-top:12px;border:1px solid var(--warn);border-radius:12px;padding:12px 14px;
-  background:rgba(178,106,0,.06);font-size:12.8px;color:var(--ink);line-height:1.8}
-[data-theme="dark"] .helper-hint{background:rgba(224,178,104,.08)}
-.helper-hint .ht{font-weight:700;color:var(--warn)}
-.helper-hint ol{margin:6px 0 0;padding-left:22px}
-.helper-hint li{margin:4px 0}
-.cmdline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
-.cmdline code{flex:1 1 340px;min-width:0;word-break:break-all}
 .remembered{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
   margin-top:12px;border:1px dashed var(--line);border-radius:12px;padding:9px 12px;font-size:12.3px;color:var(--muted)}
 .remembered .rt{font-weight:600;color:var(--ink)}
@@ -150,19 +142,11 @@ a{color:var(--accent)}
 
     <div class="status" id="status">等待操作。</div>
 
-    <div class="helper-hint" id="helperHint" hidden>
-      <div class="ht" id="hintTitle">未检测到本地助手：</div>
-      <ol>
-        <li>双击 <code id="hintBat">word-copy.bat</code>（会自动起助手并打开本页，<b>不需要授权任何文件夹</b>）；</li>
-        <li>或在 PowerShell 里跑一行：
-          <div class="cmdline"><code id="hintCmd">powershell -ExecutionPolicy Bypass -File tools\word-copy-server.ps1</code>
-            <button class="ghost" id="hintCopy">复制</button></div></li>
-        <li>助手起来后点 <button class="ghost" id="hintRetry">重新探测助手</button>，或直接刷新本页。</li>
-      </ol>
-      <div class="actions" style="margin-top:10px">
-        <button class="ghost" id="hintManual" hidden>仍然手动选择文件夹</button>
-      </div>
-      <div class="hint">助手只监听 127.0.0.1，只做「递归列出 Word 文件」和「平铺复制到目标目录」两件事，不删除任何东西，关掉窗口即停止。</div>
+    <!-- 原来的「未检测到本地助手」提示框已按要求删除：说明走状态条，只留一行紧凑按钮 -->
+    <div class="actions" id="hintRow" hidden>
+      <button class="ghost" id="hintRetry" hidden>重新探测助手</button>
+      <button class="ghost" id="hintCopy" hidden>复制启动命令</button>
+      <button class="ghost" id="hintManual" hidden>重新选择文件夹</button>
     </div>
 
     <div id="result"></div>
@@ -427,15 +411,17 @@ function detectBackend(tries){
     setBackend();
     if (state.mode === 'browser'){
       if (authRestored) browserModeStatus();
-      else showHelperHint('未检测到本地助手，才让你去授权文件夹。其实不用授权：');
+      else noHelperStatus('未检测到本地助手。不用授权的做法：双击 ' + batPath() + '（自动起助手并打开本页）；' +
+        '助手起来后点「重新探测助手」或刷新本页。');
     }
-    else if (state.mode === 'none') showHelperHint('未检测到本地助手，当前浏览器也不支持目录授权。不用授权的用法：');
-    else hideHelperHint();
+    else if (state.mode === 'none') noHelperStatus('未检测到本地助手，当前浏览器也不支持目录授权。' +
+      '双击 ' + batPath() + ' 即可免授权用默认目录复制；助手起来后刷新本页。');
+    else hideHintRow();
     if (Q.get('autocopy')) run();
   });
 }
 
-/* 助手不在线时给出「免授权」的启动办法：双击 word-copy.bat，或粘一条命令 */
+/* 助手不在线时的一句话说明：走状态条 + 一行紧凑按钮（原来的提示框已按要求删除） */
 function batPath(){
   /* 从当前页面地址推出发起的仓库目录，拼出 word-copy.bat 的绝对路径 */
   try {
@@ -446,13 +432,22 @@ function batPath(){
     return win ? dir.replace(/\//g, '\\') + '\\word-copy.bat' : dir.replace(/\\/g, '/') + '/word-copy.bat';
   } catch (e) { return 'word-copy.bat'; }
 }
-function showHelperHint(title){
-  var box = $('helperHint');
-  $('hintTitle').textContent = title;
-  $('hintBat').textContent = batPath();
-  box.hidden = false;
+/* 提示行：说明全部走状态条，这里只留一行紧凑按钮（原来的琥珀色提示框已删除） */
+function showHintRow(opt){
+  $('hintRetry').hidden = false; $('hintCopy').hidden = false;
+  if (opt && opt.manual){ $('hintManual').hidden = false; $('hintManual').textContent = opt.manual; }
+  else { $('hintManual').hidden = true; }
+  $('hintRow').hidden = false;
 }
-function hideHelperHint(){ $('helperHint').hidden = true; }
+function noHelperStatus(msg){
+  /* 已经有句柄 = 用户已授权成功，状态条上写的是操作结果，别用它讲「未检测到助手」 */
+  if (!(state.srcHandle || state.dstHandle)) setStatus(msg);
+  showHintRow();
+}
+function hideHintRow(){
+  $('hintRow').hidden = true;
+  $('hintManual').hidden = true;
+}
 function retryDetect(){
   setStatus('正在重新探测本机助手…');
   state.mode = 'detect'; setBackend();
@@ -571,10 +566,8 @@ function pickDir(which){
       /* 记住的目录不可用：这里已经不在用户手势里了，直接调选择器会被浏览器拒绝，
          所以给说明 + 手选入口（点入口时才是新手势），并说清原因 */
       state.pendingPick = which;
-      showHelperHint('上次记住的目录已经不可用，需要你重新选一次：');
-      $('hintManual').hidden = false;
-      $('hintManual').textContent = '重新选择' + fieldLabel(which) + '文件夹';
-      setStatus('上次记的' + fieldLabel(which) + '目录已经不可用（被移动或权限被收回），点提示里的「重新选择' +
+      showHintRow({ manual: '重新选择' + fieldLabel(which) + '文件夹' });
+      setStatus('上次记的' + fieldLabel(which) + '目录已经不可用（被移动或权限被收回），点下面「重新选择' +
         fieldLabel(which) + '文件夹」重选一次；默认目录是 ' + want + '。');
       return Promise.resolve();
     });
@@ -601,13 +594,11 @@ function handleReachesDefault(handle, want){
 /* 没授权过时点授权按钮：立刻弹选择器（点击必须有反应），同时把默认目录与免授权一步做法摆出来 */
 function showDefaultNotice(which, want){
   state.pendingPick = which;
-  showHelperHint('浏览器不能凭空按路径打开本地文件夹；想以后点一下就直达默认目录，先用一次本机助手：');
-  $('hintManual').hidden = false;
-  $('hintManual').textContent = '重新打开' + fieldLabel(which) + '选择器';
+  showHintRow({ manual: '重新打开' + fieldLabel(which) + '选择器' });
   setStatus('默认' + fieldLabel(which) + '目录：' + want + '。系统选择器已打开，请在里面选到它（选过一次后就会被记住，' +
-    '以后点这个按钮直接打开默认目录、不再弹选择器）。更省事的做法：双击上面的 word-copy.bat 起本机助手，' +
-    '两个默认目录免授权直接用。选错了想重选，点提示里的「重新打开' + fieldLabel(which) + '选择器」。');
-  try { $('helperHint').scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    '以后点这个按钮直接打开默认目录、不再弹选择器）。更省事的做法：双击 ' + batPath() + ' 起本机助手，' +
+    '两个默认目录免授权直接用。选错了想重选，点下面「重新打开' + fieldLabel(which) + '选择器」。');
+  try { $('hintRow').scrollIntoView({ block: 'nearest' }); } catch (e) {}
 }
 function openPicker(which, mode, startHandle){
   var opt = { id: 'wc-' + which, mode: mode };
@@ -653,10 +644,11 @@ function restoreAuth(){
 var authRestored = false;
 function browserModeStatus(){
   if (authRestored){
-    hideHelperHint();
+    hideHintRow();
     setStatus('已恢复上次授权的两个目录（' + state.srcHandle.name + ' → ' + state.dstHandle.name + '），直接点「文件复制」即可，不用再选文件夹。');
   } else {
-    showHelperHint('要用默认路径直接复制、跳过授权，请先启动本机助手：');
+    noHelperStatus('要用默认路径直接复制、跳过授权，请先启动本机助手：双击 ' + batPath() +
+      '（会自动起助手并打开本页），或用下面的「复制启动命令」。');
   }
 }
 function listWordFilesDeep(dirHandle, prefix, out, depth){
@@ -756,15 +748,16 @@ function run(){
     setStatus('助手模式需要绝对路径，例如 D:\\资料\\合同 或 /home/me/docs。', true); return;
   }
   if (state.mode === 'browser' && (!state.srcHandle || !state.dstHandle)){
-    setStatus('输入框里的路径浏览器读不到，所以这一版才要授权。想直接用默认路径、不授权，就启动本机助手（见下方提示）。', true);
-    showHelperHint('要用默认路径直接复制、跳过授权，请先启动本机助手：');
+    setStatus('输入框里的路径浏览器读不到，所以这一版才要授权。想直接用默认路径、不授权，就启动本机助手（见下面的按钮）。', true);
+    showHintRow();
     return;
   }
   if (state.mode === 'none' || state.mode === 'detect'){
     setStatus('本机助手没在运行，浏览器也读不到手打的路径。启动助手即可免授权用默认路径复制：', true);
-    showHelperHint('未检测到本地助手，用下面任一方式启动后即可免授权复制：');
+    showHintRow();
     return;
   }
+  hideHintRow();                        /* 真正开始复制就把提示行收起，复制完不再留在页面上 */
   state.busy = true; $('run').disabled = true;
   setStatus(o.preview ? '正在预览…' : '正在复制…');
   $('result').innerHTML = '';
@@ -810,8 +803,8 @@ $('hintCopy').addEventListener('click', function(){
   var txt = 'powershell -ExecutionPolicy Bypass -File "' + batPath().replace(/word-copy\.bat$/, 'tools\\word-copy-server.ps1') + '"';
   if (navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(function(){ setStatus('助手启动命令已复制到剪贴板，粘到 PowerShell 回车即可。'); },
-      function(){ $('hintCmd').textContent = txt; setStatus('自动复制被拒绝，请手动选中上面那行命令。'); });
-  } else { $('hintCmd').textContent = txt; setStatus('请手动选中上面那行命令复制。'); }
+      function(){ setStatus('自动复制被拒绝，请手动选中这行命令复制：' + txt); });
+  } else { setStatus('请手动选中这行命令复制：' + txt); }
 });
 $('cmdBtn').addEventListener('click', function(){
   var o = currentOpts();
@@ -920,9 +913,10 @@ function selftest(){
   T('Unix 命令递归 find + cp 平铺', /find .* -type f/.test(buildCommand('/a', '/b', { exts: EXTS, unix: true })) &&
     buildCommand('/a', '/b', { exts: EXTS, unix: true }).indexOf('-maxdepth') < 0);
   T('界面控件齐备', ['src', 'dst', 'run', 'overwrite', 'preview', 'result', 'status', 'exts'].every(function(id){ return !!$(id); }));
-  T('免授权提示控件齐备', ['helperHint', 'hintTitle', 'hintBat', 'hintCmd', 'hintCopy', 'hintRetry'].every(function(id){ return !!$(id); }));
+  T('免授权提示控件齐备', ['hintRow', 'hintCopy', 'hintRetry', 'hintManual'].every(function(id){ return !!$(id); }));
+  T('琥珀色提示框已删除', !$('helperHint') && !$('hintTitle') && !$('hintBat') && !$('hintCmd'));
   T('bat 路径可推导', typeof batPath === 'function' && /word-copy\.bat$/.test(batPath()));
-  T('提示默认隐藏', $('helperHint').hidden === true);
+  T('提示行默认隐藏', $('hintRow').hidden === true && $('hintManual').hidden === true);
   T('助手探测会重试', detectBackend.length === 1);
   T('按钮文案是文件复制', $('run').textContent.trim() === '文件复制');
   T('两个目录输入框存在', $('src').type === 'text' && $('dst').type === 'text');
@@ -1034,7 +1028,7 @@ function selftest(){
   .then(function(){
     state.remembered.dst = null; state.dstHandle = null; state.forcePick.src = false;
     state.remembered.src = null; state.srcHandle = null; $('src').value = DEFAULT_SRC;
-    hideHelperHint(); $('hintManual').hidden = true; pickedCalled = 0;
+    hideHintRow(); pickedCalled = 0;
     return Ta('没授权过时点授权按钮立刻弹选择器（点击必有反应）', pickDir('src').then(function(){ return pickedCalled === 1; }));
   })
   .then(function(){
@@ -1069,7 +1063,7 @@ function selftest(){
   .then(function(){
     state.dstHandle = null;
     state.remembered.src = denied; state.forcePick.src = false; pickedCalled = 0;
-    hideHelperHint(); $('hintManual').hidden = true;
+    hideHintRow();
     return Ta('记住的目录不可用时给出重选说明（不在手势里不硬弹选择器）', pickDir('src').then(function(){
       var s = $('status').textContent;
       return pickedCalled === 0 && s.indexOf('不可用') >= 0 && s.indexOf('重新选择源文件夹') >= 0 &&
@@ -1084,7 +1078,7 @@ function selftest(){
   .then(function(){
     state.srcHandle = null; state.remembered.src = null; state.remembered.dst = null;
     window.showDirectoryPicker = hadPicker;
-    hideHelperHint(); $('hintManual').hidden = true;
+    hideHintRow();
     renderRemembered();
     return Promise.all(out2);
   })
