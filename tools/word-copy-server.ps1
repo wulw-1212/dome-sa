@@ -1,4 +1,4 @@
-﻿# tools/word-copy-server.ps1
+# tools/word-copy-server.ps1
 # Word 文件复制页的本地助手：只监听 127.0.0.1 的极简 HTTP 服务。
 # 它只做三件事：提供 word-copy.html 页面、报告状态、递归找出源目录及所有子目录里的
 # Word 文档（.docx/.doc），并把文件**平铺**复制到目标目录（不复制目录结构）。
@@ -59,12 +59,39 @@ function Get-FlatNames($files) {
   return ,$out
 }
 
+function Get-DateKey([Nullable[DateTime]]$t) {
+  if (-not $t) { return '' }
+  try { return ([DateTime]$t).ToString('yyyy-MM-dd') } catch { return '' }
+}
+
+# 归档模式：按「生成日期」（创建时间，取不到就用修改时间）分文件夹，文件名前也带上年月日。
+# 同一天内的重名仍用上级目录名做前缀去重，保证互不覆盖。
+function Get-PlacedNames($files, [bool]$dateMode) {
+  if (-not $dateMode) { return Get-FlatNames $files }
+  $groups = @{}; $order = @()
+  foreach ($f in $files) {
+    $created = Get-DateKey $f.CreationTime
+    if (-not $created) { $created = Get-DateKey $f.LastWriteTime }
+    if (-not $created) { $created = '未知日期' }
+    if (-not $groups.ContainsKey($created)) { $groups[$created] = @(); $order += $created }
+    $groups[$created] += $f
+  }
+  $out = @()
+  foreach ($d in $order) {
+    foreach ($item in (Get-FlatNames $groups[$d])) {
+      $out += [pscustomobject]@{ file = $item.file; folder = $d; name = ($d + '_' + $item.name) }
+    }
+  }
+  return ,$out
+}
+
 function Invoke-CopyApi([string]$jsonBody) {
   $req = $jsonBody | ConvertFrom-Json
   $src = [string]$req.src
   $dst = [string]$req.dst
   $overwrite = -not ($null -ne $req.overwrite -and ($req.overwrite -eq $false))
   $preview = [bool]$req.preview
+  $dateMode = [bool]$req.dateMode
 
   if (-not $src) { throw '请填写源目录。' }
   if (-not $dst) { throw '请填写目标目录。' }
@@ -79,10 +106,13 @@ function Invoke-CopyApi([string]$jsonBody) {
   $srcFull = (Get-Item -LiteralPath $src).FullName.TrimEnd('\')
   $jobs = @()
   $sum = [ordered]@{ total = 0; copy = 0; overwrite = 0; skip = 0; fail = 0; bytes = 0 }
-  foreach ($item in (Get-FlatNames $all)) {
+  foreach ($item in (Get-PlacedNames $all $dateMode)) {
     $f = $item.file
     $rel = $f.FullName.Substring($srcFull.Length).TrimStart('\') -replace '\\', '/'
-    $target = Join-Path $dst $item.name          # 平铺：目标目录 + 文件名，绝不拼子目录
+    $folder = if ($dateMode) { $item.folder } else { '' }
+    # 归档：目标目录\年月日\文件名；平铺：目标目录\文件名。两种都不照搬源目录结构
+    $targetDir = if ($folder) { Join-Path $dst $folder } else { $dst }
+    $target = Join-Path $targetDir $item.name
     $exists = Test-Path -LiteralPath $target -PathType Leaf
     $action = 'copy'; $reason = ''
     if ($exists) {
@@ -94,7 +124,7 @@ function Invoke-CopyApi([string]$jsonBody) {
     }
     if (-not $preview -and ($action -eq 'copy' -or $action -eq 'overwrite')) {
       try {
-        if (-not (Test-Path -LiteralPath $dst -PathType Container)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
+        if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
         Copy-Item -LiteralPath $f.FullName -Destination $target -Force
       } catch { $action = 'fail'; $reason = $_.Exception.Message }
     }
@@ -104,9 +134,9 @@ function Invoke-CopyApi([string]$jsonBody) {
     elseif ($action -eq 'fail') { $sum.fail++ }
     else { $sum.skip++ }
     $sum.total++
-    $jobs += [ordered]@{ rel = $rel; name = $item.name; size = $size; target = $target; action = $action; reason = $reason }
+    $jobs += [ordered]@{ rel = $rel; name = $item.name; folder = $folder; size = $size; target = $target; action = $action; reason = $reason }
   }
-  [ordered]@{ ok = $true; preview = $preview; flat = $true; recursive = $true; jobs = $jobs; summary = $sum }
+  [ordered]@{ ok = $true; preview = $preview; flat = (-not $dateMode); dateMode = $dateMode; recursive = $true; jobs = $jobs; summary = $sum }
 }
 
 function Read-Exact($stream, [int]$count) {

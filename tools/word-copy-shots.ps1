@@ -22,9 +22,12 @@ if (-not $edge) { throw '未找到 Edge，可用 -EdgeExe 指定路径' }
 function Shot([string]$url, [string]$png, [int]$w, [int]$h, [int]$budget = 9000) {
   $dest = Join-Path $out $png
   $prevEA = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-  & $edge --headless --disable-gpu --hide-scrollbars --no-first-run `
+  # 每次都用全新的 user-data-dir：否则无头 Edge 会共用默认配置，
+  # 把上一次跑测试时留下的「已记住授权目录」带进截图，画面和说明对不上
+  $prof = Join-Path $env:TEMP ("wc-shot-" + [guid]::NewGuid().ToString('N'))
+  & $edge --headless --disable-gpu --hide-scrollbars --no-first-run "--user-data-dir=$prof" `
     --window-size="$w,$h" "--screenshot=$dest" "--virtual-time-budget=$budget" $url 2>$null | Out-Null
-  $ErrorActionPreference = $prevEA
+  Remove-Item $prof -Recurse -Force -ErrorAction SilentlyContinue
   $ok = (Test-Path $dest) -and ((Get-Item $dest).Length -gt 5000)
   $mark = if ($ok) { 'ok    ' } else { 'FAIL  ' }
   $size = if ($ok) { '  (' + [math]::Round((Get-Item $dest).Length / 1024) + ' KB)' } else { '' }
@@ -74,6 +77,13 @@ Set-Content -LiteralPath "$tmpSrc\会议纪要.doc" -Value ('B' * 1500) -NoNewli
 Set-Content -LiteralPath "$tmpSrc\2024年报\deep.docx" -Value ('C' * 2600) -NoNewline
 Set-Content -LiteralPath "$tmpSrc\合同归档\deep.docx" -Value ('D' * 1800) -NoNewline
 Set-Content -LiteralPath "$tmpSrc\说明.txt" -Value 'not a word file' -NoNewline
+# 按生成日期归档需要「创建时间」：给几份文件设成不同的过去日期，
+# 其中两份刻意同一天（2024年报 / 合同归档 里的 deep.docx），用来展示同天重名改名
+$dayX = (Get-Date).AddDays(-500).Date.AddHours(10)
+$dayY = (Get-Date).AddDays(-120).Date.AddHours(10)
+[IO.File]::SetCreationTime("$tmpSrc\项目建议书.docx", $dayX)
+[IO.File]::SetCreationTime("$tmpSrc\2024年报\deep.docx", $dayY)
+[IO.File]::SetCreationTime("$tmpSrc\合同归档\deep.docx", $dayY)
 
 $fileUrl = 'file:///' + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
 $bad = 0
@@ -107,13 +117,36 @@ else { foreach ($p in 8765, 8766, 8795) { try { $s = Invoke-RestMethod "http://1
 if ($helperOnline) {
   Write-Host "助手在线：127.0.0.1:$HelperPort（演示源 -> 目标：$tmpSrc -> $tmpDst）"
   $h = "http://127.0.0.1:$HelperPort"
+
+  # 改前（main 上还没有「按生成日期归档」时的同一场景）：用 .verify\main-word-copy.html 跑同样的夹具
+  $beforePage = Join-Path $root '.verify\main-word-copy.html'
+  if (-not (Test-Path $beforePage) -and $gitOk) {
+    $prevEAg = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $mw = (git -C $root show origin/main:word-copy.html 2>$null) -join "`n"
+    $ErrorActionPreference = $prevEAg
+    if ($mw.Length -gt 1000) { [IO.File]::WriteAllText($beforePage, $mw, (New-Object Text.UTF8Encoding($false))) }
+  }
+  if (Test-Path $beforePage) {
+    $qb = 'file:///' + ($beforePage -replace '\\', '/') + '?helper=http://127.0.0.1:' + $HelperPort +
+          '&src=' + [uri]::EscapeDataString($tmpSrc) + '&dst=' + [uri]::EscapeDataString((Join-Path $shots 'dst-before')) + '&autocopy=1'
+    Remove-Item (Join-Path $shots 'dst-before') -Recurse -Force -ErrorAction SilentlyContinue
+    if (-not (Shot $qb 'word-copy-before-date-mode.png' 1280 1200 24000)) { $bad++ }
+    Write-Host ('改前目标目录内容：' + ((Get-ChildItem (Join-Path $shots 'dst-before') -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring((Join-Path $shots 'dst-before').Length + 1) }) -join ', '))
+  } else {
+    Write-Host 'SKIP  没有 .verify\main-word-copy.html（改前页面），跳过改前运行画面'
+  }
+
   $q1 = $h + '?helper=' + [uri]::EscapeDataString($h) + '&src=' + [uri]::EscapeDataString($tmpSrc) + '&dst=' + [uri]::EscapeDataString($tmpDst) + '&preview=1&autocopy=1'
   if (-not (Shot $q1 'word-copy-after-preview.png' 1280 1150 24000)) { $bad++ }
   Remove-Item $tmpDst -Recurse -Force -ErrorAction SilentlyContinue
   $q2 = $h + '?helper=' + [uri]::EscapeDataString($h) + '&src=' + [uri]::EscapeDataString($tmpSrc) + '&dst=' + [uri]::EscapeDataString($tmpDst) + '&autocopy=1'
-  if (-not (Shot $q2 'word-copy-after-done.png' 1280 1150 24000)) { $bad++ }
+  if (-not (Shot $q2 'word-copy-after-done.png' 1280 1200 24000)) { $bad++ }
+  Write-Host ('归档后目标目录内容：' + ((Get-ChildItem $tmpDst -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($tmpDst.Length + 1) }) -join ', '))
+  # 目标已有文件时取消「同名则覆盖」：应当全部跳过、不重复写入
   if (-not (Shot ($q2 + '&overwrite=0') 'word-copy-after-no-overwrite.png' 1280 1150 24000)) { $bad++ }
-  Write-Host ('真复制后目标目录内容：' + ((Get-ChildItem $tmpDst -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ', '))
+  # 取消归档 -> 平铺（对比用）
+  Remove-Item $tmpDst -Recurse -Force -ErrorAction SilentlyContinue
+  if (-not (Shot ($q2 + '&dateMode=0') 'word-copy-after-flat.png' 1280 1150 24000)) { $bad++ }
 
   # 免授权主路径：直接 file:// 双击页面，助手在线，两个默认目录已填好、无需授权。
   # 注意：仓库是公开的，所以这张不跑真实源目录的结果表，只证明「助手在线 + 默认路径 + 不要求授权」。

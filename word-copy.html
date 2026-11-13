@@ -93,8 +93,9 @@ a{color:var(--accent)}
     <div>
       <h1>Word 文件复制<span class="dot"> · </span>源目录 → 目标目录</h1>
       <p class="sub">填好两个目录，点 <b>文件复制</b>，程序会<b>递归查找源目录及其所有子目录</b>里的 Word 文档
-        （<code>.docx</code> / <code>.doc</code>），全部拷贝到目标目录。<b>只复制文件，不复制目录结构</b>：
-        所有文件平铺放进目标目录；不同子目录里的同名文件自动改名，互不覆盖。
+        （<code>.docx</code> / <code>.doc</code>），全部拷贝到目标目录。<b>只复制文件，不照搬源目录结构</b>：
+        默认按<b>生成日期</b>归档 —— 在目标目录下建 <code>年-月-日</code> 文件夹，文件名前也带上年月日；
+        取消勾选就回到全平铺。同一份日期文件夹里的同名文件自动改名，互不覆盖。
         默认路径已按需求填好；<b>免授权用法</b>是双击仓库里的 <code>word-copy.bat</code>（自动起本机助手并打开本页），
         直接点「文件复制」即可。浏览器出于安全不能凭空读写任意本地文件夹，所以页面会自动选择后端，见右上角状态条。</p>
     </div>
@@ -117,7 +118,7 @@ a{color:var(--accent)}
       <div class="field">
         <label for="dst">目标目录（复制到这里）</label>
         <input type="text" id="dst" value="E:\word" placeholder="E:\备份\合同" spellcheck="false" autocomplete="off">
-        <div class="hint">不存在会自动创建（助手模式）。所有文件都直接落在这个目录里。</div>
+        <div class="hint">不存在会自动创建（助手模式）。勾选「按生成日期归档」时，文件会放进这个目录下的 <code>年-月-日</code> 文件夹。</div>
       </div>
       <button class="ghost" id="pickDst" title="授权目标目录：点一下直接打开默认目录">📁 授权目标目录</button>
     </div>
@@ -131,10 +132,11 @@ a{color:var(--accent)}
       <span class="hint">递归查找源目录与所有子目录；只复制 Word 文档，其它文件（<code>.rtf</code>、<code>.odt</code>、<code>.wps</code>、<code>.pdf</code>、<code>.txt</code> 等）不动。</span></div>
 
     <div class="opts">
+      <label><input type="checkbox" id="dateMode" checked> 按生成日期归档：建 <code>年-月-日</code> 文件夹，文件名前也带上年月日</label>
       <label><input type="checkbox" id="overwrite" checked> 同名则覆盖（没改过的仍不重复写入）</label>
       <label><input type="checkbox" id="preview"> 只预览，不实际复制</label>
     </div>
-
+    <div class="hint" id="dateNote">日期取文件的创建时间；用「浏览器授权」时网页读不到创建时间，会改用修改时间。</div>
     <div class="actions">
       <button class="primary" id="run">文件复制</button>
       <button class="ghost" id="cmdBtn">生成复制命令</button>
@@ -164,12 +166,13 @@ a{color:var(--accent)}
       <code>tools\word-copy-server.ps1</code>，然后访问 <code>http://127.0.0.1:8765/</code>（或直接双击本页，
       页面会自动探测本机助手）。两种打开方式都不用授权任何文件夹：两个默认目录已经填好，直接点「文件复制」。
       助手只监听 <code>127.0.0.1</code>，只做「递归列出源目录及子目录里的 Word 文件」和
-      「把文件平铺复制到目标目录」两件事：不建子目录、不删除任何东西，关掉窗口即停止。</p>
+      「按生成日期把它们复制进目标目录」两件事：归档时最多只多一层 <code>年-月-日</code> 文件夹，
+      不照搬源目录结构、不删除任何东西，关掉窗口即停止。</p>
     <p><b>② 浏览器授权（无需助手）</b>：点「授权源目录 / 授权目标目录」，在系统选择器里授权两个文件夹，
       页面用 File System Access API 逐份复制。限制：必须由你亲手授权，输入框里手打的路径无法被网页读取。</p>
     <p><b>③ 兜底</b>：两者都不可用时，点「生成复制命令」，把命令粘贴到 PowerShell 执行。
-      同样递归、同样只拷 Word、同样平铺；区别是一条命令没法给同名文件改名，
-      不同子目录里的同名 Word 文件会互相覆盖 —— 要保留两份请用助手或授权模式。</p>
+      同样递归、同样只拷 Word、同样按勾选决定归档或平铺；区别是一条命令没法给同名文件改名，
+      同一份日期文件夹里的同名 Word 文件会互相覆盖 —— 要保留两份请用助手或授权模式。</p>
     <p><b>文件没有修改就不重复写入</b>：目标里已有同名且内容没再改过的文件直接跳过，也不会碰它的写入时间。
       助手模式按「大小相同 + 修改时间相同」判定；浏览器授权模式写入后目标时间会变成「刚才」，
       所以改用「大小相同 + 目标不比源旧」。取消「同名则覆盖」后同名文件一律跳过。</p>
@@ -192,7 +195,8 @@ a{color:var(--accent)}
 /* __CORE_START__ */
 /* 规则内核：纯函数，不访问 DOM、不发网络请求，可在任何环境里直接断言。
  * 本页约定：只复制 Word 文档（.docx/.doc）；递归查找源目录及所有子目录；
- * 但只复制文件本身——全部平铺放进目标目录，不复制目录结构。 */
+ * 但只复制文件本身——不照搬源目录的结构：默认全部平铺放进目标目录，
+ * 勾选「按生成日期归档」时改放进 年-月-日 文件夹，文件名前也带上年月日。 */
 
 var WORD_EXTS = ['.docx', '.doc'];
 
@@ -221,7 +225,8 @@ function isWordFile(name, exts){
   return normalizeExts(exts && exts.length ? exts : WORD_EXTS).indexOf(extOf(name)) >= 0;
 }
 /* 递归清单里挑 Word 文档：rel 是相对源目录的路径（可含 /），保留文件、丢掉目录条目，
-   排除 Word 打开时的 ~$ 临时锁文件和隐藏文件 */
+   排除 Word 打开时的 ~$ 临时锁文件和隐藏文件。ctime 是「生成日期」（创建时间），
+   没有创建时间可用时退回修改时间。 */
 function pickWordFiles(entries, exts){
   var e = normalizeExts(exts && exts.length ? exts : WORD_EXTS), out = [];
   (Array.isArray(entries) ? entries : []).forEach(function(it){
@@ -231,27 +236,66 @@ function pickWordFiles(entries, exts){
     if (!rel) return;
     var base = rel.split('/').pop();
     if (base.charAt(0) === '.' || base.indexOf('~$') === 0) return;
-    if (isWordFile(base, e)) out.push({ rel: rel, name: base, size: Number(it.size) || 0, mtime: Number(it.mtime) || 0 });
+    if (!isWordFile(base, e)) return;
+    var mtime = Number(it.mtime) || 0, ctime = Number(it.ctime) || 0;
+    out.push({ rel: rel, name: base, size: Number(it.size) || 0, mtime: mtime,
+      ctime: ctime || mtime, date: String(it.date || '') || dateKey(ctime || mtime) });
   });
   return out;
 }
-/* 平铺目标名：默认就用文件名；不同子目录里的同名 Word 文件自动改名（用上级目录名做前缀），
-   保证「所有的 word 文件都复制」且不互相覆盖 */
-function flatNames(picked){
+/* 同一目录内去重：先出现的保留原名；重名的用上级目录名做前缀，还重就加序号，保证互不覆盖 */
+function dedupNames(list){
   var used = {};
-  return picked.map(function(f){
-    var name = f.name.toLowerCase();
-    if (!used[name]) { used[name] = 1; return { rel: f.rel, name: f.name, size: f.size, mtime: f.mtime }; }
-    used[name]++;
+  return list.map(function(f){
+    var keep = function(nm){ return { rel: f.rel, name: nm, size: f.size, mtime: f.mtime }; };
+    var key = f.name.toLowerCase();
+    if (!used[key]) { used[key] = 1; return keep(f.name); }
+    used[key]++;
     var parts = f.rel.split('/'), parent = parts.length > 1 ? parts[parts.length - 2] : '';
     var dot = f.name.lastIndexOf('.'), stem = dot < 0 ? f.name : f.name.slice(0, dot), ext = dot < 0 ? '' : f.name.slice(dot);
     var cand = (parent ? parent + '_' : '') + stem + ext, i = 2;
     while (used[cand.toLowerCase()]) cand = (parent ? parent + '_' : '') + stem + '_' + (i++) + ext;
     used[cand.toLowerCase()] = 1;
-    return { rel: f.rel, name: cand, size: f.size, mtime: f.mtime };
+    return keep(cand);
   });
 }
-/* 平铺目标路径：目标目录 + 文件名，绝不拼出子目录 */
+/* 平铺目标名：默认就用文件名；不同子目录里的同名 Word 文件自动改名（用上级目录名做前缀），
+   保证「所有的 word 文件都复制」且不互相覆盖 */
+function flatNames(picked){ return dedupNames(picked); }
+/* 年月日：unix 秒 -> YYYY-MM-DD（按本地日期，和资源管理器里看到的一致） */
+var UNKNOWN_FOLDER = '未知日期';
+function dateKey(sec){
+  var n = Number(sec);
+  if (!isFinite(n) || n <= 0) return '';
+  var d = new Date(n * 1000);
+  if (isNaN(d.getTime())) return '';
+  var p = function(x){ return (x < 10 ? '0' : '') + x; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+/* 归档位置：
+   dateMode 关 -> 平铺（不建任何子目录）；
+   dateMode 开 -> 按「生成日期」建 年-月-日 文件夹，文件名前也带上年月日。
+   两种情况都不照搬源目录的结构；同一天里的重名同样自动改名。 */
+function placeFiles(picked, opts){
+  var o = opts || {};
+  if (!o.dateMode) return dedupNames(picked).map(function(f){
+    return { rel: f.rel, folder: '', name: f.name, size: f.size, mtime: f.mtime };
+  });
+  var byFolder = {}, order = [];
+  picked.forEach(function(f){
+    var d = f.date || dateKey(f.ctime || f.mtime) || UNKNOWN_FOLDER;
+    if (!byFolder[d]) { byFolder[d] = []; order.push(d); }
+    byFolder[d].push({ rel: f.rel, name: f.name, size: f.size, mtime: f.mtime });
+  });
+  var out = [];
+  order.forEach(function(d){
+    dedupNames(byFolder[d]).forEach(function(f){
+      out.push({ rel: f.rel, folder: d, name: d + '_' + f.name, size: f.size, mtime: f.mtime });
+    });
+  });
+  return out;
+}
+/* 目标路径：目标目录 + （归档文件夹）+ 文件名；平铺时绝不拼出子目录 */
 function joinTarget(dst, name, sep){
   var s = sep || '/';
   return normPath(dst).split('/').concat([String(name == null ? '' : name)]).join(s);
@@ -272,17 +316,18 @@ function decide(job, existing, opts){
   }
   return { action: 'overwrite' };
 }
-/* 整批计划：递归清单 + 目标已有文件（按平铺名索引） -> jobs / summary */
+/* 整批计划：递归清单 + 目标已有文件（按最终文件名索引） -> jobs / summary */
 function planCopy(entries, existingMap, opts){
   var o = opts || {}, ex = existingMap || {};
   var jobs = [];
-  flatNames(pickWordFiles(entries, o.exts)).forEach(function(f){
+  placeFiles(pickWordFiles(entries, o.exts), o).forEach(function(f){
     var k = f.name.toLowerCase();
     var have = Object.prototype.hasOwnProperty.call(ex, k) ? ex[k] : null;
     var d = decide(f, have, o);
     jobs.push({
-      rel: f.rel, name: f.name, size: f.size, mtime: f.mtime,
-      target: joinTarget(o.dst, f.name, o.sep), action: d.action, reason: d.reason || ''
+      rel: f.rel, name: f.name, folder: f.folder || '', size: f.size, mtime: f.mtime,
+      target: joinTarget(joinTarget(o.dst, f.folder || '', o.sep), f.name, o.sep),
+      action: d.action, reason: d.reason || ''
     });
   });
   return { jobs: jobs, summary: tally(jobs) };
@@ -317,18 +362,30 @@ function esc(s){
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-/* 兜底命令：递归找出所有 Word 文件，平铺复制到目标目录 */
+/* 兜底命令：递归找出所有 Word 文件。
+   dateMode 开 -> 按创建时间（取不到用修改时间）建 年-月-日 文件夹，文件名前带上年月日；
+   dateMode 关 -> 平铺复制到目标目录。两种都不照搬源目录结构。 */
 function buildCommand(src, dst, opts){
   var o = opts || {}, exts = normalizeExts(o.exts && o.exts.length ? o.exts : WORD_EXTS);
   var inc = exts.map(function(e){ return "'" + e + "'"; }).join(', ');
   var s = String(src || '').replace(/[\\/]+$/, ''), d = String(dst || '').replace(/[\\/]+$/, '');
   if (o.unix) {
+    if (!o.dateMode)
+      return 'find "' + s + '" -type f \\(' +
+        exts.map(function(e){ return '-name "*' + e + '"'; }).join(' -o ') +
+        '\\) -exec cp {} "' + d + '" \\;';
     return 'find "' + s + '" -type f \\(' +
       exts.map(function(e){ return '-name "*' + e + '"'; }).join(' -o ') +
-      '\\) -exec cp {} "' + d + '" \\;';
+      '\\) | while read f; do day=$(date -r "$f" +%F); mkdir -p "' + d + '/$day"; ' +
+      'cp -n "$f" "' + d + '/$day/$(basename "$day_$(basename "$f")")"; done';
   }
+  if (!o.dateMode)
+    return 'Get-ChildItem -LiteralPath "' + s + '" -Recurse -File | Where-Object { $_.Extension -in @(' + inc +
+      ') } | Copy-Item -Destination "' + d + '" -Force';
   return 'Get-ChildItem -LiteralPath "' + s + '" -Recurse -File | Where-Object { $_.Extension -in @(' + inc +
-    ') } | Copy-Item -Destination "' + d + '" -Force';
+    ') } | ForEach-Object { $day = ($_.CreationTime | Get-Date -Format yyyy-MM-dd); if (-not $day) { $day = ($_.LastWriteTime | Get-Date -Format yyyy-MM-dd) }; ' +
+    '$to = "' + d + '\\$day"; New-Item -ItemType Directory -Path $to -Force | Out-Null; ' +
+    'Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $to "$day`_$($_.Name)") -Force }';
 }
 /* __CORE_END__ */
 
@@ -378,10 +435,12 @@ function renderResult(jobs, summary, preview){
   var box = $('result');
   if (!jobs || !jobs.length){ box.innerHTML = ''; return; }
   var labels = preview ? PREVIEW_LABEL : ACTION_LABEL;
+  var archived = jobs.some(function(j){ return j.folder; });
   var rows = jobs.slice(0, 300).map(function(j){
     var cls = j.action === 'fail' ? 'st-fail' : j.action === 'copy' ? 'st-copy' :
       j.action === 'overwrite' ? 'st-overwrite' : 'st-skip';
-    return '<tr><td class="name">' + esc(j.rel) + '</td><td class="name">' + esc(j.name) +
+    var dest = j.folder ? j.folder + '/' + j.name : j.name;
+    return '<tr><td class="name">' + esc(j.rel) + '</td><td class="name">' + esc(dest) +
       '</td><td class="num">' + esc(formatBytes(j.size)) +
       '</td><td class="' + cls + '">' + esc(labels[j.action] || j.action) +
       '</td><td class="name">' + esc(j.reason || '') + '</td></tr>';
@@ -390,7 +449,8 @@ function renderResult(jobs, summary, preview){
     '<div class="summary"><span>' + (preview ? '计划写入 <b>' : '写入 <b>') + (summary.copy + summary.overwrite) + '</b> 个</span>' +
     '<span>覆盖 <b>' + summary.overwrite + '</b></span><span>跳过 <b>' + summary.skip + '</b></span>' +
     '<span>失败 <b>' + summary.fail + '</b></span><span>合计 <b>' + formatBytes(summary.bytes) + '</b></span></div>' +
-    '<table><thead><tr><th>源（相对源目录）</th><th>' + (preview ? '将复制到目标目录的文件名' : '复制到目标目录的文件名') +
+    '<table><thead><tr><th>源（相对源目录）</th><th>' + (preview ? '将复制到' : '已复制到') +
+    (archived ? '（日期文件夹/文件名）' : '（目标目录文件名）') +
     '</th><th class="num">大小</th><th>结果</th><th>说明</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table>' +
     (jobs.length > 300 ? '<div class="hint">仅显示前 300 行，共 ' + jobs.length + ' 行。</div>' : '');
@@ -689,25 +749,72 @@ function srcFileByRel(rootHandle, rel){
   return dir.then(function(h){ return h.getFileHandle(parts[parts.length - 1]); })
     .then(function(fh){ return fh.getFile(); });
 }
+/* 归档模式下目标里已有的文件：文件名带日期前缀，天然按天分开，
+   所以把所有日期文件夹里的同名文件收进同一张表即可（键 = 最终文件名）。 */
+function existingInFolders(dstHandle, folders){
+  var map = {}, want = {};
+  folders.forEach(function(f){ if (f) want[f.toLowerCase()] = 1; });
+  var dirs = [];
+  var it = dstHandle.entries(), pending = [];
+  function step(){
+    return it.next().then(function(r){
+      if (r.done) return Promise.all(pending);
+      var entry = r.value[1];
+      if (entry.kind === 'file') pending.push(entry.getFile().then(function(f){
+        map[entry.name.toLowerCase()] = { size: f.size, mtime: Math.round(f.lastModified / 1000) };
+      }));
+      else if (want[entry.name.toLowerCase()]) dirs.push(entry);
+      return step();
+    });
+  }
+  return step().then(function(){
+    return Promise.all(dirs.map(function(d){
+      var sub = d.entries(), p2 = [];
+      function s2(){
+        return sub.next().then(function(r){
+          if (r.done) return Promise.all(p2);
+          var e = r.value[1];
+          if (e.kind === 'file') p2.push(e.getFile().then(function(f){
+            map[e.name.toLowerCase()] = { size: f.size, mtime: Math.round(f.lastModified / 1000) };
+          }));
+          return s2();
+        });
+      }
+      return s2();
+    }));
+  }).then(function(){ return map; });
+}
+/* 写入目标：平铺时直接落目标目录；归档时先进到日期文件夹（没有就建） */
+function writeIntoDst(o, job, file){
+  var dir = Promise.resolve(state.dstHandle);
+  if (job.folder) dir = dir.then(function(h){ return h.getDirectoryHandle(job.folder, { create: true }); });
+  return dir.then(function(d){
+    return d.getFileHandle(job.name, { create: true })
+      .then(function(w){ return w.createWritable(); })
+      .then(function(wr){ return wr.write(file).then(function(){ return wr.close(); }); });
+  });
+}
 function browserCopy(o){
-  var files = [];
+  var files = [], folders = [];
   return listWordFilesDeep(state.srcHandle, '', files, 0).then(function(fs){
     files = fs;
-    /* 目标里已有的 Word 文件带真实大小与时间：没改过的就不必重复写入 */
-    return namesInDst(state.dstHandle);
+    if (!o.dateMode) return namesInDst(state.dstHandle);
+    folders = [];
+    files.forEach(function(f){
+      var d = dateKey((f.ctime || 0) || f.mtime) || UNKNOWN_FOLDER;
+      if (folders.indexOf(d) < 0) folders.push(d);
+    });
+    return existingInFolders(state.dstHandle, folders);
   }).then(function(ex){
-    var plan = planCopy(files, ex, { exts: EXTS, dst: '', overwrite: o.overwrite, skipSame: true, looseSame: true });
+    var plan = planCopy(files, ex, { exts: EXTS, dst: '', overwrite: o.overwrite,
+      skipSame: true, looseSame: true, dateMode: !!o.dateMode });
     if (o.preview) return plan;
     var chain = Promise.resolve();
     plan.jobs.filter(function(j){ return j.action === 'copy' || j.action === 'overwrite'; })
       .forEach(function(j){
         chain = chain.then(function(){
           return srcFileByRel(state.srcHandle, j.rel)
-            .then(function(f){
-              return state.dstHandle.getFileHandle(j.name, { create: true })
-                .then(function(w){ return w.createWritable(); })
-                .then(function(wr){ return wr.write(f).then(function(){ return wr.close(); }); });
-            })
+            .then(function(f){ return writeIntoDst(o, j, f); })
             .catch(function(err){ j.action = 'fail'; j.reason = (err && err.message) || String(err); });
         });
       });
@@ -720,7 +827,7 @@ function helperCopy(o){
   return fetch(HELPER + '/api/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ src: o.src, dst: o.dst, exts: EXTS, flat: true, overwrite: !!o.overwrite, preview: !!o.preview })
+    body: JSON.stringify({ src: o.src, dst: o.dst, exts: EXTS, dateMode: !!o.dateMode, overwrite: !!o.overwrite, preview: !!o.preview })
   }).then(function(r){ return r.json().then(function(j){ return { http: r.status, body: j }; }); })
     .then(function(res){
       if (!res.body || res.body.ok !== true)
@@ -735,6 +842,7 @@ function currentOpts(){
   var d = $('dst').value;
   return {
     src: $('src').value.trim(), dst: d.trim(),
+    dateMode: $('dateMode').checked,
     overwrite: $('overwrite').checked, preview: $('preview').checked,
     sep: /\\/.test(d) || /^[A-Za-z]:/.test(d.trim()) ? '\\' : '/'
   };
@@ -766,11 +874,13 @@ function run(){
   p.then(function(res){
     renderResult(res.jobs, res.summary, o.preview);
     var s = res.summary;
-    if (o.preview) setStatus('预览：' + (s.copy + s.overwrite) + ' 个 Word 文件待复制到 ' + o.dst +
+    if (o.preview) setStatus('预览：' + (s.copy + s.overwrite) + ' 个 Word 文件待' +
+      (o.dateMode ? '按生成日期归档到 ' : '平铺复制到 ') + o.dst +
       '（其中覆盖 ' + s.overwrite + ' 个），' + s.skip + ' 个将跳过。取消勾选「只预览」即真正执行。');
     else if (s.fail) setStatus('完成，但有 ' + s.fail + ' 个文件失败，详见下表。', true);
     else setStatus('完成：复制 ' + s.copy + ' 个、覆盖 ' + s.overwrite + ' 个、跳过 ' + s.skip +
-      ' 个，共 ' + formatBytes(s.bytes) + '，全部平铺在目标目录 ' + o.dst + '。');
+      ' 个，共 ' + formatBytes(s.bytes) + '，' +
+      (o.dateMode ? '已按生成日期放进 ' + o.dst + ' 下的 年-月-日 文件夹。' : '全部平铺在目标目录 ' + o.dst + '。'));
   }).catch(function(err){
     setStatus('失败：' + (err && err.message ? err.message : err), true);
   }).then(function(){
@@ -780,6 +890,7 @@ function run(){
 
 /* ---------- 事件 ---------- */
 $('run').addEventListener('click', run);
+$('dateMode').addEventListener('change', function(){ if ($('preview').checked) run(); });
 $('overwrite').addEventListener('change', function(){ if ($('preview').checked) run(); });
 /* 勾上「只预览」时顺手重算一次计划；取消勾选不会自动真的复制 */
 $('preview').addEventListener('change', function(){ if ($('preview').checked && !state.busy && $('src').value && $('dst').value) run(); });
@@ -812,10 +923,12 @@ $('cmdBtn').addEventListener('click', function(){
   if (!v.ok){ setStatus(v.error, true); return; }
   var unix = normPath(o.src).charAt(0) === '/';
   $('cmdText').value = unix
-    ? buildCommand(normPath(o.src), normPath(o.dst), { exts: EXTS, unix: true })
-    : buildCommand(o.src.replace(/[\/]+$/, ''), o.dst, { exts: EXTS });
+    ? buildCommand(normPath(o.src), normPath(o.dst), { exts: EXTS, unix: true, dateMode: o.dateMode })
+    : buildCommand(o.src.replace(/[\/]+$/, ''), o.dst, { exts: EXTS, dateMode: o.dateMode });
   $('cmd').hidden = false;
-  setStatus('已生成命令：递归找出所有 .docx/.doc 并平铺复制到目标目录。粘贴到 PowerShell 回车即可。');
+  setStatus('已生成命令：递归找出所有 .docx/.doc，' +
+    (o.dateMode ? '按生成日期放进 年-月-日 文件夹并在文件名前带上日期。' : '平铺复制到目标目录。') +
+    '粘贴到 PowerShell 回车即可。');
 });
 $('copyCmd').addEventListener('click', function(){
   var t = $('cmdText');
@@ -842,6 +955,14 @@ document.addEventListener('keydown', function(e){
 function selftest(){
   var out = [], ok = 0;
   function T(name, cond){ out.push({ name: name, pass: !!cond }); if (cond) ok++; }
+  /* 开跑前先把界面原样存下来，异步断言用假句柄改过的东西跑完要还原。
+     异步断言里有一次合成 click()，浏览器会把按钮滚进视野，所以滚动位置也要一起还原。 */
+  var hadUI = {
+    src: $('src').value, dst: $('dst').value,
+    status: $('status').textContent, statusClass: $('status').className,
+    dateMode: $('dateMode').checked, overwrite: $('overwrite').checked, preview: $('preview').checked,
+    scrollX: window.pageXOffset || 0, scrollY: window.pageYOffset || 0
+  };
   var top = [
     { name: '合同A.docx', size: 100, mtime: 1 },
     { name: '说明.doc', size: 200, mtime: 2 },
@@ -857,8 +978,18 @@ function selftest(){
     { name: 'a/b/c/deep.doc', size: 7, mtime: 12 },
     { name: '子目录3/~$临时.docx', size: 1, mtime: 13 }
   ];
-  var fn = [normPath, isAbsolute, extOf, normalizeExts, isWordFile, pickWordFiles, flatNames, joinTarget,
-    decide, planCopy, tally, validate, formatBytes, esc, buildCommand];
+  /* 带创建时间的样本：三天里各一份，外加同一天不同子目录的两个同名文件 */
+  var D1 = Date.UTC(2024, 0, 5, 12), D2 = Date.UTC(2024, 2, 9, 12), D3 = Date.UTC(2025, 10, 20, 12);
+  function s(x){ return Math.floor(x / 1000); }
+  var dated = [
+    { name: '报告.docx', size: 10, mtime: s(D1), ctime: s(D1) },
+    { name: '周报.doc', size: 20, mtime: s(D2), ctime: s(D2) },
+    { name: '甲/同名.docx', size: 30, mtime: s(D3), ctime: s(D3) },
+    { name: '乙/同名.docx', size: 40, mtime: s(D3), ctime: s(D3) },
+    { name: '无创建时间.docx', size: 50, mtime: s(D1) }
+  ];
+  var fn = [normPath, isAbsolute, extOf, normalizeExts, isWordFile, pickWordFiles, flatNames, dedupNames,
+    dateKey, placeFiles, joinTarget, decide, planCopy, tally, validate, formatBytes, esc, buildCommand];
   T('内核函数齐备（' + fn.length + ' 个）', fn.every(function(f){ return typeof f === 'function'; }));
   T('Word 范围只有 .docx/.doc', JSON.stringify(WORD_EXTS) === '["' + '.docx' + '","' + '.doc' + '"]');
   T('扩展名归一化去重', JSON.stringify(normalizeExts(['DOCX', '.docx', ' doc ', '', null])) === '[".docx",".doc"]');
@@ -878,6 +1009,44 @@ function selftest(){
   T('同名不同目录不互相覆盖', flat.filter(function(f){ return f.name.indexOf('会议纪要') >= 0; }).length === 2 &&
     flat.filter(function(f){ return f.name.indexOf('会议纪要') >= 0; }).map(function(f){ return f.name; }).join(',') === '会议纪要.docx,子目录2_会议纪要.docx');
   T('平铺名仍是 Word 扩展名', flat.every(function(f){ return /\.(docx|doc)$/.test(f.name); }));
+
+  /* 按生成日期归档 */
+  var k1 = dateKey(s(D1)), k2 = dateKey(s(D2)), k3 = dateKey(s(D3));
+  function localKey(ms){ var d = new Date(ms), p = function(x){ return (x < 10 ? '0' : '') + x; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+  T('dateKey 出 年-月-日', k1 === localKey(D1) && k2 === localKey(D2) && k3 === localKey(D3));
+  T('dateKey 月/日补零', /^\d{4}-\d{2}-\d{2}$/.test(k1) && /^\d{4}-\d{2}-\d{2}$/.test(k3));
+  T('dateKey 无时间给空串', dateKey(0) === '' && dateKey(null) === '' && dateKey('x') === '');
+  var placed = placeFiles(pickWordFiles(dated), { dateMode: true });
+  T('归档：每份都有日期文件夹', placed.length === 5 && placed.every(function(f){ return /^\d{4}-\d{2}-\d{2}$/.test(f.folder); }));
+  T('归档：文件名前带上年月日', placed.every(function(f){ return f.name.indexOf(f.folder + '_') === 0; }));
+  T('归档：日期取创建时间', placed.filter(function(f){ return f.rel === '报告.docx'; })[0].folder === k1 &&
+    placed.filter(function(f){ return f.rel === '周报.doc'; })[0].folder === k2);
+  T('归档：没有创建时间时退回修改时间',
+    placed.filter(function(f){ return f.rel === '无创建时间.docx'; })[0].folder === k1);
+  T('归档：同一天不同子目录的同名文件不互相覆盖',
+    placed.filter(function(f){ return f.folder === k3; }).map(function(f){ return f.name; }).join(',') ===
+    k3 + '_同名.docx,' + k3 + '_乙_同名.docx');
+  T('归档：文件名仍是 Word 扩展名', placed.every(function(f){ return /\.(docx|doc)$/.test(f.name); }));
+  T('归档：不同日期分在不同文件夹', k1 !== k2 && k2 !== k3 &&
+    placed.filter(function(f){ return f.folder === k1; }).length === 2 &&
+    placed.filter(function(f){ return f.folder === k3; }).length === 2);
+  var flatAgain = placeFiles(pickWordFiles(dated), { dateMode: false });
+  T('不勾选归档时仍然平铺（无文件夹）', flatAgain.every(function(f){ return f.folder === ''; }) &&
+    flatAgain.filter(function(f){ return f.name === '同名.docx'; }).length === 1);
+  var pd = planCopy(dated, {}, { dst: 'E:\\word', sep: '\\', dateMode: true });
+  T('计划：target 落在日期文件夹里', pd.jobs.every(function(j){
+    return j.target.indexOf('E:\\word\\' + j.folder + '\\') === 0;
+  }));
+  T('计划：只多一层日期目录', pd.jobs.every(function(j){
+    return j.target.split('\\').length === ('E:\\word\\' + j.folder + '\\' + j.name).split('\\').length;
+  }));
+  var pdOff = planCopy(dated, {}, { dst: 'E:\\word', sep: '\\' });
+  T('计划：默认不建任何子目录', pdOff.jobs.every(function(j){ return j.target.split('\\').length === 3; }));
+  T('计划：归档下按最终文件名判重', planCopy(dated,
+    (function(o){ o[(k3 + '_同名.docx').toLowerCase()] = { size: 30, mtime: s(D3) }; return o; })({}),
+    { dst: 'E:\\word', dateMode: true, overwrite: true, skipSame: true, looseSame: true })
+    .jobs.some(function(j){ return j.name === k3 + '_同名.docx' && j.action === 'skip-same'; }));
   T('绝对路径 Windows', isAbsolute('D:\\资料') === true);
   T('绝对路径 Unix', isAbsolute('/home/me') === true);
   T('绝对路径 UNC', isAbsolute('\\\\srv\\share') === true);
@@ -912,7 +1081,18 @@ function selftest(){
   T('命令只含 docx/doc', cmd.indexOf('.docx') >= 0 && cmd.indexOf('.rtf') < 0 && cmd.indexOf('.wps') < 0);
   T('Unix 命令递归 find + cp 平铺', /find .* -type f/.test(buildCommand('/a', '/b', { exts: EXTS, unix: true })) &&
     buildCommand('/a', '/b', { exts: EXTS, unix: true }).indexOf('-maxdepth') < 0);
+  var cmdD = buildCommand('D:\\a', 'E:\\b', { exts: EXTS, dateMode: true });
+  T('归档命令按创建时间建日期文件夹', cmdD.indexOf('CreationTime') >= 0 && cmdD.indexOf('yyyy-MM-dd') >= 0 &&
+    cmdD.indexOf('New-Item -ItemType Directory') >= 0);
+  T('归档命令文件名前带日期', cmdD.indexOf('$day`_$($_.Name)') >= 0);
+  T('归档命令仍递归且只拷 Word', cmdD.indexOf('-Recurse') >= 0 && cmdD.indexOf('.rtf') < 0);
+  T('归档命令不照搬源子目录', cmdD.indexOf('a\\') < 0 && cmdD.indexOf('E:\\b\\sub') < 0);
+  var cmdDU = buildCommand('/a', '/b', { exts: EXTS, unix: true, dateMode: true });
+  T('Unix 归档命令用 date -r 建日期目录', /date -r/.test(cmdDU) && cmdDU.indexOf('mkdir -p') >= 0);
   T('界面控件齐备', ['src', 'dst', 'run', 'overwrite', 'preview', 'result', 'status', 'exts'].every(function(id){ return !!$(id); }));
+  T('归档开关默认勾选', !!$('dateMode') && $('dateMode').checked === true);
+  T('归档开关说明写明年-月-日文件夹', $('dateMode').parentNode.textContent.indexOf('年-月-日') >= 0);
+  T('日期来源说明存在', !!$('dateNote') && $('dateNote').textContent.indexOf('创建时间') >= 0);
   T('免授权提示控件齐备', ['hintRow', 'hintCopy', 'hintRetry', 'hintManual'].every(function(id){ return !!$(id); }));
   T('琥珀色提示框已删除', !$('helperHint') && !$('hintTitle') && !$('hintBat') && !$('hintCmd'));
   T('bat 路径可推导', typeof batPath === 'function' && /word-copy\.bat$/.test(batPath()));
@@ -926,6 +1106,8 @@ function selftest(){
   T('已无「含子目录」勾选框', !$('recursive'));
   T('范围文字写明递归与不复制目录', $('exts').textContent.indexOf('子目录') >= 0);
   T('顶部说明给出免授权用法', document.querySelector('.sub').textContent.indexOf('word-copy.bat') >= 0);
+  T('顶部说明写明按生成日期归档', document.querySelector('.sub').textContent.indexOf('年-月-日') >= 0 &&
+    document.querySelector('.sub').textContent.indexOf('生成日期') >= 0);
   T('预览用词与实复制不同', PREVIEW_LABEL.copy === '待复制' && ACTION_LABEL.copy === '已复制' &&
     PREVIEW_LABEL.overwrite === '待覆盖' && PREVIEW_LABEL['skip-exist'].indexOf('将') === 0);
   T('助手地址去掉尾部斜杠', HELPER.slice(-1) !== '/');
@@ -986,6 +1168,51 @@ function selftest(){
   window.showDirectoryPicker = function(){ pickedCalled++; return Promise.reject(new DOMException('cancel', 'AbortError')); };
   var denied = { name: 'gone', kind: 'dir', queryPermission: function(){ return Promise.resolve('prompt'); },
     requestPermission: function(){ return Promise.resolve('denied'); } };
+
+  /* 浏览器授权归档断言用的假句柄：记录 createWritable 写过的文件名。
+     两个归档断言共用，所以放在链外，避免作用域问题。 */
+  var written = {};
+  var dayMs = Date.UTC(2024, 4, 6, 12), dayKey = dateKey(Math.floor(dayMs / 1000));
+  function fakeFile(name, size, lastModified){
+    return { name: name, size: size, lastModified: lastModified };
+  }
+  function fileHandle(f){
+    return {
+      getFile: function(){ return Promise.resolve(f); },
+      createWritable: function(){
+        return Promise.resolve({
+          write: function(x){ written[f.name] = x; return Promise.resolve(); },
+          close: function(){ return Promise.resolve(); }
+        });
+      }
+    };
+  }
+  function dirHandle(name, kids, subdirs){
+    var k = kids || {}, sd = subdirs || {};
+    var entries = Object.keys(k).map(function(n){
+      return { kind: 'file', name: n, getFile: function(){ return Promise.resolve(k[n]); } };
+    }).concat(Object.keys(sd).map(function(n){
+      return { kind: 'directory', name: n, entries: sd[n].entries, getFileHandle: sd[n].getFileHandle };
+    }));
+    return {
+      name: name, kind: 'directory',
+      entries: function(){
+        var i = 0;
+        return { next: function(){
+          if (i >= entries.length) return Promise.resolve({ done: true });
+          var e = entries[i++];
+          return Promise.resolve({ done: false, value: [e.name, e] });
+        } };
+      },
+      getDirectoryHandle: function(n){ return Promise.resolve(sd[n] || dirHandle(n, {}, {})); },
+      getFileHandle: function(n){ return Promise.resolve(fileHandle(k[n] || fakeFile(n, 0, 0))); }
+    };
+  }
+  function srcFixture(withY){
+    var sd = { x: dirHandle('x', { 'dup.docx': fakeFile('dup.docx', 20, dayMs) }) };
+    if (withY) sd.y = dirHandle('y', { 'dup.docx': fakeFile('dup.docx', 30, dayMs) });
+    return dirHandle('src', { 'a.docx': fakeFile('a.docx', 10, dayMs) }, sd);
+  }
 
   /* 每一步都串在上一步之后，保证断言时状态已经落定 */
   Ta('descendTo 按输入路径进到子目录', descendTo(root, DEFAULT_SRC).then(function(h){ return h === leaf; }))
@@ -1080,10 +1307,53 @@ function selftest(){
     window.showDirectoryPicker = hadPicker;
     hideHintRow();
     renderRemembered();
+    /* 自检用假句柄改过输入框和状态条，跑完必须还原：
+       否则「?selftest=1」的画面上会留着「已授权：合同」这类假值，和真实默认目录对不上 */
+    $('src').value = hadUI.src; $('dst').value = hadUI.dst;
+    $('status').textContent = hadUI.status; $('status').className = hadUI.statusClass;
+    $('dateMode').checked = hadUI.dateMode; $('overwrite').checked = hadUI.overwrite; $('preview').checked = hadUI.preview;
+    out2.push({ name: '自检跑完把界面还原（不留假授权值）',
+      pass: $('src').value === hadUI.src && $('dst').value === hadUI.dst &&
+            $('status').textContent === hadUI.status && $('dateMode').checked === hadUI.dateMode });
     return Promise.all(out2);
   })
   .then(function(){
+    /* 浏览器授权模式的归档：用假句柄真跑一遍 browserCopy，确认文件写进日期文件夹、
+       文件名带日期前缀、同一天重名不互相覆盖，以及取消归档时回到平铺。
+       （这几条光靠内核纯函数测不出来：写入路径、改名与文件夹创建都在 browserCopy 里） */
+    written = {};
+    state.srcHandle = srcFixture(true); state.dstHandle = dirHandle('dst', {}, {});
+    return Ta('浏览器授权归档：真跑 browserCopy 写进日期文件夹',
+      browserCopy({ overwrite: true, preview: false, dateMode: true }).then(function(plan){
+        var names = Object.keys(written).sort();
+        return plan.summary.copy === 3 && names.length === 3 &&
+          names.every(function(n){ return n.indexOf(dayKey + '_') === 0; }) &&
+          names.indexOf(dayKey + '_a.docx') >= 0 &&
+          /* 同一天两个子目录里的 dup.docx：一个保留原名，一个加上级目录名做前缀，互不覆盖 */
+          names.indexOf(dayKey + '_dup.docx') >= 0 && names.indexOf(dayKey + '_y_dup.docx') >= 0;
+      }));
+  })
+  .then(function(){
+    /* 取消归档：同样真跑一遍，确认回到平铺、文件名不带日期前缀 */
+    written = {};
+    state.srcHandle = srcFixture(false); state.dstHandle = dirHandle('dst', {}, {});
+    return Ta('浏览器授权不勾选归档：仍平铺、文件名不带日期',
+      browserCopy({ overwrite: true, preview: false, dateMode: false }).then(function(plan){
+        var names = Object.keys(written).sort();
+        return plan.summary.copy === 2 && names.indexOf('a.docx') >= 0 && names.indexOf('dup.docx') >= 0 &&
+          names.every(function(n){ return !/^\d{4}-\d{2}-\d{2}_/.test(n); });
+      }));
+  })
+  .then(function(){
+    state.srcHandle = null; state.dstHandle = null;
+    return Promise.resolve();
+  })
+  .then(function(){
     out2.forEach(function(r){ out.push(r); if (r.pass) ok++; });
+    /* 合成 click() 会把按钮滚进视野；自检列表也插在页面下方，所以结果渲染完再把滚动位置还原，
+       否则 ?selftest=1 的截图会「上面一片空白」，看不到标题与两个目录框 */
+    window.scrollTo(hadUI.scrollX, hadUI.scrollY);
+    T('自检不改变滚动位置（截图仍从顶部开始）', Math.abs((window.pageYOffset || 0) - hadUI.scrollY) <= 1);
     renderSelftest(out);
   });
   return;
@@ -1106,6 +1376,7 @@ var DEFAULT_DST = 'E:\\word';
 window.wordcopy = {
   state: state, exts: EXTS,
   core: { normPath: normPath, isWordFile: isWordFile, pickWordFiles: pickWordFiles, planCopy: planCopy,
+    placeFiles: placeFiles, dateKey: dateKey, dedupNames: dedupNames,
     decide: decide, tally: tally, validate: validate, buildCommand: buildCommand, formatBytes: formatBytes },
   setPaths: function(s, d){ $('src').value = s; $('dst').value = d; },
   setPreview: function(on){ $('preview').checked = !!on; },
@@ -1128,6 +1399,7 @@ window.wordcopy = {
   if (Q.get('dst')) $('dst').value = Q.get('dst');
   if (Q.get('preview') === '1') $('preview').checked = true;
   if (Q.get('overwrite') === '0') $('overwrite').checked = false;
+  if (Q.get('dateMode') === '0') $('dateMode').checked = false;
   detectBackend(4);
   restoreAuth();
   /* ?demoAuth=1：只做展示用 —— 强制停在「浏览器授权」这一档，并把记忆条与「已跳回」状态画出来，
