@@ -106,7 +106,29 @@ function Invoke-CopyApi([string]$jsonBody) {
   $srcFull = (Get-Item -LiteralPath $src).FullName.TrimEnd('\')
   $jobs = @()
   $sum = [ordered]@{ total = 0; copy = 0; overwrite = 0; skip = 0; fail = 0; bytes = 0 }
-  foreach ($item in (Get-PlacedNames $all $dateMode)) {
+
+  # 归档模式：先把要用的日期文件夹一次性建好。建不出来就带着「哪个文件夹、为什么」整批报错，
+  # 而不是让每个文件各自失败成一句看不懂的英文。预览只算计划，不建目录。
+  $placed = Get-PlacedNames $all $dateMode
+  $needDirs = @()
+  if ($dateMode -and -not $preview) {
+    foreach ($it in $placed) {
+      $d = Join-Path $dst $it.folder
+      if ($needDirs -notcontains $d) { $needDirs += $d }
+    }
+    foreach ($d in $needDirs) {
+      if (Test-Path -LiteralPath $d -PathType Leaf) {
+        throw "无法创建日期文件夹 $d ：同名位置已经是一个文件，请把它改名或删掉后重试。"
+      }
+      try {
+        if (-not (Test-Path -LiteralPath $d -PathType Container)) { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null }
+      } catch {
+        throw "无法创建日期文件夹 $d ：$($_.Exception.Message)（请确认目标目录 $dst 可写）"
+      }
+    }
+  }
+
+  foreach ($item in $placed) {
     $f = $item.file
     $rel = $f.FullName.Substring($srcFull.Length).TrimStart('\') -replace '\\', '/'
     $folder = if ($dateMode) { $item.folder } else { '' }
@@ -124,9 +146,13 @@ function Invoke-CopyApi([string]$jsonBody) {
     }
     if (-not $preview -and ($action -eq 'copy' -or $action -eq 'overwrite')) {
       try {
-        if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
-        Copy-Item -LiteralPath $f.FullName -Destination $target -Force
-      } catch { $action = 'fail'; $reason = $_.Exception.Message }
+        if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) { New-Item -ItemType Directory -Path $targetDir -Force -ErrorAction Stop | Out-Null }
+        Copy-Item -LiteralPath $f.FullName -Destination $target -Force -ErrorAction Stop
+      } catch {
+        $action = 'fail'
+        $where = if ($folder) { "日期文件夹 $folder 里" } else { '目标目录里' }
+        $reason = "写入$where失败：$($_.Exception.Message)"
+      }
     }
     $size = [int64]$f.Length
     if ($action -eq 'copy') { $sum.copy++; $sum.bytes += $size }
@@ -188,7 +214,7 @@ try {
         Send-Response $stream 204 'No Content' 'text/plain' (UTF8-Bytes '')
       }
       elseif ($path -eq '/api/status') {
-        Send-Response $stream 200 'OK' 'application/json; charset=utf-8' (UTF8-Bytes (Json ([ordered]@{ app = 'word-copy-helper'; root = $root; exts = $WordExts; flat = $true })))
+        Send-Response $stream 200 'OK' 'application/json; charset=utf-8' (UTF8-Bytes (Json ([ordered]@{ app = 'word-copy-helper'; root = $root; exts = $WordExts; flat = $true; dateMode = $true; version = 2 })))
       }
       elseif ($path -eq '/api/copy' -and $method -eq 'POST') {
         try {

@@ -182,6 +182,11 @@ a{color:var(--accent)}
       页面会同时把默认目录和「双击 <code>word-copy.bat</code> 免授权直达」的做法标出来，选完目录界面立刻更新，
       不会卡在存储上。记住的目录被移动或权限被收回，会自动退回系统选择器重选一次。想主动换目录：按住 <kbd>Shift</kbd> 再点按钮，
       或点记忆条上的「清除记忆」。</p>
+    <p><b>建不出日期文件夹时怎么排查</b>：报错会点名是哪个文件夹。
+      「同名位置已经是一个文件」= 目标目录里有个文件正好叫 <code>2026-11-13</code> 这样，改名或挪走即可；
+      「请确认目标目录可写」= 目录只读或被占用，换一个可写目录或加上权限；
+      「只给了只读权限」= 授权目标目录时没允许写入，重新授权或改用本机助手；
+      「本机助手是旧版本」= 端口上跑着改动前启动的助手，关掉窗口重新双击 <code>word-copy.bat</code>。</p>
   </details>
 
   <footer>本页零依赖、零构建，可离线双击打开。自检：<a href="?selftest=1">?selftest=1</a>。
@@ -401,6 +406,7 @@ var state = {
   remembered: { src: null, dst: null },   /* 上次授权过的目录句柄（存 IndexedDB） */
   forcePick: { src: false, dst: false },  /* 按住 Shift 点按钮 = 换别的目录 */
   pendingPick: 'src',                     /* 提示里「仍然手动选择文件夹」针对哪个目录 */
+  helperDateMode: false,                  /* 助手是否支持按生成日期归档（旧版没有这个能力） */
   busy: false
 };
 
@@ -460,7 +466,11 @@ function renderResult(jobs, summary, preview){
 function helperPing(){
   return fetch(HELPER + '/api/status', { cache: 'no-store' })
     .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){ return !!(j && j.app === 'word-copy-helper'); })
+    .then(function(j){
+      var ok = !!(j && j.app === 'word-copy-helper');
+      state.helperDateMode = ok && j.dateMode === true;   /* 旧版助手没有这个字段，会忽略归档参数 */
+      return ok;
+    })
     .catch(function(){ return false; });
 }
 function detectBackend(tries){
@@ -476,7 +486,13 @@ function detectBackend(tries){
     }
     else if (state.mode === 'none') noHelperStatus('未检测到本地助手，当前浏览器也不支持目录授权。' +
       '双击 ' + batPath() + ' 即可免授权用默认目录复制；助手起来后刷新本页。');
-    else hideHintRow();
+    else {
+      hideHintRow();
+      /* 旧版助手不认识归档参数：直接说清楚，别让它悄悄平铺、用户以为没按日期建文件夹 */
+      if (!state.helperDateMode)
+        setStatus('本机助手是旧版本，不支持「按生成日期归档」。请关掉助手窗口重新运行 ' + batPath() +
+          '（会上新版本）；期间可以把「按生成日期归档」取消勾选，仍能正常复制。', true);
+    }
     if (Q.get('autocopy')) run();
   });
 }
@@ -784,12 +800,26 @@ function existingInFolders(dstHandle, folders){
     }));
   }).then(function(){ return map; });
 }
-/* 写入目标：平铺时直接落目标目录；归档时先进到日期文件夹（没有就建） */
+/* 写入目标：平铺时直接落目标目录；归档时先进到日期文件夹（没有就建）。
+   这里把浏览器抛出的英文 DOMException 翻成人能看懂的中文（最常见的就是下面两种）。 */
 function writeIntoDst(o, job, file){
-  var dir = Promise.resolve(state.dstHandle);
-  if (job.folder) dir = dir.then(function(h){ return h.getDirectoryHandle(job.folder, { create: true }); });
-  return dir.then(function(d){
-    return d.getFileHandle(job.name, { create: true })
+  return Promise.resolve(state.dstHandle).then(function(root){
+    if (!job.folder) return { dir: root };
+    return root.getDirectoryHandle(job.folder, { create: true })
+      .then(function(dir){ return { dir: dir }; }, function(err){
+        var name = (err && err.name) || '';
+        if (name === 'NotAllowedError')
+          throw new Error('浏览器不允许在目标目录里新建文件夹「' + job.folder + '」：' +
+            '授权目标目录时可能只给了只读权限。请点「授权目标目录」重新选一次并允许写入；' +
+            '或改用本机助手（双击 word-copy.bat）。');
+        if (name === 'TypeMismatchError')
+          throw new Error('目标目录里已经有一个同名文件「' + job.folder + '」，所以建不了同名文件夹。' +
+            '请把它改名或挪走，再点「文件复制」。');
+        throw new Error('无法在目标目录里新建文件夹「' + job.folder + '」：' + ((err && err.message) || String(err)));
+      });
+  }).then(function(d){
+    var dir = d.dir;
+    return dir.getFileHandle(job.name, { create: true })
       .then(function(w){ return w.createWritable(); })
       .then(function(wr){ return wr.write(file).then(function(){ return wr.close(); }); });
   });
@@ -833,6 +863,12 @@ function helperCopy(o){
       if (!res.body || res.body.ok !== true)
         throw new Error((res.body && res.body.error) || ('助手返回 HTTP ' + res.http));
       var jobs = res.body.jobs || [];
+      /* 旧版助手会无视 dateMode 直接平铺：这种情况必须报错，不能显示成「已按日期归档」 */
+      if (o.dateMode && res.body.dateMode !== true)
+        throw new Error('本机助手是旧版本，没有按日期归档。请关掉助手窗口重新运行 ' + batPath() +
+          '（会上新版本），或先取消勾选「按生成日期归档」。');
+      if (o.dateMode && jobs.length && jobs.every(function(j){ return !j.folder; }))
+        throw new Error('助手没有返回日期文件夹信息，可能仍是旧版本。请关掉助手窗口重新运行 ' + batPath() + '。');
       return { jobs: jobs, summary: res.body.summary || tally(jobs) };
     });
 }
@@ -1108,6 +1144,9 @@ function selftest(){
   T('顶部说明给出免授权用法', document.querySelector('.sub').textContent.indexOf('word-copy.bat') >= 0);
   T('顶部说明写明按生成日期归档', document.querySelector('.sub').textContent.indexOf('年-月-日') >= 0 &&
     document.querySelector('.sub').textContent.indexOf('生成日期') >= 0);
+  T('说明里有「建不出日期文件夹」排查表', document.body.textContent.indexOf('同名位置已经是一个文件') >= 0 &&
+    document.body.textContent.indexOf('请确认目标目录可写') >= 0 &&
+    document.body.textContent.indexOf('本机助手是旧版本') >= 0);
   T('预览用词与实复制不同', PREVIEW_LABEL.copy === '待复制' && ACTION_LABEL.copy === '已复制' &&
     PREVIEW_LABEL.overwrite === '待覆盖' && PREVIEW_LABEL['skip-exist'].indexOf('将') === 0);
   T('助手地址去掉尾部斜杠', HELPER.slice(-1) !== '/');
@@ -1165,6 +1204,89 @@ function selftest(){
   var granted = { name: 'word', kind: 'dir', queryPermission: function(){ return Promise.resolve('granted'); } };
   var hadPicker = window.showDirectoryPicker, pickedCalled = 0;
   var hadIDB = window.indexedDB;
+
+  /* 归档建文件夹失败时必须给中文可行动提示，不能把浏览器的英文 DOMException 原样抛出来。
+     浏览器那边建文件夹失败最常见两种：没写权限（NotAllowedError）、同名位置已是文件（TypeMismatchError）。
+     这几条与「旧版助手静默平铺」的检查统一放进 laterChecks，最后统一 await，避免抢跑。 */
+  var laterChecks = [];
+  function later(name, fn){ laterChecks.push({ name: name, fn: fn }); }
+  function refuseDir(errName, msg){
+    return {
+      name: 'word', kind: 'directory',
+      getDirectoryHandle: function(){ return Promise.reject(new DOMException(msg || 'boom', errName)); }
+    };
+  }
+  later('建日期文件夹没权限时给中文可行动提示', function(){
+    state.dstHandle = refuseDir('NotAllowedError');
+    return writeIntoDst({}, { folder: '2026-08-15', name: 'x.docx' }, null).then(function(){ return false; },
+      function(e){
+        var m = e && e.message || '';
+        return m.indexOf('只读权限') >= 0 && m.indexOf('授权目标目录') >= 0 && m.indexOf('2026-08-15') >= 0;
+      });
+  });
+  later('同名位置已是文件时说明改名或挪走', function(){
+    state.dstHandle = refuseDir('TypeMismatchError');
+    return writeIntoDst({}, { folder: '2026-08-15', name: 'x.docx' }, null).then(function(){ return false; },
+      function(e){
+        var m = e && e.message || '';
+        return m.indexOf('同名文件') >= 0 && m.indexOf('改名') >= 0 && m.indexOf('2026-08-15') >= 0;
+      });
+  });
+  later('其它建文件夹错误也会被包进中文说明', function(){
+    state.dstHandle = refuseDir('UnknownError');
+    return writeIntoDst({}, { folder: '2026-08-15', name: 'x.docx' }, null).then(function(){ return false; },
+      function(e){
+        var m = e && e.message || '';
+        return m.indexOf('无法在目标目录里新建文件夹') >= 0 && m.indexOf('2026-08-15') >= 0;
+      });
+  });
+
+  /* 旧版助手会无视归档参数直接平铺：页面必须报错，不能显示成「已按日期归档」 */
+  var hadFetch = window.fetch;
+  later('旧版助手（不认归档）时明确报错而不是假装成功', function(){
+    window.fetch = function(){
+      return Promise.resolve({ ok: true, status: 200, json: function(){
+        return Promise.resolve({ ok: true, flat: true, jobs: [{ rel: 'a.docx', name: 'a.docx', size: 1, action: 'copy' }],
+          summary: { total: 1, copy: 1, overwrite: 0, skip: 0, fail: 0, bytes: 1 } });
+      } });
+    };
+    return helperCopy({ src: 'D:\\a', dst: 'E:\\b', dateMode: true, overwrite: true, preview: false })
+      .then(function(){ return false; }, function(e){
+        var m = e && e.message || '';
+        return m.indexOf('旧版本') >= 0 && m.indexOf('按日期归档') >= 0;
+      });
+  });
+  later('新版助手（认归档）时正常返回', function(){
+    window.fetch = function(){
+      return Promise.resolve({ ok: true, status: 200, json: function(){
+        return Promise.resolve({ ok: true, dateMode: true,
+          jobs: [{ rel: 'a.docx', name: '2026-08-15_a.docx', folder: '2026-08-15', size: 1, action: 'copy' }],
+          summary: { total: 1, copy: 1, overwrite: 0, skip: 0, fail: 0, bytes: 1 } });
+      } });
+    };
+    return helperCopy({ src: 'D:\\a', dst: 'E:\\b', dateMode: true, overwrite: true, preview: false })
+      .then(function(res){ return !!res && res.jobs.length === 1 && res.jobs[0].folder === '2026-08-15'; },
+        function(){ return false; });
+  });
+  later('旧版助手状态里没有归档能力标记', function(){
+    window.fetch = function(){
+      return Promise.resolve({ ok: true, status: 200, json: function(){
+        return Promise.resolve({ app: 'word-copy-helper', root: 'x', exts: ['.docx'], flat: true });
+      } });
+    };
+    return helperPing().then(function(on){ return on === true && state.helperDateMode === false; },
+      function(){ return false; });
+  });
+  later('新版助手状态里带归档能力标记', function(){
+    window.fetch = function(){
+      return Promise.resolve({ ok: true, status: 200, json: function(){
+        return Promise.resolve({ app: 'word-copy-helper', root: 'x', exts: ['.docx'], flat: true, dateMode: true, version: 2 });
+      } });
+    };
+    return helperPing().then(function(on){ return on === true && state.helperDateMode === true; },
+      function(){ return false; });
+  });
+
   window.showDirectoryPicker = function(){ pickedCalled++; return Promise.reject(new DOMException('cancel', 'AbortError')); };
   var denied = { name: 'gone', kind: 'dir', queryPermission: function(){ return Promise.resolve('prompt'); },
     requestPermission: function(){ return Promise.resolve('denied'); } };
@@ -1347,6 +1469,21 @@ function selftest(){
   .then(function(){
     state.srcHandle = null; state.dstHandle = null;
     return Promise.resolve();
+  })
+  .then(function(){
+    /* 失败模式那一组：逐条跑，互不影响（一条失败不拖累其它条） */
+    return laterChecks.reduce(function(chain, c){
+      return chain.then(function(){
+        return Promise.resolve().then(c.fn).then(function(pass){
+          out2.push({ name: c.name, pass: !!pass });
+        }, function(e){
+          out2.push({ name: c.name, pass: false, err: String(e && e.message || e) });
+        });
+      });
+    }, Promise.resolve()).then(function(){
+      window.fetch = hadFetch;
+      state.dstHandle = null;
+    });
   })
   .then(function(){
     out2.forEach(function(r){ out.push(r); if (r.pass) ok++; });

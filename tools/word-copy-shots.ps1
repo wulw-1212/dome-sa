@@ -1,4 +1,4 @@
-# tools/word-copy-shots.ps1
+﻿# tools/word-copy-shots.ps1
 # 用无头 Edge 抓取 word-copy.html 的改前 / 改后对比证据。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-shots.ps1 [-HelperPort 8765]
 # 改前基线 = origin/main 的实际内容（main 上没有这个页面，抓的是当时的 index.html）。
@@ -147,6 +147,19 @@ if ($helperOnline) {
   # 取消归档 -> 平铺（对比用）
   Remove-Item $tmpDst -Recurse -Force -ErrorAction SilentlyContinue
   if (-not (Shot ($q2 + '&dateMode=0') 'word-copy-after-flat.png' 1280 1150 24000)) { $bad++ }
+
+  # 建日期文件夹失败时的提示画面：目标目录里放一个与日期同名的文件占位，
+  # 让助手真的建不出文件夹，核对页面给出的是中文、能定位到哪个文件夹、并说明下一步
+  $evSrc = Join-Path $shots 'err-src'; $evDst = Join-Path $shots 'err-dst'
+  Remove-Item $evSrc, $evDst -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Path $evSrc, $evDst -Force | Out-Null
+  Set-Content -LiteralPath "$evSrc\报告.docx" -Value ('A' * 200) -NoNewline
+  $evKey = ([IO.File]::GetCreationTime("$evSrc\报告.docx")).ToString('yyyy-MM-dd')
+  Set-Content -LiteralPath "$evDst\$evKey" -Value 'blocker file' -NoNewline
+  $qe = $h + '?helper=' + [uri]::EscapeDataString($h) + '&src=' + [uri]::EscapeDataString($evSrc) +
+        '&dst=' + [uri]::EscapeDataString($evDst) + '&autocopy=1'
+  if (-not (Shot $qe 'word-copy-after-folder-error.png' 1280 1250 24000)) { $bad++ }
+  Remove-Item $evSrc, $evDst -Recurse -Force -ErrorAction SilentlyContinue
 
   # 免授权主路径：直接 file:// 双击页面，助手在线，两个默认目录已填好、无需授权。
   # 注意：仓库是公开的，所以这张不跑真实源目录的结果表，只证明「助手在线 + 默认路径 + 不要求授权」。

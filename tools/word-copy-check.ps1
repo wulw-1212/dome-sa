@@ -1,4 +1,4 @@
-# tools/word-copy-check.ps1
+﻿# tools/word-copy-check.ps1
 # Word 复制页的无头验证：助手复制逻辑断言 +（可选）HTTP 接口 + 无头 Edge 页内自检与全链路。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1
 #   不带参数：跑「助手复制逻辑」全部断言；若本机 127.0.0.1:8765 有助手在跑，再跑 HTTP 与 Edge 阶段。
@@ -166,6 +166,50 @@ Remove-Item $fflat -Recurse -Force -ErrorAction SilentlyContinue
 $d3 = Invoke-CopyApi (Req @{ src = $src; dst = $fflat; dateMode = $false; overwrite = $true })
 Check '不勾选归档时仍是平铺（无子目录）' (@(Get-ChildItem $fflat -Directory).Count -eq 0 -and @(Get-ChildItem $fflat -File).Count -eq 4)
 Check '不勾选归档时文件名不带日期前缀' ((Get-ChildItem $fflat -File 'report.docx' -ErrorAction SilentlyContinue) -ne $null)
+
+# ---------- 1d) 建日期文件夹失败要说人话（都能定位到哪个文件夹、下一步做什么） ----------
+New-Fixture
+$errDst = Join-Path $verify 'wc-dst-err'
+Remove-Item $errDst -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $errDst -Force | Out-Null
+# 用一个与日期文件夹同名的「文件」占位：这正是「Failed to create new folder」最常见的成因
+Set-Content -LiteralPath (Join-Path $errDst $DayA) -Value 'this is a file' -NoNewline
+try {
+  Invoke-CopyApi (Req @{ src = $src; dst = $errDst; dateMode = $true; overwrite = $true }) | Out-Null
+  Check '同名文件占了日期文件夹位置时明确报错' $false
+} catch {
+  $m = $_.Exception.Message
+  Check '同名文件占了日期文件夹位置时明确报错' ($m -like "*无法创建日期文件夹*$DayA*" -and $m -like '*已经是一个文件*' -and $m -like '*改名*')
+}
+Remove-Item (Join-Path $errDst $DayA) -Force
+
+# 目标目录不可写（拒绝「创建目录」）：报错要指明目标目录不可写，而不是丢一句英文
+$roDst = Join-Path $verify 'wc-dst-ro'
+Remove-Item $roDst -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $roDst -Force | Out-Null
+$acl = Get-Acl $roDst
+$rule = New-Object Security.AccessControl.FileSystemAccessRule('Everyone', 'CreateDirectories', 'Deny')
+$applied = $true
+try { $acl.AddAccessRule($rule); Set-Acl $roDst $acl } catch { $applied = $false }
+if ($applied) {
+  try {
+    Invoke-CopyApi (Req @{ src = $src; dst = $roDst; dateMode = $true; overwrite = $true }) | Out-Null
+    Check '目标目录不可写时说明是目录不可写' $false
+  } catch {
+    $m = $_.Exception.Message
+    Check '目标目录不可写时说明是目录不可写' ($m -like '*无法创建日期文件夹*' -and $m -like '*可写*')
+  } finally {
+    $acl.RemoveAccessRule($rule) | Out-Null
+    Set-Acl $roDst $acl
+  }
+} else {
+  Write-Host 'SKIP  本机不允许改 ACL，跳过「目标目录不可写」一项'
+}
+Remove-Item $roDst, $errDst -Recurse -Force -ErrorAction SilentlyContinue
+
+# 助手在 /api/status 里自报支持归档：页面据此区分新旧助手，旧助手不该被当成「已归档」
+$statusRaw = [IO.File]::ReadAllText((Join-Path $root 'tools\word-copy-server.ps1'), [Text.Encoding]::UTF8)
+Check '助手 status 自报支持按日期归档' ($statusRaw -match 'dateMode = \$true')
 
 # ---------- 2) HTTP 接口（需要一个已在运行的助手；没有就 SKIP） ----------
 function Probe-Helper([int]$p) {
