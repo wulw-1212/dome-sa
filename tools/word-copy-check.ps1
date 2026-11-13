@@ -1,4 +1,4 @@
-# tools/word-copy-check.ps1
+﻿# tools/word-copy-check.ps1
 # Word 复制页的无头验证：助手复制逻辑断言 +（可选）HTTP 接口 + 无头 Edge 页内自检与全链路。
 # 运行： powershell -ExecutionPolicy Bypass -File tools\word-copy-check.ps1
 #   不带参数：跑「助手复制逻辑」全部断言；若本机 127.0.0.1:8765 有助手在跑，再跑 HTTP 与 Edge 阶段。
@@ -28,6 +28,16 @@ function New-Fixture {
   Set-Content -LiteralPath (Join-Path $src 'sub2\deep.docx') -Value ('D' * 700) -NoNewline
   Set-Content -LiteralPath (Join-Path $src ('~$' + 'report.docx')) -Value 'lock' -NoNewline
   Set-Content -LiteralPath (Join-Path $src '.hidden.docx') -Value 'hid' -NoNewline
+  # 给两份文件设成「过去」的创建时间，用来验证按生成日期归档；
+  # sub 与 sub2 的 deep.docx 刻意设成同一天，用来验证同一天里的重名改名
+  $dayA = (Get-Date).AddDays(-400).Date.AddHours(9)
+  $dayB = (Get-Date).AddDays(-90).Date.AddHours(9)
+  [IO.File]::SetCreationTime((Join-Path $src 'report.docx'), $dayA)
+  [IO.File]::SetCreationTime((Join-Path $src 'sub\deep.docx'), $dayB)
+  [IO.File]::SetCreationTime((Join-Path $src 'sub2\deep.docx'), $dayB)
+  $script:DayA = $dayA.ToString('yyyy-MM-dd')
+  $script:DayB = $dayB.ToString('yyyy-MM-dd')
+  $script:DayNow = (Get-Date).ToString('yyyy-MM-dd')
 }
 New-Fixture
 
@@ -35,10 +45,14 @@ $script:bad = 0
 function Edge-Dom([string]$url, [int]$w, [int]$h, [int]$budget) {
   # Edge 会往 stderr 写无关警告；Windows PowerShell 5.1 下 2>$null 会把 stdout 一起吞掉，
   # 所以走 cmd 的 2>nul 重定向，并用临时文件接 stdout。
+  # 同时用全新的 user-data-dir：无头 Edge 共用默认配置时，会把别处留下的
+  # 「已记住授权目录」带进这次断言，结果就不稳定了。
   $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   $outFile = Join-Path $env:TEMP ("wc-edge-" + [guid]::NewGuid().ToString('N') + ".html")
+  $prof = Join-Path $env:TEMP ("wc-edge-prof-" + [guid]::NewGuid().ToString('N'))
   try {
-    $a = '"' + $edge + '" --headless --disable-gpu --no-first-run --window-size=' + $w + ',' + $h +
+    $a = '"' + $edge + '" --headless --disable-gpu --no-first-run --user-data-dir="' + $prof +
+         '" --window-size=' + $w + ',' + $h +
          ' --virtual-time-budget=' + $budget + ' --dump-dom "' + $url + '"'
     cmd /c ("$a 2>nul > `"" + $outFile + "`"") | Out-Null
     # 无头 Edge 的子进程可能还握着这个重定向文件的句柄，读到「being used by another process」时重试几次
@@ -48,7 +62,11 @@ function Edge-Dom([string]$url, [int]$w, [int]$h, [int]$budget) {
       catch { Start-Sleep -Milliseconds 250 }
     }
     $text
-  } finally { Remove-Item $outFile -Force -ErrorAction SilentlyContinue; $ErrorActionPreference = $prev }
+  } finally {
+    Remove-Item $outFile -Force -ErrorAction SilentlyContinue
+    Remove-Item $prof -Recurse -Force -ErrorAction SilentlyContinue
+    $ErrorActionPreference = $prev
+  }
 }
 function Check([string]$name, [bool]$cond) {
   if ($cond) { Write-Host "ok    $name" } else { Write-Host "FAIL  $name"; $script:bad++ }
@@ -116,6 +134,83 @@ Check 'bat 用 -File 且给 -Port' ($batText -match '-File\s+"tools\\word-copy-s
 Check 'bat 助手已在跑时不重复启动' ($batText -match 'exit 7' -and $batText -match 'word-copy-helper')
 Check 'bat 先等助手绑端口再开浏览器' ($batText -match 'Start-Sleep' -and $batText -match 'start ""')
 
+# ---------- 1c) 按生成日期归档（dateMode）----------
+New-Fixture
+$ddst = Join-Path $verify 'wc-dst-dated'
+Remove-Item $ddst -Recurse -Force -ErrorAction SilentlyContinue
+$d1 = Invoke-CopyApi (Req @{ src = $src; dst = $ddst; dateMode = $true; overwrite = $true })
+Check '归档：4 个 Word 文件全部复制' ($d1.summary.copy -eq 4 -and $d1.summary.total -eq 4)
+Check '归档：回报 dateMode=true、flat=false' ($d1.dateMode -eq $true -and $d1.flat -eq $false)
+Check '归档：按创建时间建了日期文件夹' ((Test-Path (Join-Path $ddst $DayA)) -and (Test-Path (Join-Path $ddst $DayB)))
+Check '归档：report.docx 落在创建那天' (Test-Path (Join-Path $ddst "$DayA\${DayA}_report.docx"))
+Check '归档：文件名前带上年月日' (@(Get-ChildItem $ddst -Recurse -File | Where-Object { $_.Name -notmatch ('^\d{4}-\d{2}-\d{2}_') }).Count -eq 0)
+Check '归档：文件夹名就是年月日' (@(Get-ChildItem $ddst -Directory | Where-Object { $_.Name -notmatch '^\d{4}-\d{2}-\d{2}$' }).Count -eq 0)
+Check '归档：同一天不同子目录的同名文件不互相覆盖' ((Test-Path (Join-Path $ddst "$DayB\${DayB}_deep.docx")) -and
+  ((Get-ChildItem (Join-Path $ddst $DayB) -File).Count -eq 2))
+Check '归档：不照搬源目录结构（只有日期一层）' (@(Get-ChildItem $ddst -Recurse -Directory | Where-Object { $_.Parent.Name -ne (Split-Path $ddst -Leaf) }).Count -eq 0)
+Check '归档：job 回报带 folder' (@($d1.jobs | Where-Object { $_.folder -match '^\d{4}-\d{2}-\d{2}$' }).Count -eq 4)
+Check '归档：target 指向日期文件夹内' (@($d1.jobs | Where-Object { $_.target -notlike "*$($_.folder)*" }).Count -eq 0)
+
+$d2 = Invoke-CopyApi (Req @{ src = $src; dst = $ddst; dateMode = $true; overwrite = $true })
+Check '归档：再跑一次全部跳过（不重复写入）' ($d2.summary.skip -eq 4 -and $d2.summary.copy -eq 0)
+$stampBefore = (Get-Item (Join-Path $ddst "$DayA\${DayA}_report.docx")).LastWriteTimeUtc
+Start-Sleep -Milliseconds 300
+Invoke-CopyApi (Req @{ src = $src; dst = $ddst; dateMode = $true; overwrite = $true }) | Out-Null
+Check '归档：跳过时不碰目标文件时间戳' ((Get-Item (Join-Path $ddst "$DayA\${DayA}_report.docx")).LastWriteTimeUtc -eq $stampBefore)
+
+$dprev = Invoke-CopyApi (Req @{ src = $src; dst = (Join-Path $verify 'wc-dst-never'); dateMode = $true; preview = $true })
+Check '归档：预览不建日期目录' (-not (Test-Path (Join-Path $verify 'wc-dst-never')) -and $dprev.summary.total -eq 4)
+
+$fflat = Join-Path $verify 'wc-dst-flat2'
+Remove-Item $fflat -Recurse -Force -ErrorAction SilentlyContinue
+$d3 = Invoke-CopyApi (Req @{ src = $src; dst = $fflat; dateMode = $false; overwrite = $true })
+Check '不勾选归档时仍是平铺（无子目录）' (@(Get-ChildItem $fflat -Directory).Count -eq 0 -and @(Get-ChildItem $fflat -File).Count -eq 4)
+Check '不勾选归档时文件名不带日期前缀' ((Get-ChildItem $fflat -File 'report.docx' -ErrorAction SilentlyContinue) -ne $null)
+
+# ---------- 1d) 建日期文件夹失败要说人话（都能定位到哪个文件夹、下一步做什么） ----------
+New-Fixture
+$errDst = Join-Path $verify 'wc-dst-err'
+Remove-Item $errDst -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $errDst -Force | Out-Null
+# 用一个与日期文件夹同名的「文件」占位：这正是「Failed to create new folder」最常见的成因
+Set-Content -LiteralPath (Join-Path $errDst $DayA) -Value 'this is a file' -NoNewline
+try {
+  Invoke-CopyApi (Req @{ src = $src; dst = $errDst; dateMode = $true; overwrite = $true }) | Out-Null
+  Check '同名文件占了日期文件夹位置时明确报错' $false
+} catch {
+  $m = $_.Exception.Message
+  Check '同名文件占了日期文件夹位置时明确报错' ($m -like "*无法创建日期文件夹*$DayA*" -and $m -like '*已经是一个文件*' -and $m -like '*改名*')
+}
+Remove-Item (Join-Path $errDst $DayA) -Force
+
+# 目标目录不可写（拒绝「创建目录」）：报错要指明目标目录不可写，而不是丢一句英文
+$roDst = Join-Path $verify 'wc-dst-ro'
+Remove-Item $roDst -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $roDst -Force | Out-Null
+$acl = Get-Acl $roDst
+$rule = New-Object Security.AccessControl.FileSystemAccessRule('Everyone', 'CreateDirectories', 'Deny')
+$applied = $true
+try { $acl.AddAccessRule($rule); Set-Acl $roDst $acl } catch { $applied = $false }
+if ($applied) {
+  try {
+    Invoke-CopyApi (Req @{ src = $src; dst = $roDst; dateMode = $true; overwrite = $true }) | Out-Null
+    Check '目标目录不可写时说明是目录不可写' $false
+  } catch {
+    $m = $_.Exception.Message
+    Check '目标目录不可写时说明是目录不可写' ($m -like '*无法创建日期文件夹*' -and $m -like '*可写*')
+  } finally {
+    $acl.RemoveAccessRule($rule) | Out-Null
+    Set-Acl $roDst $acl
+  }
+} else {
+  Write-Host 'SKIP  本机不允许改 ACL，跳过「目标目录不可写」一项'
+}
+Remove-Item $roDst, $errDst -Recurse -Force -ErrorAction SilentlyContinue
+
+# 助手在 /api/status 里自报支持归档：页面据此区分新旧助手，旧助手不该被当成「已归档」
+$statusRaw = [IO.File]::ReadAllText((Join-Path $root 'tools\word-copy-server.ps1'), [Text.Encoding]::UTF8)
+Check '助手 status 自报支持按日期归档' ($statusRaw -match 'dateMode = \$true')
+
 # ---------- 2) HTTP 接口（需要一个已在运行的助手；没有就 SKIP） ----------
 function Probe-Helper([int]$p) {
   try { $s = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/status" -TimeoutSec 3; return ($s.app -eq 'word-copy-helper') } catch { return $false }
@@ -156,25 +251,38 @@ if (-not $Port) {
 
     New-Fixture
     Remove-Item $dst -Recurse -Force -ErrorAction SilentlyContinue
+    # 默认就是「按生成日期归档」，所以全链路跑出来的应该是日期文件夹
     $u = "http://127.0.0.1:$Port/?helper=http://127.0.0.1:$Port&src=$([uri]::EscapeDataString($src))&dst=$([uri]::EscapeDataString($dst))&autocopy=1"
     $dom2 = Edge-Dom $u 1280 1200 24000
     Check '浏览器全链路：检测到本地助手' ($dom2 -like '*本地助手在线*')
     Check '浏览器全链路：状态报完成 4 个' ($dom2 -match '完成：复制 4 个')
-    Check '浏览器全链路：磁盘上确有 4 个平铺文件' (@(Get-ChildItem $dst -File -ErrorAction SilentlyContinue).Count -eq 4)
+    Check '浏览器全链路：状态写明按日期归档' ($dom2 -match '已按生成日期放进')
+    Check '浏览器全链路：磁盘上确有 4 个文件' (@(Get-ChildItem $dst -Recurse -File -ErrorAction SilentlyContinue).Count -eq 4)
+    Check '浏览器全链路：文件落在日期文件夹里' (@(Get-ChildItem $dst -Directory -ErrorAction SilentlyContinue).Count -ge 1 -and
+      @(Get-ChildItem $dst -Recurse -File | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}_' }).Count -eq 4)
     Check '浏览器全链路：默认源目录写进输入框' ($dom2 -like '*DeepTutor*')
+
+    # 取消归档时仍回到平铺
+    Remove-Item $dst -Recurse -Force -ErrorAction SilentlyContinue
+    $dom2b = Edge-Dom ($u + '&dateMode=0') 1280 1200 24000
+    Check '全链路关掉归档：状态写明平铺' ($dom2b -match '全部平铺在目标目录')
+    Check '全链路关掉归档：磁盘平铺 4 个、无子目录' (@(Get-ChildItem $dst -File -ErrorAction SilentlyContinue).Count -eq 4 -and
+      @(Get-ChildItem $dst -Directory -ErrorAction SilentlyContinue).Count -eq 0)
 
     # 免授权主路径：直接双击 word-copy.html（file://），助手在线时用两个默认目录，只要预览
     $fileUrl = "file:///" + ((Join-Path $root 'word-copy.html') -replace '\\', '/')
     $dom3 = Edge-Dom ($fileUrl + '?helper=http://127.0.0.1:' + $Port + '&preview=1&autocopy=1') 1280 1300 26000
     Check '免授权（file:// 双击）：检测到本地助手' ($dom3 -like '*本地助手在线*')
-    Check '免授权：用默认目录给出计划，不要求授权' ($dom3 -match '个 Word 文件待复制到 E:\\word' -and $dom3 -notmatch '请分别授权')
+    Check '免授权：用默认目录给出计划，不要求授权' ($dom3 -match '个 Word 文件待按生成日期归档到 E:\\word' -and $dom3 -notmatch '请分别授权')
     Check '免授权：授权按钮已隐藏' ($dom3 -match 'id="pickSrc"[^>]*display: *none')
-    Check '免授权：助手在线时不显示启动提示' (([regex]::Match($dom3, '<div class="helper-hint" id="helperHint"([^>]*)>')).Groups[1].Value -match 'hidden')
+    # PR #28 起：琥珀色提示框被删掉，说明改走状态条 + 一行紧凑按钮，所以这里核对的是新形态
+    Check '免授权：助手在线时收起启动提示行' (([regex]::Match($dom3, '<div class="actions" id="hintRow"([^>]*)>')).Groups[1].Value -match 'hidden')
+    Check '免授权：助手在线时状态条不提授权' ($dom3 -notmatch '请分别授权')
 
-    # 助手离线时：页面给出免授权的启动办法（双击 bat / 一条命令 / 重新探测）
+    # 助手离线时：状态条给出免授权做法（双击 bat 的路径），并留下重探测入口
     $dom4 = Edge-Dom ($fileUrl + '?helper=http://127.0.0.1:1&preview=1') 1280 1300 20000
-    Check '助手离线：显示免授权启动提示' ($dom4 -like '*不需要授权任何文件夹*')
-    Check '助手离线：提示里给出 word-copy.bat 路径' ($dom4 -match 'word-copy\.bat')
+    Check '助手离线：状态条给出免授权做法' ($dom4 -like '*未检测到本地助手*不用授权的做法*双击*')
+    Check '助手离线：给出 word-copy.bat 的实际路径' ($dom4 -match 'word-copy\.bat')
     Check '助手离线：提供重新探测按钮' ($dom4 -like '*重新探测助手*')
 
     # 点授权按钮直接打开默认目录：已记住时输入框保留完整默认路径（?demoAuth=1 展示态）
