@@ -873,9 +873,11 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 - **小鸟模式**：这回你当小鸟。躲开猎人从地面打来的弹丸，采集浆果（红色 50 分、金色 150 分），
   三根羽毛用完或时间到就结算。猎人开火前会用红色虚线瞄你，看到线就赶紧挪窝。
 - **单词模式 Grade 1 – 4**：一次只显示**一个英语单词**，带中文意思和一张现场画的图片，
-  单词会**读出声**（Web Speech API 朗读，另配 WebAudio 提示音）；听完发音才能开枪，
+  单词会**读出声**（Web Speech API 朗读，另配 WebAudio 提示音），而且**会一直重复读同一个单词**
+  —— 一遍读完隔一小会儿再读一遍，**直到背着这张图片的小鸟被打中为止**；打中的那一瞬间朗读立刻停止
+  （`speechSynthesis.cancel()`），下一个单词才开始它自己的新一轮重复。听完第一遍发音才能开枪，
   而且**一个单词只有一颗子弹** —— 打中背图片的那只小鸟就 +100 分并进入下一个单词，
-  打偏或让鸟飞走，同一个单词会带着图片飞回来重来。四个等级依次解锁：
+  打偏或让鸟飞走，同一个单词会带着图片飞回来、也继续一遍遍地读。四个等级依次解锁：
   - **Grade 1**（10 词）：sun / cat / fish / tree / star / egg / hat / cup / bird / cow
   - **Grade 2**（10 词）：apple / rabbit / flower / rocket / panda / pencil / banana / tiger / cloud / house
   - **Grade 3**（10 词）：butterfly / clock / umbrella / dragonfly / volcano / ladder / rain / book / snake / turtle
@@ -891,7 +893,7 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 | 瞄准 / 操控飞行 | 鼠标移动，或触屏拖动 |
 | 开火（猎人模式 · 单词模式） | 左键 / <kbd>空格</kbd> |
 | 飞行（小鸟模式） | <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> / <kbd>WASD</kbd> |
-| 再听一遍发音（单词模式） | <kbd>S</kbd> |
+| 再听一遍发音（单词模式） | <kbd>S</kbd>（没打中时本来就会自动一直读，按 S 只是提前插一遍） |
 | 切换 Grade 1 / 2 / 3 / 4（单词模式） | <kbd>G</kbd> |
 | 换弹（弹匣 6 发） | <kbd>R</kbd> |
 | 暂停 | <kbd>P</kbd> / <kbd>Esc</kbd> |
@@ -919,18 +921,23 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
 | `?seed=5` | 固定随机种子，便于复现 |
 | `?auto=1` | AI 代打：猎人自动瞄准、小鸟自动躲弹、单词模式等发音完自动开枪 |
 | `?steps=N` | 无 rAF 固定帧步进 N 帧后定格渲染（无头截图用） |
-| `?devstats=1` | 右下角显示本帧状态 JSON |
+| `?devstats=1` | 右下角显示本帧状态 JSON（单词模式含当前单词 `word`、已读遍数 `sayCount`、下一次重复的倒计时 `sayT`） |
 | `?duration=30` | 改单局时长 |
-| `?selftest=1` | 页内 59 项自检，结果显示在页面底部 |
+| `?selftest=1` | 页内 74 项自检，结果显示在页面底部 |
 
 ## 验证
 
-- `hunter-bird-game.html?selftest=1`：**59/59 断言通过**（随机种子与权重、命中判定、
+- `hunter-bird-game.html?selftest=1`：**74/74 断言通过**（随机种子与权重、命中判定、
   保护鸟扣分、连击倍率、换弹流程、枪声惊鸟、提前量、弹丸命中与无敌帧、采果、边界钳制、
   猎人齐射、两种结束条件、主题切换、无横向溢出、画布非空白、开发 API 齐备；单词模式另有
   四个等级词表齐备、等级间不重词、每个词都有图片、图片既不抛异常又**真的画出像素**、
   发音调用安全、听发音期间锁扳机、一个单词一颗子弹、命中记分并进入下一个单词、打偏重复
-  同一个单词、等级按 1→2→3→4 依次解锁、打完 Grade 4 结算、每个等级都能单独开始）。
+  同一个单词、等级按 1→2→3→4 依次解锁、打完 Grade 4 结算、每个等级都能单独开始；
+  「重复发音」这一条则单独覆盖：开局只读第 1 遍、**连续 10 秒不开枪时同一个单词被读到 5 遍以上**、
+  重复期间不换词也不多发子弹、节拍一定比一遍朗读长（不会自己叠自己）、长单词的节拍更长、
+  状态条显示递增的遍数、**打中的那一帧节拍归零**、打中之后的停顿里不再插进任何一遍朗读、
+  被打死的单词绝不会回头再读、下一词从第 1 遍重新开始、图片鸟一次次飞走时发音照旧继续、
+  以及一局结束后发音停止）。
 - 无头 Edge 按上表参数抓取的画面见 `docs/screenshots/`：`before-hunter-main-landing.png`
   是改动前 `origin/main`（`13cdb13`）的实际内容 —— 仓库里没有这个页面
   （`git cat-file -e origin/main:hunter-bird-game.html` 报 *not in 'origin/main'*）；
@@ -938,6 +945,20 @@ node tools/sin-curve-harness.cjs  # DOM + Canvas 桩驱动 UI 层跑 7200 帧
   `after-hunterbird-*` 是本分支的运行画面：三种玩法、黄昏与星夜、结算页、浅色外壳、
   单词模式的 Grade 1 / Grade 2 / Grade 3 / Grade 4 / 命中瞬间、窄屏 504×900、菜单与页内自检。
   窄屏截图取 504px：本机无头 Edge 会把 CSS 视口下限钳制到约 504px，因此未标注为 390px。
+
+## 「单词重复发音」的改前 / 改后画面
+
+`tools/hunter-bird-word-repeat-shots.ps1` 用无头 Edge 成对抓取（同一 `?mode=word&seed=5&theme=light`
+与同一帧数，可直接对比；脚本还会用 `--dump-dom` 断言渲染出来的状态条文字，不只靠肉眼看图）：
+
+| 场景 | 改前（`origin/main` 的真实文件） | 改后（本分支） |
+| --- | --- | --- |
+| 开局 15 秒一次枪都没开 | `before-hunterbird-word-repeat-idle15s.png` —— 状态条写「发音 **已播完**」，读一遍就安静了 | `after-hunterbird-word-repeat-idle15s.png` —— 状态条写「本词已读 **7** 遍 · 发音 **重复中**」，单词卡底部写「已读 7 遍 · 读到打中为止」 |
+| 开局 5 秒没打中 | 同上（读一遍后沉默） | `after-hunterbird-word-repeat-idle5s.png` —— 已经读到第 3 遍 |
+| AI 打中的那一帧 | `before-hunterbird-word-repeat-hit.png` | `after-hunterbird-word-repeat-hit.png` —— 状态条「🔇 打中了，发音停止 Stopped」，`devstats` 里 `sayT:0` |
+| Grade 3 长单词（butterfly 一类） | —— | `after-hunterbird-word-repeat-grade3.png` —— 长单词的重复节拍更长 |
+| 窄屏 504×900 | —— | `after-hunterbird-word-repeat-narrow-504x900.png` |
+| 页内自检 | —— | `after-hunterbird-word-repeat-selftest.png` —— 74/74 全绿 |
 
 ---
 
