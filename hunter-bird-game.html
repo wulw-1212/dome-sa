@@ -126,13 +126,13 @@
       <div class="modes">
         <button class="modebtn" id="hunterBtn"><b>🎯 猎人模式</b><span>限时打飞鸟，连击加分。蓝色「护」标是保护鸟类，打中要重罚。</span></button>
         <button class="modebtn" id="birdBtn"><b>🐦 小鸟模式</b><span>你当小鸟，躲开猎人的弹丸，采集浆果，三根羽毛用完即止。</span></button>
-        <button class="modebtn" id="wordBtn"><b>📚 单词模式 Grade 1 – 4</b><span>一次显示一个英语单词，带图片、会读出声；听懂后开枪打中背图片的小鸟，才能拿到下一颗子弹。四个等级依次解锁。</span></button>
+        <button class="modebtn" id="wordBtn"><b>📚 单词模式 Grade 1 – 4</b><span>一次显示一个英语单词，带图片、会读出声，而且会一直重复读，直到背图片的那只小鸟被打中为止；听懂后开枪打中它，才能拿到下一颗子弹。四个等级依次解锁。</span></button>
       </div>
       <div class="keys">
         <b>鼠标移动</b><span>瞄准 / 操控飞行</span>
         <b>左键 / 空格</b><span>猎人模式 · 单词模式开火</span>
         <b>← → ↑ ↓ / WASD</b><span>小鸟模式飞行</span>
-        <b>S</b><span>单词模式：再听一遍发音</span>
+        <b>S</b><span>单词模式：立刻再听一遍（没打中时本来就会一直读）</span>
         <b>G</b><span>单词模式：切换 Grade 1 / 2 / 3 / 4</span>
         <b>R</b><span>换弹（弹匣 6 发）</span>
         <b>P / Esc</b><span>暂停</span>
@@ -800,6 +800,7 @@
   /** Speak an English word (silent no-op when the browser has no speech API). */
   function speak(text, rate) {
     try {
+      if (sfx.muted) return false;               // M silences the voice too
       const synth = window.speechSynthesis;
       if (!synth || typeof window.SpeechSynthesisUtterance !== "function") return false;
       const u = new window.SpeechSynthesisUtterance(text);
@@ -810,6 +811,22 @@
       synth.speak(u);
       return true;
     } catch (e) { return false; }
+  }
+  /** Drop anything the voice is still saying (used the moment a word is hit). */
+  function stopSpeak() {
+    try {
+      const synth = window.speechSynthesis;
+      if (synth && typeof synth.cancel === "function") synth.cancel();
+    } catch (e) { /* nothing to cancel */ }
+  }
+  /** How long one reading of a word takes, so a repeat never overlaps itself. */
+  function sayTime(word) {
+    return Math.max(1.0, 0.45 + String(word || "").length * 0.11);
+  }
+  /** Pause between two readings of the *same* word, in seconds. */
+  const SAY_GAP = 1.3;
+  function sayAgain(word) {
+    return sayTime(word) + SAY_GAP;
   }
 
   // -------------------------------------------------------------------- state
@@ -825,7 +842,8 @@
       bird: { x: 300, y: 340, vx: 0, vy: 0, flap: 0, hp: 3, inv: 0, dir: 1 },
       hunter: { x: W / 2, aimT: 0, aimAt: null, cool: 2.3, shots: 0 },
       berryIn: 0.4, collected: 0, golden: 0, dodged: 0,
-      word: { grade: WORD_GRADE, order: [], idx: -1, current: null, lock: 0, retry: 0, advance: 0, learned: 0 },
+      word: { grade: WORD_GRADE, order: [], idx: -1, current: null, lock: 0, retry: 0, advance: 0, learned: 0,
+              sayT: 0, sayCount: 0 },
       rng: createRng(SEED),
     };
   }
@@ -969,6 +987,8 @@
   // Loop: show one graded English word with its picture -> speak it -> the
   // player gets exactly one bullet -> hit the bird carrying that picture to
   // move on to the next word. Miss, and the same word comes back for a retry.
+  // The pronunciation does NOT stop after one reading: the same word is read
+  // again and again on a beat until the bird carrying it is shot down.
   function shuffled(n, rng) {
     const a = Array.from({ length: n }, (_, i) => i);
     for (let i = n - 1; i > 0; i--) {
@@ -997,6 +1017,8 @@
     w.grade = [1, 2, 3, 4].includes(Number(grade)) ? Number(grade) : 1;
     w.order = shuffled(WORDS[w.grade].length, s.rng);
     w.idx = -1; w.learned = 0; w.lock = 0; w.retry = 0; w.advance = 0;
+    w.sayT = 0; w.sayCount = 0;
+    stopSpeak();
     s.birds = [];
     nextWord(s);
   }
@@ -1015,8 +1037,9 @@
     }
     w.idx++;
     w.current = WORDS[w.grade][w.order[w.idx]];
-    w.lock = Math.max(1.0, 0.45 + w.current.en.length * 0.11);   // hear the word first
+    w.lock = sayTime(w.current.en);                          // hear the first reading
     w.retry = 0; w.advance = 0;
+    w.sayCount = 1; w.sayT = sayAgain(w.current.en);          // then keep repeating
     s.ammo = 1; s.reloading = 0; s.emptyT = 0;   // one bullet per word
     s.birds = [];
     spawnWordBird(s);
@@ -1047,6 +1070,10 @@
     s.score += 100; s.hits++; s.combo++;
     s.bestStreak = Math.max(s.bestStreak, s.combo);
     s.word.learned++;
+    // The bird carrying the word is down: that is exactly when the repeating
+    // stops, so the word is never read again once it has been shot.
+    s.word.sayT = 0;
+    stopSpeak();
     b.state = "fall"; b.vy = -130; b.rot = 0;
     sound.hit(s.combo);
     addFloat(s, b.x, b.y - 22, "+100 " + b.word.en, "#a8e6a0");
@@ -1065,6 +1092,20 @@
     if (w.advance > 0) {
       w.advance -= dt;
       if (w.advance <= 0) { w.advance = 0; nextWord(s); return; }
+    }
+
+    // The heartbeat of the repeat: keep reading the *same* word until its bird
+    // is dead. `advance > 0` above already covers the shot bird, so the voice
+    // only runs while the picture is still in the sky.
+    if (w.advance <= 0 && w.current) {
+      w.sayT -= dt;
+      if (w.sayT <= 0) {
+        w.sayT = sayAgain(w.current.en);
+        w.sayCount++;
+        speak(w.current.en);
+        sound.word();
+        renderHud(s);
+      }
     }
 
     for (const b of s.birds) {
@@ -1118,6 +1159,8 @@
   function endRun(s) {
     if (s.phase === "over") return;
     s.phase = "over";
+    s.word.sayT = 0;
+    stopSpeak();                   // the run is over: stop reading words
     saveBest(s.mode, s.score);
     sound.over();
     const g = grade(s.score, s.mode);
@@ -1741,9 +1784,14 @@
     ctx.fillText(w.advance > 0 ? "✅ 打中了! Next word…" : armed ? "✅ 可以开枪 Shoot!" : "🔊 听发音 Listening…", cx + cw - 18, cy + ch - 18);
 
     ctx.textAlign = "left";
-    ctx.fillStyle = "#9fb3c8";
+    ctx.fillStyle = w.advance > 0 ? "#7f9ab5" : "#c8d8ea";
     ctx.font = "16px 'Microsoft YaHei', system-ui, sans-serif";
-    ctx.fillText("按 S 再听一遍 Replay", cx + 174, cy + ch - 16);
+    // The bottom line carries the repeat rule: the word keeps being read, here
+    // is how many times so far. Kept short so it never runs under the status
+    // text on the right, and the S / G keys are already in the hint bar below.
+    ctx.fillText(w.advance > 0
+      ? "🔇 读了 " + w.sayCount + " 遍后打中，发音停止"
+      : "🔊 已读 " + w.sayCount + " 遍 · 读到打中为止", cx + 174, cy + ch - 16);
     ctx.restore();
   }
 
@@ -1764,12 +1812,15 @@
         : "第 " + s.wave + " 波";
 
     if (s.mode === "word") {
-      dom.stats.textContent = `学会 ${s.word.learned} 个词 · 发音 ${s.word.lock > 0 ? "播放中" : "已播完"}`;
-      dom.reloadHint.textContent = s.word.lock > 0
-        ? "🔊 先听完发音 Listen first"
-        : s.ammo > 0 ? "" : "装填下一发… Chambering";
+      dom.stats.textContent = `学会 ${s.word.learned} 个词 · 本词已读 ${s.word.sayCount} 遍`
+        + ` · 发音 ${s.word.advance > 0 ? "已停（打中）" : s.word.lock > 0 ? "播放中" : "重复中"}`;
+      dom.reloadHint.textContent = s.word.advance > 0
+        ? "🔇 打中了，发音停止 Stopped"
+        : s.word.lock > 0
+          ? "🔊 先听完发音 Listen first"
+          : s.ammo > 0 ? "" : "装填下一发… Chambering";
       dom.mag.innerHTML = `<i class="${s.ammo > 0 ? "" : "empty"}"></i><span class="magtext">${s.ammo}/1</span>`;
-      dom.hint.textContent = "一个单词一颗子弹 · S 再听一遍 · G 换 Grade";
+      dom.hint.textContent = "一个单词一颗子弹 · 读到打中为止 · S 再听 · G 换 Grade";
     } else if (s.mode === "hunter") {
       const acc = s.shots ? Math.round(s.hits / s.shots * 100) : 0;
       dom.stats.textContent = `命中率 ${acc}% · 最高连击 ${s.bestStreak}`;
@@ -1837,7 +1888,13 @@
       else if (G.phase === "playing" && G.mode === "word") fireWord(G, input.aimX, clamp(input.aimY, 60, GROUND - 40));
     }
     else if (k === "s" && G.mode === "word") {          // replay the pronunciation
-      if (G.word.current) { speak(G.word.current.en); sound.word(); renderHud(G); }
+      // Re-asking restarts the beat as well, so the manual replay and the
+      // automatic repeat never speak on top of each other.
+      if (G.word.current) {
+        speak(G.word.current.en); sound.word();
+        G.word.sayCount++; G.word.sayT = sayAgain(G.word.current.en);
+        renderHud(G);
+      }
     }
     else if (k === "g" && G.mode === "word") {          // switch word grade
       const next = G.word.grade >= MAX_GRADE ? 1 : G.word.grade + 1;
@@ -2108,6 +2165,52 @@
     for (let i = 0; i < 240; i++) update(ms, 1 / 60);
     ok("a miss repeats the same word", ms.word.current.en === missWord && ms.ammo === 1 && ms.birds.some(b => b.state === "fly"));
 
+    // 20b. word mode: the pronunciation repeats until the bird is shot down
+    const rp = makeState("word");
+    rp.rng = createRng(27); rp.phase = "playing"; rp.time = 1e6;
+    startWordRun(rp, 1);
+    ok("the first reading is announced once", rp.word.sayCount === 1);
+    const repeatWord = rp.word.current.en;
+    rp.word.lock = 0;
+    for (let i = 0; i < 600; i++) update(rp, 1 / 60);          // 10 s without a single shot
+    ok("an unhit word keeps being read over and over", rp.word.sayCount >= 5, rp.word.sayCount + " readings in 10s");
+    ok("the repeat does not move on to another word", rp.word.current.en === repeatWord);
+    ok("the repeat does not hand out extra bullets", rp.ammo === 1 && rp.shots === 0);
+    // the beat: one reading plus a gap, and longer words get proportionally longer
+    ok("the repeat waits for the reading to finish", sayAgain("butterfly") > sayTime("butterfly"));
+    ok("the beat grows with the word", sayAgain("sun") < sayAgain("volcano"));
+    ok("a word is never read on top of itself", rp.word.sayT > 0 && rp.word.sayT <= sayAgain(rp.word.current.en));
+    ok("the HUD shows the running repeat counter", (renderHud(rp), dom.stats.textContent.includes("遍")));
+    const afterRepeat = rp.word.sayCount;
+    const rpBird = rp.birds.find(b => b.state === "fly");
+    ok("shooting the pictured bird is still a hit", !!rpBird && fireWord(rp, rpBird.x, rpBird.y) === true);
+    const atHit = rp.word.sayCount;
+    ok("the repeating stops the moment the bird is hit", rp.word.sayT === 0);
+    for (let i = 0; i < 30; i++) update(rp, 1 / 60);           // inside the post-hit beat
+    ok("no extra reading slips in after the hit", rp.word.sayCount === atHit && atHit === afterRepeat);
+    const shotWord = rp.word.current.en;
+    for (let i = 0; i < 480; i++) update(rp, 1 / 60);          // through that beat
+    ok("a word that was shot down never comes back for a reading",
+      !rp.birds.some(b => b.word && b.word.en === shotWord) && rp.word.current.en !== shotWord);
+    ok("the next word starts its own fresh repeat",
+      rp.word.current.en !== repeatWord && rp.word.sayCount >= 1 && rp.word.sayT > 0);
+
+    // 20c. a word that got away is still read until it is down
+    const esc = makeState("word");
+    esc.rng = createRng(29); esc.phase = "playing"; esc.time = 1e6;
+    startWordRun(esc, 1);
+    esc.word.lock = 0;
+    const escapeWord = esc.word.current.en;
+    for (let i = 0; i < 60; i++) {
+      const flying = esc.birds.find(b => b.state === "fly");
+      if (flying) flying.x = W + 400;               // chase the picture off screen
+      for (let k = 0; k < 30; k++) update(esc, 1 / 60);
+    }
+    for (let k = 0; k < 120; k++) update(esc, 1 / 60);   // let the replacement bird fly in
+    ok("a word is still read while its bird keeps escaping",
+      esc.word.current.en === escapeWord && esc.word.sayCount >= 3 && esc.birds.some(b => b.state === "fly"));
+    ok("the run ending stops the repeating", (endRun(esc), esc.word.sayT === 0 && esc.phase === "over"));
+
     // 21. word mode: clearing a grade unlocks the next one, up to grade 4
     const gs = makeState("word");
     gs.rng = createRng(22); gs.phase = "playing";
@@ -2210,6 +2313,8 @@
       mode: G.mode, phase: G.phase, score: Math.round(G.score), hits: G.hits, shots: G.shots,
       combo: G.combo, ammo: G.ammo, birds: G.birds.length, wave: G.wave, time: +G.time.toFixed(1),
       hp: G.bird.hp, pellets: G.pellets.length, berries: G.berries.length, collected: G.collected,
+      word: G.word.current ? G.word.current.en : null, sayCount: G.word.sayCount,
+      sayT: +G.word.sayT.toFixed(2),
       elapsed: +G.elapsed.toFixed(1), auto: AUTO, seed: SEED,
     });
     if (q.has("devstats")) document.body.appendChild(pre);
