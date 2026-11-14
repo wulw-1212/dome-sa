@@ -21,6 +21,11 @@ body{
   transition:background .3s,color .3s;
 }
 .wrap{max-width:1000px;margin:0 auto}
+.home{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;text-decoration:none;
+  color:var(--ink);border:1px solid rgba(127,127,127,.35);border-radius:999px;padding:6px 13px;background:var(--paper);
+  transition:transform .12s,background .2s}
+.home:hover{transform:translateY(-1px);background:rgba(127,127,127,.12)}
+.topbar{display:flex;justify-content:flex-end;margin:0 0 10px}
 h1{margin:0 0 6px;font-size:clamp(21px,3.6vw,32px)}
 .sub{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
 .scene{margin:16px 0 0;border-radius:18px;overflow:hidden;background:var(--sky2);
@@ -56,6 +61,7 @@ footer{margin-top:20px;color:var(--muted);font-size:12px;text-align:center}
 </head>
 <body data-theme="light">
 <div class="wrap">
+  <div class="topbar"><a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a></div>
   <h1>🐢 小兔和乌龟赛跑 🐰</h1>
   <p class="sub">伊索寓言的实时动画版。兔子跑得快，却忍不住停下来啃胡萝卜、打完哈欠就睡着；
     乌龟不快，但一步也不停。<br>快捷键：<b>空格</b> 开始 / 暂停，<b>R</b> 重置，<b>W</b> 叫醒兔子，<b>1 / 2 / 4</b> 切换倍速。</p>

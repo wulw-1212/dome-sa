@@ -464,6 +464,20 @@ node tools/english-game-ui.cjs     # 用 DOM + Canvas 桩驱动 UI 层打完一�
 This line was added to verify the agent flow.
 
 明天会更好
+
+## 每页回主页
+
+仓库里每个单文件页面（`word-copy.html`、`random-math.html`、`english-game.html`、
+`idiom-driving.html`、`pingpong-game.html`、`tortoise-hare-race.html`、
+`earth-moon-story.html`、`hunter-bird-game.html`）右上角都有一个「🏠 主页」入口，
+点一下回到 [`index.html`](index.html) 页面导航；导航页的卡片再点进去就是各页。
+入口是一个普通的 `<a class="home" href="index.html">`，相对路径，双击打开（`file://`）和
+放到任何目录下都能正常跳转，不依赖脚本和网络。猎人与鸟的暂停面板里同样有这一个入口。
+
+验证：`powershell -ExecutionPolicy Bypass -File tools\home-link-shots.ps1` 会逐页对比
+改前（`.verify/main-baseline`，origin/main 副本）与改后的渲染 DOM，断言改前没有入口、
+改后有 `href="index.html"` 的入口，并把成对截图写到 `docs/screenshots/`。
+
 ## 地月自传
 
 `index.html` 是一个可直接双击打开的单文件页面：《地月自传 · 四十五亿年，由我们俩轮流讲给你听》。

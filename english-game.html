@@ -31,6 +31,10 @@ h1{margin:0;font-size:clamp(20px,3.2vw,30px);letter-spacing:.01em}
 h1 .en{color:var(--accent);font-size:.72em}
 .sub{margin:4px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:66ch}
 .tools{display:flex;gap:8px;align-items:center}
+.home{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13px;text-decoration:none;
+  color:var(--ink);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 13px;
+  transition:transform .12s,box-shadow .2s}
+.home:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
 .tbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
   padding:7px 13px;font-size:14px;cursor:pointer;font-family:inherit;box-shadow:var(--shadow)}
 .tbtn:active{transform:translateY(1px)}
@@ -132,6 +136,7 @@ body.canvas-only .stage{border:none;border-radius:0;box-shadow:none;max-width:96
       <p class="sub">给小学一、二、三、四年级孩子的背单词游戏：看图画、听发音，从四个单词里选出正确的英文。答对一次，过山车就往前跑一段 —— 爬提升坡、冲下大坡、穿过圆环，跑完全程就赢！</p>
     </div>
     <div class="tools">
+      <a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a>
       <button class="tbtn" id="soundBtn" title="音效开关">🔊 音效</button>
       <button class="tbtn" id="speakBtnTop" title="朗读当前单词">🗣 朗读</button>
       <button class="tbtn" id="themeBtn" title="深浅色">🌙 深色</button>

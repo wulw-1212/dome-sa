@@ -30,6 +30,10 @@ h1{margin:0;font-size:clamp(21px,3.4vw,34px);letter-spacing:.02em;line-height:1.
 h1 .dot{color:var(--accent)}
 .sub{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.8;max-width:70ch}
 .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.home{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13px;text-decoration:none;
+  color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;background:var(--panel);
+  transition:transform .12s,background .2s}
+.home:hover{transform:translateY(-1px);background:rgba(127,127,127,.16)}
 .seg button{padding:6px 14px;border:none;background:transparent;color:var(--muted);font-size:13px;border-radius:999px;cursor:pointer}
 .seg button.on{background:var(--ink);color:var(--bg);font-weight:700}
 .stage{position:relative;margin-top:16px;border-radius:20px;overflow:hidden;
@@ -101,9 +105,12 @@ footer code{color:var(--ink)}
       <h1><span id="mainTitle">地月自传</span><span class="dot"> · </span><span id="mainSub">四十五亿年的两个声音</span></h1>
       <p class="sub" id="opening"></p>
     </div>
-    <div class="seg" role="group" aria-label="配色">
-      <button id="tDark" class="on">夜空</button>
-      <button id="tLight">晨昏</button>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a>
+      <div class="seg" role="group" aria-label="配色">
+        <button id="tDark" class="on">夜空</button>
+        <button id="tLight">晨昏</button>
+      </div>
     </div>
   </header>
 
