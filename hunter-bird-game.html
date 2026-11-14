@@ -83,6 +83,13 @@
     font: inherit; font-weight: 800; font-size: 1.12em; padding: .65em 1.7em; margin: 0 .35em;
   }
   button.ghost { background: rgba(255,255,255,.08); color: var(--ink); border: 1px solid rgba(255,255,255,.18); }
+  a.home {
+    pointer-events: auto; display: inline-flex; align-items: center; gap: .4em; text-decoration: none;
+    background: rgba(255,255,255,.08); color: var(--ink); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px; font: inherit; font-weight: 700; padding: .5em 1.2em; margin-top: .9em;
+  }
+  a.home:hover { border-color: rgba(255,193,89,.7); background: rgba(255,193,89,.12); }
+  .home-row { display: flex; gap: .8em; justify-content: center; align-items: center; flex-wrap: wrap; }
   button.go:active { transform: translateY(1px); }
   .note { margin-top: .7em; font-size: .8em; }
   .legend { display: inline-flex; align-items: center; gap: .45em; margin-top: .5em; font-size: .82em; color: var(--dim); }
@@ -141,6 +148,7 @@
         <b>M · T</b><span>静音 · 深色 / 浅色</span>
       </div>
       <div class="legend"><i>护</i><span>保护鸟类：打中扣 200 分并清空连击</span></div>
+      <div class="home-row"><a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a></div>
       <p class="note" id="bestNote"></p>
     </div>
   </div>
@@ -157,7 +165,8 @@
   </div>
 
   <div class="panel" id="pausePanel" hidden>
-    <div class="card"><h2>已暂停</h2><p>按 P / Esc 继续。</p></div>
+    <div class="card"><h2>已暂停</h2><p>按 P / Esc 继续。</p>
+      <div class="home-row"><a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a></div></div>
   </div>
 </div></div>
 

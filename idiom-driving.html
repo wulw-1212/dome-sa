@@ -29,6 +29,9 @@ h1{margin:0;font-size:clamp(20px,3.2vw,32px);letter-spacing:.02em}
 h1 .dot{color:var(--accent)}
 .sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:74ch}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
+.home{display:inline-flex;align-items:center;gap:5px;font:inherit;text-decoration:none;font-size:13px;
+  padding:7px 13px;border-radius:999px;color:var(--ink);border:1px solid var(--line);background:var(--card)}
+.home:hover{border-color:var(--accent)}
 button{
   border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;
   font-size:13px;padding:7px 13px;border-radius:999px;cursor:pointer;
@@ -75,6 +78,7 @@ input#seedInp{width:5.5em;font:inherit;font-size:13px;padding:5px 8px;border-rad
       <b>变道接住对的那个</b>。接对了，完整成语弹出并<b>读给你听</b>；接错了或放跑了，扣一条命。</p>
     </div>
     <div class="btns">
+      <a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a>
       <span id="modeSeg" class="seg">
         <button id="modeSingle" class="primary">开车答题</button>
         <button id="modeDemo">AI 演示</button>

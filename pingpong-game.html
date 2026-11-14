@@ -24,6 +24,11 @@ body{
   background:var(--paper); color:var(--ink); padding:20px 14px 44px; transition:background .3s,color .3s;
 }
 .wrap{max-width:1000px;margin:0 auto}
+.home{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12.5px;text-decoration:none;
+  color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--card);
+  transition:transform .12s,box-shadow .2s}
+.home:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.14)}
+.topbar{display:flex;justify-content:flex-end;margin:0 0 10px}
 h1{margin:0;font-size:clamp(20px,3.4vw,30px)}
 .sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;line-height:1.7}
 .scene{position:relative;margin-top:14px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--floor2)}
@@ -74,6 +79,7 @@ body.touch .touchbar{display:flex}
 </head>
 <body>
 <div class="wrap">
+  <div class="topbar"><a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a></div>
   <h1>🏓 乒乓球</h1>
   <p class="sub">带重力、弹跳、擦网与「先落本台再过网」发球规则的俯视角乒乓球。11 分制、净胜 2 分、
     发球权每 2 分轮换（10:10 后每分轮换），擦网好球判 LET 重发。单文件、纯离线、零依赖。</p>

@@ -43,6 +43,10 @@ button:hover:not(:disabled){transform:translateY(-1px)}
 button:disabled{opacity:.45;cursor:not-allowed}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;padding:11px 26px}
 button.ghost{font-size:12.5px;padding:7px 12px}
+.home{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;text-decoration:none;
+  color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 13px;background:transparent;
+  transition:transform .12s,background .2s}
+.home:hover{transform:translateY(-1px);background:rgba(127,127,127,.10)}
 .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
 .opts{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--muted)}
 .opts label{display:inline-flex;gap:6px;align-items:center;font-weight:500;margin:0;color:var(--ink)}
@@ -100,6 +104,7 @@ a{color:var(--accent)}
         直接点「文件复制」即可。浏览器出于安全不能凭空读写任意本地文件夹，所以页面会自动选择后端，见右上角状态条。</p>
     </div>
     <div class="row" style="gap:8px">
+      <a class="home" href="index.html" title="返回页面导航主页">🏠 主页</a>
       <span class="pill" id="backend"><b>检测中…</b></span>
       <button class="ghost" id="themeBtn" title="深浅色（T）">🌓 深色</button>
     </div>
